@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Re(volta) — Fase de Teste</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="hud">
+        <div class="hud-titulo">
+          <h1>Re(volta)</h1>
+          <span id="contador-deslizes" class="hud-meta" aria-live="polite">
+            Deslizes: 0
+          </span>
+        </div>
+        <button id="btn-reiniciar" type="button" class="btn-secundario">
+          Reiniciar
+        </button>
+      </header>
+
+      <main id="palco" class="palco" aria-label="Área jogável do labirinto">
+        <p id="mensagem-erro" class="erro" role="alert" hidden></p>
+      </main>
+
+      <footer class="rodape">
+        <p>Setas ou WASD no PC · Deslize o dedo na tela no celular · R para reiniciar</p>
+      </footer>
+    </div>
+
+    <dialog id="modal-conclusao" aria-labelledby="titulo-conclusao">
+      <h2 id="titulo-conclusao">Fase concluída</h2>
+      <p id="resumo-conclusao">Você alcançou a Saída.</p>
+      <form method="dialog" class="acoes-modal">
+        <button value="reiniciar" class="btn-primario" autofocus>
+          Jogar novamente
+        </button>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
