@@ -1,5 +1,12 @@
 import { CONFIG } from './config';
-import { type Coordenada, type Fase, ehParede } from './fase';
+import {
+  TOTAL_PROVAS_FASE,
+  type Coordenada,
+  type Fase,
+  type NumeroProva,
+  type ProvaNaFase,
+  ehParede,
+} from './fase';
 
 export type Direcao = 'cima' | 'baixo' | 'esquerda' | 'direita';
 
@@ -16,6 +23,14 @@ export type EventoDeslize =
       readonly celula: Coordenada;
       readonly direcao: Direcao;
     }
+  | {
+      readonly tipo: 'prova_coletada';
+      readonly prova: ProvaNaFase;
+      readonly totalColetadas: number;
+      readonly totalProvas: number;
+    }
+  | { readonly tipo: 'saida_acesa'; readonly celula: Coordenada }
+  | { readonly tipo: 'abrir_prova'; readonly prova: ProvaNaFase }
   | { readonly tipo: 'fase_concluida'; readonly celula: Coordenada };
 
 export interface EstadoFase {
@@ -28,11 +43,17 @@ export interface EstadoFase {
   destinoDeslize: Coordenada | null;
   comandoEmBuffer: Direcao | null;
   deslizes: number;
+  provasColetadas: NumeroProva[];
+  provasPendentesOverlay: ProvaNaFase[];
+  provaEmExibicao: ProvaNaFase | null;
+  saidaAcesa: boolean;
+  conclusaoPendente: boolean;
   concluida: boolean;
 }
 
 export interface OpcoesEstadoFase {
   velocidadeTilesPorSegundo?: number;
+  provasJaColetadas?: readonly NumeroProva[];
 }
 
 export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: number }> = {
@@ -47,6 +68,8 @@ export function criarEstadoFase(
   opcoes: OpcoesEstadoFase = {},
 ): EstadoFase {
   const inicio = { col: fase.inicio.col, lin: fase.inicio.lin };
+  const provasColetadas = Array.from(new Set(opcoes.provasJaColetadas ?? []));
+
   return {
     fase,
     velocidadeTilesPorSegundo:
@@ -58,6 +81,11 @@ export function criarEstadoFase(
     destinoDeslize: null,
     comandoEmBuffer: null,
     deslizes: 0,
+    provasColetadas,
+    provasPendentesOverlay: [],
+    provaEmExibicao: null,
+    saidaAcesa: provasColetadas.length >= TOTAL_PROVAS_FASE,
+    conclusaoPendente: false,
     concluida: false,
   };
 }
@@ -93,8 +121,44 @@ function iniciarMovimento(
   eventos.push({ tipo: 'iniciou_deslize', direcao });
 }
 
+function abrirProximaProvaPendente(
+  estado: EstadoFase,
+  eventos: EventoDeslize[],
+): boolean {
+  const proxima = estado.provasPendentesOverlay.shift() ?? null;
+  if (!proxima) {
+    return false;
+  }
+
+  estado.provaEmExibicao = proxima;
+  eventos.push({ tipo: 'abrir_prova', prova: proxima });
+  return true;
+}
+
+export function fecharProvaEmExibicao(estado: EstadoFase): EventoDeslize[] {
+  if (estado.provaEmExibicao === null) {
+    return [];
+  }
+
+  estado.provaEmExibicao = null;
+  const eventos: EventoDeslize[] = [];
+
+  if (abrirProximaProvaPendente(estado, eventos)) {
+    return eventos;
+  }
+
+  if (estado.conclusaoPendente) {
+    estado.conclusaoPendente = false;
+    estado.concluida = true;
+    const saida = { col: estado.fase.saida.col, lin: estado.fase.saida.lin };
+    eventos.push({ tipo: 'fase_concluida', celula: saida });
+  }
+
+  return eventos;
+}
+
 export function solicitarDirecao(estado: EstadoFase, direcao: Direcao): EventoDeslize[] {
-  if (estado.concluida) {
+  if (estado.concluida || estado.provaEmExibicao !== null) {
     return [];
   }
 
@@ -108,31 +172,36 @@ export function solicitarDirecao(estado: EstadoFase, direcao: Direcao): EventoDe
   return eventos;
 }
 
-function distanciaAteSaidaNoTrajeto(
-  estado: EstadoFase,
+function distanciaAteAlvoNoTrajeto(
+  posicao: PosicaoContinua,
   direcao: Direcao,
-  distanciaAteDestino: number,
+  alvo: Coordenada,
+  distanciaMaxima: number,
 ): number | null {
   const { dc, dl } = VETOR_DIRECAO[direcao];
-  const { saida } = estado.fase;
   const EPS = 1e-6;
 
   if (dc !== 0) {
-    if (Math.abs(estado.posicao.y - saida.lin) > EPS) return null;
-    const dist = (saida.col - estado.posicao.x) * dc;
-    return dist >= -EPS && dist <= distanciaAteDestino + EPS ? Math.max(0, dist) : null;
+    if (Math.abs(posicao.y - alvo.lin) > EPS) return null;
+    const dist = (alvo.col - posicao.x) * dc;
+    return dist >= -EPS && dist <= distanciaMaxima + EPS ? Math.max(0, dist) : null;
   }
 
-  if (Math.abs(estado.posicao.x - saida.col) > EPS) return null;
-  const dist = (saida.lin - estado.posicao.y) * dl;
-  return dist >= -EPS && dist <= distanciaAteDestino + EPS ? Math.max(0, dist) : null;
+  if (Math.abs(posicao.x - alvo.col) > EPS) return null;
+  const dist = (alvo.lin - posicao.y) * dl;
+  return dist >= -EPS && dist <= distanciaMaxima + EPS ? Math.max(0, dist) : null;
 }
 
 export function atualizarDeslize(
   estado: EstadoFase,
   deltaSegundos: number,
 ): EventoDeslize[] {
-  if (estado.concluida || !estado.deslizando || deltaSegundos <= 0) {
+  if (
+    estado.concluida ||
+    estado.provaEmExibicao !== null ||
+    !estado.deslizando ||
+    deltaSegundos <= 0
+  ) {
     return [];
   }
 
@@ -149,9 +218,51 @@ export function atualizarDeslize(
     const distanciaAteDestino =
       Math.abs(destino.col - estado.posicao.x) + Math.abs(destino.lin - estado.posicao.y);
     const deslocamento = estado.velocidadeTilesPorSegundo * tempoRestante;
+    const alcancePasso = Math.min(deslocamento, distanciaAteDestino);
 
-    const distSaida = distanciaAteSaidaNoTrajeto(estado, direcao, distanciaAteDestino);
-    if (distSaida !== null && deslocamento >= distSaida) {
+    const provasNoPasso = estado.fase.provas
+      .filter((p) => !estado.provasColetadas.includes(p.numero))
+      .map((prova) => ({
+        prova,
+        dist: distanciaAteAlvoNoTrajeto(estado.posicao, direcao, prova.posicao, alcancePasso),
+      }))
+      .filter((item): item is { prova: ProvaNaFase; dist: number } => item.dist !== null)
+      .sort((a, b) => a.dist - b.dist);
+
+    let distSaidaAcesa: number | null = estado.saidaAcesa ? 0 : null;
+
+    for (const { prova, dist } of provasNoPasso) {
+      estado.provasColetadas.push(prova.numero);
+      estado.provasPendentesOverlay.push(prova);
+      eventos.push({
+        tipo: 'prova_coletada',
+        prova,
+        totalColetadas: estado.provasColetadas.length,
+        totalProvas: TOTAL_PROVAS_FASE,
+      });
+
+      if (!estado.saidaAcesa && estado.provasColetadas.length >= TOTAL_PROVAS_FASE) {
+        estado.saidaAcesa = true;
+        distSaidaAcesa = dist;
+        eventos.push({
+          tipo: 'saida_acesa',
+          celula: { col: estado.fase.saida.col, lin: estado.fase.saida.lin },
+        });
+      }
+    }
+
+    const distSaida = distanciaAteAlvoNoTrajeto(
+      estado.posicao,
+      direcao,
+      estado.fase.saida,
+      alcancePasso,
+    );
+    if (
+      estado.saidaAcesa &&
+      distSaida !== null &&
+      distSaidaAcesa !== null &&
+      distSaida >= distSaidaAcesa - 1e-6
+    ) {
       const saida = { col: estado.fase.saida.col, lin: estado.fase.saida.lin };
       estado.posicao = { x: saida.col, y: saida.lin };
       estado.celulaAtual = saida;
@@ -159,8 +270,14 @@ export function atualizarDeslize(
       estado.direcaoAtual = null;
       estado.destinoDeslize = null;
       estado.comandoEmBuffer = null;
-      estado.concluida = true;
-      eventos.push({ tipo: 'fase_concluida', celula: saida });
+
+      if (estado.provasPendentesOverlay.length > 0) {
+        estado.conclusaoPendente = true;
+        abrirProximaProvaPendente(estado, eventos);
+      } else {
+        estado.concluida = true;
+        eventos.push({ tipo: 'fase_concluida', celula: saida });
+      }
       break;
     }
 
@@ -185,6 +302,12 @@ export function atualizarDeslize(
       celula: { col: destino.col, lin: destino.lin },
       direcao,
     });
+
+    if (estado.provasPendentesOverlay.length > 0) {
+      estado.comandoEmBuffer = null;
+      abrirProximaProvaPendente(estado, eventos);
+      break;
+    }
 
     const tempoUsado = distanciaAteDestino / estado.velocidadeTilesPorSegundo;
     tempoRestante = Math.max(0, tempoRestante - tempoUsado);

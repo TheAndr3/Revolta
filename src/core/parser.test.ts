@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { atualizarDeslize, criarEstadoFase, solicitarDirecao, type Direcao } from './deslize';
+import {
+  atualizarDeslize,
+  criarEstadoFase,
+  fecharProvaEmExibicao,
+  solicitarDirecao,
+  type Direcao,
+} from './deslize';
 import { ErroParseFase, parseFase } from './parser';
 
 const MINI_FASE = [
@@ -196,8 +202,13 @@ describe('parseFase', () => {
       for (let i = 0; i < 300 && estado.deslizando; i++) {
         atualizarDeslize(estado, 1 / 60);
       }
+      while (estado.provaEmExibicao !== null) {
+        fecharProvaEmExibicao(estado);
+      }
     }
 
+    expect(estado.provasColetadas).toEqual([1, 2, 3]);
+    expect(estado.saidaAcesa).toBe(true);
     expect(estado.concluida).toBe(true);
     expect(estado.deslizes).toBe(8);
     expect(estado.celulaAtual).toEqual({ col: 1, lin: 6 });

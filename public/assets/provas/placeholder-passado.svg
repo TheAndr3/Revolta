@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Ilustração provisória: floresta preservada à beira do rio">
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#203a32" />
+      <stop offset="100%" stop-color="#4e7c63" />
+    </linearGradient>
+    <linearGradient id="rio" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a7d7c" />
+      <stop offset="100%" stop-color="#1f4d52" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="200" fill="url(#ceu)" />
+  <circle cx="250" cy="48" r="24" fill="#f2d388" opacity="0.85" />
+  <path d="M0 132 Q80 105 160 124 T320 118 L320 200 L0 200 Z" fill="#234836" />
+  <path d="M0 156 Q90 144 170 158 T320 150 L320 200 L0 200 Z" fill="url(#rio)" />
+  <g fill="#163325">
+    <path d="M36 142 L54 78 L72 142 Z" />
+    <path d="M74 146 L96 68 L118 146 Z" />
+    <path d="M122 140 L140 86 L158 140 Z" />
+    <path d="M210 138 L234 74 L258 138 Z" />
+    <path d="M254 144 L276 82 L298 144 Z" />
+  </g>
+  <path d="M54 176 Q115 168 178 176" stroke="#9ad1c4" stroke-width="2" fill="none" opacity="0.65" />
+  <path d="M190 184 Q236 178 286 184" stroke="#9ad1c4" stroke-width="2" fill="none" opacity="0.5" />
+</svg>

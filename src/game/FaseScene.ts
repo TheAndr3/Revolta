@@ -3,17 +3,28 @@ import { CONFIG } from '../core/config';
 import {
   atualizarDeslize,
   criarEstadoFase,
+  fecharProvaEmExibicao,
   solicitarDirecao,
   VETOR_DIRECAO,
   type Direcao,
   type EstadoFase,
   type EventoDeslize,
 } from '../core/deslize';
-import type { Coordenada, Fase, TipoAmeaca } from '../core/fase';
+import {
+  TOTAL_PROVAS_FASE,
+  type Coordenada,
+  type Fase,
+  type NumeroProva,
+  type ProvaNaFase,
+  type TipoAmeaca,
+} from '../core/fase';
 
 export interface CallbacksFaseScene {
   aoConcluir: (deslizes: number) => void;
   aoAtualizarDeslizes: (deslizes: number) => void;
+  aoAtualizarProvas: (coletadas: number, total: number) => void;
+  aoColetarProva: (prova: ProvaNaFase) => void;
+  aoAbrirProva: (prova: ProvaNaFase) => void;
 }
 
 const CORES = {
@@ -24,8 +35,11 @@ const CORES = {
   paredeBorda: 0x526b5f,
   paredeSombra: 0x26332d,
   inicio: 0x2b4a3e,
+  saidaApagadaBase: 0x24312b,
+  saidaApagadaNucleo: 0x3b4d45,
   saidaBase: 0x2ec474,
   saidaBrilho: 0x9ef7c2,
+  saidaHalo: 0x52e596,
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
@@ -69,7 +83,6 @@ const ESTILO_AMEACA: Record<
   guarda: { cor: CORES.guarda, marca: CORES.guardaMarca, glifo: 'R' },
 };
 
-// logo abaixo de CORES
 const ANGULO_PES: Record<Direcao, number> = {
   baixo: 0,
   esquerda: 90,
@@ -86,11 +99,18 @@ export class FaseScene extends Phaser.Scene {
   private corpoProtagonista!: Phaser.GameObjects.Image;
   private escalaBaseProtagonista = 1;
   private marcadorBuffer!: Phaser.GameObjects.Rectangle;
-  private brilhoSaida!: Phaser.GameObjects.Rectangle;
+
+  private baseSaida!: Phaser.GameObjects.Rectangle;
+  private nucleoSaida!: Phaser.GameObjects.Rectangle;
+  private haloSaida!: Phaser.GameObjects.Rectangle;
+  private brilhoSaidaTween: Phaser.Tweens.Tween | null = null;
+  private haloSaidaTween: Phaser.Tweens.Tween | null = null;
+
+  private readonly marcadoresProva = new Map<NumeroProva, Phaser.GameObjects.Graphics>();
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
-  private rotacaoTween: Phaser.Tweens.Tween | null = null; // adicione esta linha
+  private rotacaoTween: Phaser.Tweens.Tween | null = null;
   private lookAheadAtualY = 0;
 
   constructor(fase: Fase, callbacks: CallbacksFaseScene) {
@@ -121,13 +141,24 @@ export class FaseScene extends Phaser.Scene {
   }
 
   public receberDirecao(direcao: Direcao): void {
-    if (!this.estado) return;
+    if (!this.estado || this.estado.provaEmExibicao !== null) return;
     const eventos = solicitarDirecao(this.estado, direcao);
     this.processarEventos(eventos);
     this.atualizarIndicadorBuffer();
   }
 
+  public fecharProva(): void {
+    if (!this.estado || this.estado.provaEmExibicao === null) return;
+    const eventos = fecharProvaEmExibicao(this.estado);
+    if (this.estado.provaEmExibicao === null) {
+      this.tweens.resumeAll();
+    }
+    this.processarEventos(eventos);
+    this.atualizarIndicadorBuffer();
+  }
+
   public reiniciar(): void {
+    this.tweens.resumeAll();
     this.estado = criarEstadoFase(this.fase);
     this.trancoTween?.stop();
     this.trancoOffset.x = 0;
@@ -136,12 +167,17 @@ export class FaseScene extends Phaser.Scene {
     this.rotacaoTween?.stop();
     this.corpoProtagonista.setAngle(0);
     this.restaurarFormaProtagonista();
-    this.restaurarFormaProtagonista();
+
+    for (const marcador of this.marcadoresProva.values()) {
+      marcador.setVisible(true);
+    }
+    this.atualizarVisualSaida(this.estado.saidaAcesa, false);
 
     this.sincronizarProtagonista();
     this.atualizarIndicadorBuffer();
     this.centralizarCameraImediatamente();
     this.callbacks.aoAtualizarDeslizes(0);
+    this.callbacks.aoAtualizarProvas(this.estado.provasColetadas.length, TOTAL_PROVAS_FASE);
   }
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
@@ -151,7 +187,7 @@ export class FaseScene extends Phaser.Scene {
   }
 
   override update(_time: number, deltaMs: number): void {
-    if (!this.estado) return;
+    if (!this.estado || this.estado.provaEmExibicao !== null) return;
 
     // Limita delta para evitar saltos gigantes ao voltar de aba em segundo plano
     const deltaSegundos = Math.min(deltaMs, 100) / 1000;
@@ -160,7 +196,10 @@ export class FaseScene extends Phaser.Scene {
 
     this.sincronizarProtagonista();
     this.atualizarIndicadorBuffer();
-    this.atualizarCameraVertical(deltaSegundos);
+
+    if (this.estado.provaEmExibicao === null) {
+      this.atualizarCameraVertical(deltaSegundos);
+    }
   }
 
   private desenharGrade(): void {
@@ -193,29 +232,87 @@ export class FaseScene extends Phaser.Scene {
           g.fillStyle(CORES.inicio, 1);
           g.fillRect(x + 3, y + 3, tile - 6, tile - 6);
         } else if (tipo === 'saida') {
-          g.fillStyle(CORES.saidaBase, 1);
-          g.fillRect(x + 1, y + 1, tile - 2, tile - 2);
+          const centroX = x + tile / 2;
+          const centroY = y + tile / 2;
 
-          this.brilhoSaida = this.add.rectangle(
-            x + tile / 2,
-            y + tile / 2,
-            tile - 6,
-            tile - 6,
-            CORES.saidaBrilho,
-            0.9,
-          );
-          this.tweens.add({
-            targets: this.brilhoSaida,
-            alpha: { from: 0.35, to: 1 },
-            scaleX: { from: 0.85, to: 1.15 },
-            scaleY: { from: 0.85, to: 1.15 },
-            duration: 900,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
+          this.haloSaida = this.add
+            .rectangle(centroX, centroY, tile + 4, tile + 4, CORES.saidaHalo, 0)
+            .setDepth(2)
+            .setVisible(false);
+
+          this.baseSaida = this.add
+            .rectangle(centroX, centroY, tile - 2, tile - 2, CORES.saidaApagadaBase, 1)
+            .setStrokeStyle(1, CORES.paredeBorda, 0.85)
+            .setDepth(3);
+
+          this.nucleoSaida = this.add
+            .rectangle(centroX, centroY, tile - 8, tile - 8, CORES.saidaApagadaNucleo, 0.75)
+            .setDepth(4);
         }
       }
+    }
+  }
+
+  private atualizarVisualSaida(acesa: boolean, animarAcendimento: boolean): void {
+    this.brilhoSaidaTween?.stop();
+    this.brilhoSaidaTween = null;
+    this.haloSaidaTween?.stop();
+    this.haloSaidaTween = null;
+
+    if (!this.baseSaida || !this.nucleoSaida || !this.haloSaida) return;
+
+    if (!acesa) {
+      this.baseSaida.setFillStyle(CORES.saidaApagadaBase, 1);
+      this.baseSaida.setStrokeStyle(1, CORES.paredeBorda, 0.85);
+      this.nucleoSaida.setFillStyle(CORES.saidaApagadaNucleo, 0.75);
+      this.nucleoSaida.setScale(1).setAlpha(0.75);
+      this.haloSaida.setVisible(false).setScale(1).setAlpha(0);
+      return;
+    }
+
+    this.baseSaida.setFillStyle(CORES.saidaBase, 1);
+    this.baseSaida.setStrokeStyle(1, CORES.saidaBrilho, 1);
+    this.nucleoSaida.setFillStyle(CORES.saidaBrilho, 0.95);
+    this.nucleoSaida.setScale(1).setAlpha(0.95);
+    this.haloSaida.setVisible(true).setAlpha(0.35).setScale(1.05);
+
+    this.brilhoSaidaTween = this.tweens.add({
+      targets: this.nucleoSaida,
+      alpha: { from: 0.45, to: 1 },
+      scaleX: { from: 0.85, to: 1.3 },
+      scaleY: { from: 0.85, to: 1.3 },
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.haloSaidaTween = this.tweens.add({
+      targets: this.haloSaida,
+      alpha: { from: 0.2, to: 0.55 },
+      scaleX: { from: 0.95, to: 1.35 },
+      scaleY: { from: 0.95, to: 1.35 },
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    if (animarAcendimento) {
+      const tile = CONFIG.tamanhoTilePx;
+      const onda = this.add
+        .rectangle(this.baseSaida.x, this.baseSaida.y, tile, tile, CORES.saidaBrilho, 0.85)
+        .setDepth(8);
+
+      this.tweens.add({
+        targets: onda,
+        scaleX: 2.4,
+        scaleY: 2.4,
+        alpha: 0,
+        duration: 420,
+        ease: 'Quad.easeOut',
+        onComplete: () => onda.destroy(),
+      });
     }
   }
 
@@ -242,9 +339,19 @@ export class FaseScene extends Phaser.Scene {
       this.desenharQuadradoMarcado(g, totem, CORES.totem, CORES.totemMarca, 'T');
     }
 
+    this.marcadoresProva.clear();
     for (const prova of this.fase.provas) {
+      const marcador = this.add.graphics();
+      marcador.setDepth(6);
       const glifo = String(prova.numero) as '1' | '2' | '3';
-      this.desenharQuadradoMarcado(g, prova.posicao, CORES.prova, CORES.provaMarca, glifo);
+      this.desenharQuadradoMarcado(
+        marcador,
+        prova.posicao,
+        CORES.prova,
+        CORES.provaMarca,
+        glifo,
+      );
+      this.marcadoresProva.set(prova.numero, marcador);
     }
 
     if (this.fase.habitante) {
@@ -328,6 +435,21 @@ export class FaseScene extends Phaser.Scene {
         case 'parou_na_parede':
           this.restaurarFormaProtagonista();
           break;
+        case 'prova_coletada':
+          this.marcadoresProva.get(evento.prova.numero)?.setVisible(false);
+          this.callbacks.aoColetarProva(evento.prova);
+          this.callbacks.aoAtualizarProvas(evento.totalColetadas, evento.totalProvas);
+          break;
+        case 'saida_acesa':
+          this.atualizarVisualSaida(true, true);
+          break;
+        case 'abrir_prova':
+          this.restaurarFormaProtagonista();
+          this.sincronizarProtagonista();
+          this.atualizarIndicadorBuffer();
+          this.tweens.pauseAll();
+          this.callbacks.aoAbrirProva(evento.prova);
+          break;
         case 'fase_concluida':
           this.restaurarFormaProtagonista();
           this.callbacks.aoConcluir(this.estado.deslizes);
@@ -337,25 +459,25 @@ export class FaseScene extends Phaser.Scene {
   }
 
   private aplicarEstiramentoDeslize(direcao: Direcao): void {
-  this.girarPesPara(direcao);
-  const base = this.escalaBaseProtagonista;
-  this.corpoProtagonista.setScale(base * 0.9, base * 1.12);
-}
+    this.girarPesPara(direcao);
+    const base = this.escalaBaseProtagonista;
+    this.corpoProtagonista.setScale(base * 0.9, base * 1.12);
+  }
 
-private girarPesPara(direcao: Direcao): void {
-  const corpo = this.corpoProtagonista;
-  const alvo = ANGULO_PES[direcao];
-  // menor caminho angular (evita girar 270° quando 90° bastam)
-  const delta = Phaser.Math.Angle.ShortestBetween(corpo.angle, alvo);
+  private girarPesPara(direcao: Direcao): void {
+    const corpo = this.corpoProtagonista;
+    const alvo = ANGULO_PES[direcao];
+    // menor caminho angular (evita girar 270° quando 90° bastam)
+    const delta = Phaser.Math.Angle.ShortestBetween(corpo.angle, alvo);
 
-  this.rotacaoTween?.stop();
-  this.rotacaoTween = this.tweens.add({
-    targets: corpo,
-    angle: corpo.angle + delta,
-    duration: 80,
-    ease: 'Quad.easeOut',
-  });
-}
+    this.rotacaoTween?.stop();
+    this.rotacaoTween = this.tweens.add({
+      targets: corpo,
+      angle: corpo.angle + delta,
+      duration: 80,
+      ease: 'Quad.easeOut',
+    });
+  }
 
   private restaurarFormaProtagonista(): void {
     this.corpoProtagonista.setScale(this.escalaBaseProtagonista);
@@ -429,6 +551,8 @@ private girarPesPara(direcao: Direcao): void {
     const scrollAlvo = Phaser.Math.Clamp(centroY - cam.height / 2, 0, maxScrollY);
 
     cam.scrollX = 0;
-    cam.scrollY = Math.round(Phaser.Math.Linear(cam.scrollY, scrollAlvo, Math.min(1, deltaSegundos * 12)));
+    cam.scrollY = Math.round(
+      Phaser.Math.Linear(cam.scrollY, scrollAlvo, Math.min(1, deltaSegundos * 12)),
+    );
   }
 }

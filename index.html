@@ -13,6 +13,14 @@
       <header class="hud">
         <div class="hud-titulo">
           <h1>Re(volta)</h1>
+          <span
+            id="contador-provas"
+            class="hud-provas"
+            data-completo="false"
+            aria-live="polite"
+          >
+            Provas 0/3
+          </span>
           <span id="contador-deslizes" class="hud-meta" aria-live="polite">
             Deslizes: 0
           </span>
@@ -30,6 +38,25 @@
         <p>Setas ou WASD no PC · Deslize o dedo na tela no celular · R para reiniciar</p>
       </footer>
     </div>
+
+    <dialog id="modal-prova" class="modal-prova" aria-labelledby="prova-titulo">
+      <figure class="prova-ilustracao">
+        <img id="prova-imagem" src="" alt="" />
+      </figure>
+
+      <div class="prova-cabecalho">
+        <span id="prova-tipo" class="prova-tipo">O Passado</span>
+        <h2 id="prova-titulo">Prova</h2>
+      </div>
+
+      <div id="prova-texto" class="prova-texto"></div>
+
+      <form method="dialog" class="acoes-modal acoes-prova">
+        <button value="fechar" class="btn-primario btn-continuar" autofocus>
+          Continuar
+        </button>
+      </form>
+    </dialog>
 
     <dialog id="modal-conclusao" aria-labelledby="titulo-conclusao">
       <h2 id="titulo-conclusao">Fase concluída</h2>

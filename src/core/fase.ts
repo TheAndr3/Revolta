@@ -2,6 +2,8 @@ export type TipoCelula = 'chao' | 'parede' | 'inicio' | 'saida';
 
 export type NumeroProva = 1 | 2 | 3;
 
+export const TOTAL_PROVAS_FASE = 3;
+
 export type TipoProva = 'passado' | 'transformacao' | 'responsaveis';
 
 export const TIPO_PROVA_POR_NUMERO: Record<NumeroProva, TipoProva> = {
