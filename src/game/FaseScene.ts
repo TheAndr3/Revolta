@@ -9,7 +9,7 @@ import {
   type EstadoFase,
   type EventoDeslize,
 } from '../core/deslize';
-import type { Fase } from '../core/fase';
+import type { Coordenada, Fase, TipoAmeaca } from '../core/fase';
 
 export interface CallbacksFaseScene {
   aoConcluir: (deslizes: number) => void;
@@ -29,7 +29,45 @@ const CORES = {
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
+  totem: 0x38bdf8,
+  totemMarca: 0x082f49,
+  prova: 0xfbbf24,
+  provaMarca: 0x451a03,
+  habitante: 0xc084fc,
+  habitanteMarca: 0x3b0764,
+  espinhos: 0xf97316,
+  espinhosMarca: 0x431407,
+  gosma: 0x84cc16,
+  gosmaMarca: 0x1a2e05,
+  drone: 0xef4444,
+  droneMarca: 0x450a0a,
+  guarda: 0x6366f1,
+  guardaMarca: 0x1e1b4b,
+  pausaMarca: 0xfef08a,
 } as const;
+
+type GlifoMarcador = 'T' | '1' | '2' | '3' | 'H' | '^' | 'G' | 'D' | 'R';
+
+const GLIFOS_MARCADOR: Record<GlifoMarcador, readonly string[]> = {
+  T: ['#####', '..#..', '..#..', '..#..', '..#..'],
+  '1': ['..#..', '.##..', '..#..', '..#..', '.###.'],
+  '2': ['.###.', '#...#', '..##.', '.#...', '#####'],
+  '3': ['####.', '....#', '.###.', '....#', '####.'],
+  H: ['#...#', '#...#', '#####', '#...#', '#...#'],
+  '^': ['..#..', '.#.#.', '#...#', '.....', '#####'],
+  G: ['.####', '#....', '#.###', '#...#', '.###.'],
+  D: ['####.', '#...#', '#...#', '#...#', '####.'],
+  R: ['####.', '#...#', '####.', '#..#.', '#...#'],
+};
+
+const ESTILO_AMEACA: Record<
+  TipoAmeaca,
+  { readonly cor: number; readonly marca: number; readonly glifo: GlifoMarcador }
+> = {
+  gosma: { cor: CORES.gosma, marca: CORES.gosmaMarca, glifo: 'G' },
+  drone: { cor: CORES.drone, marca: CORES.droneMarca, glifo: 'D' },
+  guarda: { cor: CORES.guarda, marca: CORES.guardaMarca, glifo: 'R' },
+};
 
 // logo abaixo de CORES
 const ANGULO_PES: Record<Direcao, number> = {
@@ -77,6 +115,7 @@ export class FaseScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, larguraMundo, alturaMundo);
 
     this.desenharGrade();
+    this.desenharElementosPlaceholder();
     this.criarProtagonista();
     this.reiniciar();
   }
@@ -175,6 +214,86 @@ export class FaseScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.easeInOut',
           });
+        }
+      }
+    }
+  }
+
+  private desenharElementosPlaceholder(): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const g = this.add.graphics();
+    g.setDepth(5);
+
+    // Trilhos e pausas das Ameaças (camada abaixo dos marcadores)
+    for (const ameaca of this.fase.ameacas) {
+      const estilo = ESTILO_AMEACA[ameaca.tipo];
+      g.fillStyle(estilo.cor, 0.25);
+      for (const celula of ameaca.trilho) {
+        g.fillRect(celula.col * tile + 4, celula.lin * tile + 4, tile - 8, tile - 8);
+      }
+
+      g.fillStyle(CORES.pausaMarca, 0.9);
+      for (const pausa of ameaca.pausas) {
+        g.fillRect(pausa.vertice.col * tile + 6, pausa.vertice.lin * tile + 6, 4, 4);
+      }
+    }
+
+    for (const totem of this.fase.totens) {
+      this.desenharQuadradoMarcado(g, totem, CORES.totem, CORES.totemMarca, 'T');
+    }
+
+    for (const prova of this.fase.provas) {
+      const glifo = String(prova.numero) as '1' | '2' | '3';
+      this.desenharQuadradoMarcado(g, prova.posicao, CORES.prova, CORES.provaMarca, glifo);
+    }
+
+    if (this.fase.habitante) {
+      this.desenharQuadradoMarcado(
+        g,
+        this.fase.habitante,
+        CORES.habitante,
+        CORES.habitanteMarca,
+        'H',
+      );
+    }
+
+    for (const espinho of this.fase.espinhos) {
+      this.desenharQuadradoMarcado(g, espinho, CORES.espinhos, CORES.espinhosMarca, '^');
+    }
+
+    for (const ameaca of this.fase.ameacas) {
+      const estilo = ESTILO_AMEACA[ameaca.tipo];
+      this.desenharQuadradoMarcado(
+        g,
+        ameaca.posicaoInicial,
+        estilo.cor,
+        estilo.marca,
+        estilo.glifo,
+      );
+    }
+  }
+
+  private desenharQuadradoMarcado(
+    g: Phaser.GameObjects.Graphics,
+    coord: Coordenada,
+    corFundo: number,
+    corMarca: number,
+    glifo: GlifoMarcador,
+  ): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const x = coord.col * tile;
+    const y = coord.lin * tile;
+
+    g.fillStyle(corFundo, 1);
+    g.fillRect(x + 1, y + 1, tile - 3, tile - 3);
+
+    const padrao = GLIFOS_MARCADOR[glifo];
+    g.fillStyle(corMarca, 1);
+    for (let lin = 0; lin < padrao.length; lin++) {
+      const linha = padrao[lin];
+      for (let col = 0; col < linha.length; col++) {
+        if (linha[col] === '#') {
+          g.fillRect(x + 5 + col, y + 5 + lin, 1, 1);
         }
       }
     }
