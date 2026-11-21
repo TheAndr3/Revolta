@@ -31,6 +31,14 @@ const CORES = {
   bufferIndicador: 0x7ae582,
 } as const;
 
+// logo abaixo de CORES
+const ANGULO_PES: Record<Direcao, number> = {
+  baixo: 0,
+  esquerda: 90,
+  cima: 180,
+  direita: -90,
+};
+
 export class FaseScene extends Phaser.Scene {
   private readonly fase: Fase;
   private readonly callbacks: CallbacksFaseScene;
@@ -44,6 +52,7 @@ export class FaseScene extends Phaser.Scene {
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
+  private rotacaoTween: Phaser.Tweens.Tween | null = null; // adicione esta linha
   private lookAheadAtualY = 0;
 
   constructor(fase: Fase, callbacks: CallbacksFaseScene) {
@@ -85,7 +94,9 @@ export class FaseScene extends Phaser.Scene {
     this.trancoOffset.x = 0;
     this.trancoOffset.y = 0;
     this.lookAheadAtualY = 0;
-    this.corpoProtagonista.setFlipX(false);
+    this.rotacaoTween?.stop();
+    this.corpoProtagonista.setAngle(0);
+    this.restaurarFormaProtagonista();
     this.restaurarFormaProtagonista();
 
     this.sincronizarProtagonista();
@@ -207,18 +218,25 @@ export class FaseScene extends Phaser.Scene {
   }
 
   private aplicarEstiramentoDeslize(direcao: Direcao): void {
-    if (direcao === 'esquerda') {
-      this.corpoProtagonista.setFlipX(true);
-    } else if (direcao === 'direita') {
-      this.corpoProtagonista.setFlipX(false);
-    }
-    const base = this.escalaBaseProtagonista;
-    const horizontal = direcao === 'esquerda' || direcao === 'direita';
-    this.corpoProtagonista.setScale(
-      base * (horizontal ? 1.12 : 0.9),
-      base * (horizontal ? 0.9 : 1.12),
-    );
-  }
+  this.girarPesPara(direcao);
+  const base = this.escalaBaseProtagonista;
+  this.corpoProtagonista.setScale(base * 0.9, base * 1.12);
+}
+
+private girarPesPara(direcao: Direcao): void {
+  const corpo = this.corpoProtagonista;
+  const alvo = ANGULO_PES[direcao];
+  // menor caminho angular (evita girar 270° quando 90° bastam)
+  const delta = Phaser.Math.Angle.ShortestBetween(corpo.angle, alvo);
+
+  this.rotacaoTween?.stop();
+  this.rotacaoTween = this.tweens.add({
+    targets: corpo,
+    angle: corpo.angle + delta,
+    duration: 80,
+    ease: 'Quad.easeOut',
+  });
+}
 
   private restaurarFormaProtagonista(): void {
     this.corpoProtagonista.setScale(this.escalaBaseProtagonista);
