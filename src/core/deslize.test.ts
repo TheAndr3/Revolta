@@ -405,6 +405,7 @@ describe('núcleo de deslize', () => {
 
     expect(overlaysAbertos).toBe(3);
     expect(estado.provasColetadas).toEqual([1, 2, 3]);
+    expect(estado.habitanteResgatado).toBe(true);
     expect(estado.totemAtivo).toEqual({ col: 2, lin: 11 });
     expect(estado.mortes).toBe(0);
     expect(estado.saidaAcesa).toBe(true);
@@ -646,5 +647,95 @@ describe('núcleo de deslize', () => {
     expect(estado.mortes).toBe(1);
     expect(estado.versaoCiclos).toBe(2);
     expect(eventosMorteDireta.map((e) => e.tipo)).toEqual(['morreu', 'ciclos_reiniciados']);
+  });
+
+  it('resgata o Habitante no meio do deslize sem pausar o mundo e não dispara duas vezes', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 9',
+        'ALTURA 3',
+        '[GRID]',
+        '#########',
+        '#@..H...#',
+        '####X####',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase);
+
+    solicitarDirecao(estado, 'direita');
+    const eventosMeio = atualizarDeslize(estado, 4 / CONFIG.velocidadeDeslizeTilesPorSegundo);
+
+    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.deslizando).toBe(true);
+    expect(estado.pausado).toBe(false);
+    expect(estado.provaEmExibicao).toBeNull();
+    expect(eventosMeio).toEqual([
+      { tipo: 'habitante_resgatado', celula: { col: 4, lin: 1 } },
+    ]);
+
+    // Termina o deslize até a parede sem pausar
+    atualizarDeslize(estado, 1);
+    expect(estado.celulaAtual).toEqual({ col: 7, lin: 1 });
+    expect(estado.pausado).toBe(false);
+
+    // Passar novamente pela célula do Habitante não dispara outro resgate
+    solicitarDirecao(estado, 'esquerda');
+    const eventosVolta = atualizarDeslize(estado, 1);
+    expect(eventosVolta.some((e) => e.tipo === 'habitante_resgatado')).toBe(false);
+  });
+
+  it('permite concluir a Fase sem resgatar o Habitante (opcional) e mantém o resgate se morrer no mesmo deslize', () => {
+    const faseOpcional = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 8',
+        'ALTURA 4',
+        '[GRID]',
+        '########',
+        '#@..X..#',
+        '#..H...#',
+        '########',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estadoSemResgate = criarEstadoFase(faseOpcional, {
+      provasJaColetadas: [1, 2, 3],
+    });
+    solicitarDirecao(estadoSemResgate, 'direita');
+    atualizarDeslize(estadoSemResgate, 1);
+    expect(estadoSemResgate.concluida).toBe(true);
+    expect(estadoSemResgate.habitanteResgatado).toBe(false);
+
+    const fasePerigoAposHabitante = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 3',
+        '[GRID]',
+        '##########',
+        '#@.H..^..#',
+        '####X#####',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estadoMorte = criarEstadoFase(fasePerigoAposHabitante, {
+      perigosProvisorios: fasePerigoAposHabitante.espinhos,
+    });
+    solicitarDirecao(estadoMorte, 'direita');
+    const eventos = atualizarDeslize(estadoMorte, 1);
+
+    expect(estadoMorte.habitanteResgatado).toBe(true);
+    expect(estadoMorte.mortes).toBe(1);
+    expect(estadoMorte.celulaAtual).toEqual(fasePerigoAposHabitante.inicio);
+    expect(eventos.map((e) => e.tipo)).toEqual([
+      'habitante_resgatado',
+      'morreu',
+      'ciclos_reiniciados',
+    ]);
   });
 });

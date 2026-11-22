@@ -25,6 +25,8 @@ import {
 export interface ResumoConclusaoFase {
   readonly deslizes: number;
   readonly mortes: number;
+  readonly habitanteResgatado: boolean;
+  readonly temHabitante: boolean;
 }
 
 export interface CallbacksFaseScene {
@@ -32,8 +34,10 @@ export interface CallbacksFaseScene {
   aoAtualizarDeslizes: (deslizes: number) => void;
   aoAtualizarMortes: (mortes: number) => void;
   aoAtualizarProvas: (coletadas: number, total: number) => void;
+  aoAtualizarHabitante: (resgatado: boolean, temHabitante: boolean) => void;
   aoColetarProva: (prova: ProvaNaFase) => void;
   aoAbrirProva: (prova: ProvaNaFase) => void;
+  aoResgatarHabitante: () => void;
 }
 
 const CORES = {
@@ -226,6 +230,10 @@ export class FaseScene extends Phaser.Scene {
     this.callbacks.aoAtualizarDeslizes(0);
     this.callbacks.aoAtualizarMortes(0);
     this.callbacks.aoAtualizarProvas(this.estado.provasColetadas.length, TOTAL_PROVAS_FASE);
+    this.callbacks.aoAtualizarHabitante(
+      this.estado.habitanteResgatado,
+      this.fase.habitante !== null,
+    );
   }
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
@@ -594,6 +602,9 @@ export class FaseScene extends Phaser.Scene {
           break;
         case 'habitante_resgatado':
           this.marcadorHabitante?.setVisible(false);
+          this.animarPartidaHabitante(evento.celula);
+          this.callbacks.aoResgatarHabitante();
+          this.callbacks.aoAtualizarHabitante(true, this.fase.habitante !== null);
           break;
         case 'prova_coletada':
           this.marcadoresProva.get(evento.prova.numero)?.setVisible(false);
@@ -633,10 +644,37 @@ export class FaseScene extends Phaser.Scene {
           this.callbacks.aoConcluir({
             deslizes: this.estado.deslizes,
             mortes: this.estado.mortes,
+            habitanteResgatado: this.estado.habitanteResgatado,
+            temHabitante: this.fase.habitante !== null,
           });
           break;
       }
     }
+  }
+
+  private animarPartidaHabitante(celula: Coordenada): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const brilho = this.add
+      .rectangle(
+        celula.col * tile + tile / 2,
+        celula.lin * tile + tile / 2,
+        tile - 2,
+        tile - 2,
+        CORES.habitante,
+        0.9,
+      )
+      .setDepth(9);
+
+    this.tweens.add({
+      targets: brilho,
+      y: brilho.y - tile,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 360,
+      ease: 'Quad.easeOut',
+      onComplete: () => brilho.destroy(),
+    });
   }
 
   private aplicarEstiramentoDeslize(direcao: Direcao): void {

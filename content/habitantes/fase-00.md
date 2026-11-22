@@ -1,0 +1,7 @@
+---
+nome: Habitante da Mata (placeholder)
+retrato: assets/habitantes/placeholder-habitante.svg
+papel: Conhecedora das trilhas do igarapé
+---
+
+Ainda bem que você chegou! Vou para o ponto de encontro avisar o resto do pessoal.

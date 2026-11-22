@@ -21,6 +21,19 @@
           >
             Provas 0/3
           </span>
+          <span
+            id="status-habitante"
+            class="hud-habitante"
+            data-resgatado="false"
+            aria-label="Habitante: ainda não resgatado"
+            title="Habitante: ainda não resgatado"
+          >
+            <svg class="icone-habitante" viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="10" cy="6.5" r="3.5" />
+              <path d="M3.5 17.5c.6-3.7 3.2-5.8 6.5-5.8s5.9 2.1 6.5 5.8Z" />
+            </svg>
+            <span class="hud-habitante-rotulo">Habitante</span>
+          </span>
           <span id="contador-deslizes" class="hud-meta" aria-live="polite">
             Deslizes: 0
           </span>
@@ -48,6 +61,29 @@
           reiniciar
         </p>
       </footer>
+    </div>
+
+    <div class="regiao-falas" role="region" aria-label="Falas dos Habitantes">
+      <p class="sr-only">Anúncios de resgate</p>
+      <div id="anuncio-habitante" class="sr-only" aria-live="polite"></div>
+
+      <div id="balao-habitante" class="balao-habitante" popover="manual">
+        <img id="balao-retrato" class="balao-retrato" src="" alt="" />
+        <div class="balao-corpo">
+          <strong id="balao-nome" class="balao-nome"></strong>
+          <p id="balao-fala" class="balao-fala"></p>
+        </div>
+        <button
+          id="btn-fechar-balao"
+          type="button"
+          class="btn-fechar-balao"
+          popovertarget="balao-habitante"
+          popovertargetaction="hide"
+          aria-label="Fechar fala do Habitante"
+        >
+          ×
+        </button>
+      </div>
     </div>
 
     <dialog id="modal-pausa" class="modal-pausa" aria-labelledby="titulo-pausa">

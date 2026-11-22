@@ -103,6 +103,45 @@ p {
   color: #9ef7c2;
 }
 
+.hud-habitante {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgb(148 163 156 / 0.35);
+  background-color: rgb(148 163 156 / 0.1);
+  color: #82948b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.hud-habitante[data-resgatado='true'] {
+  border-color: rgb(192 132 252 / 0.7);
+  background-color: rgb(192 132 252 / 0.2);
+  color: #e9d5ff;
+}
+
+.icone-habitante {
+  inline-size: 0.95rem;
+  block-size: 0.95rem;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .hud-meta {
   font-size: 0.85rem;
   color: var(--cor-texto-suave);
@@ -296,6 +335,93 @@ dialog::backdrop {
 
 .acoes-pausa button {
   inline-size: 100%;
+}
+
+.balao-habitante {
+  display: none;
+  position: fixed;
+  inset: auto 0.75rem max(2.8rem, calc(2.4rem + env(safe-area-inset-bottom, 0px))) 0.75rem;
+  margin: 0 auto;
+  inline-size: min(26rem, calc(100vw - 1.5rem));
+  max-inline-size: min(26rem, calc(100vw - 1.5rem));
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgb(192 132 252 / 0.55);
+  border-radius: 14px;
+  background-color: rgb(25 21 36 / 0.95);
+  color: var(--cor-texto);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 220ms ease, transform 220ms ease;
+  transition-behavior: allow-discrete;
+}
+
+.balao-habitante:is(:popover-open, .visivel) {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.7rem;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  .balao-habitante:is(:popover-open, .visivel) {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.balao-retrato {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 10px;
+  border: 1px solid rgb(192 132 252 / 0.45);
+  background-color: #231932;
+  object-fit: cover;
+}
+
+.balao-corpo {
+  display: grid;
+  gap: 0.2rem;
+  min-inline-size: 0;
+}
+
+.balao-nome {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #d8b4fe;
+}
+
+.balao-fala {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--cor-texto);
+}
+
+.btn-fechar-balao {
+  pointer-events: auto;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid rgb(192 132 252 / 0.35);
+  border-radius: 6px;
+  background-color: transparent;
+  color: #d8b4fe;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.btn-fechar-balao:hover {
+  background-color: rgb(192 132 252 / 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-habitante,
+  .balao-habitante {
+    transition: none;
+    transform: none;
+  }
 }
 
 .acoes-prova {
