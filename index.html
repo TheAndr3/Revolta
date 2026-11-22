@@ -24,9 +24,17 @@
           <span id="contador-deslizes" class="hud-meta" aria-live="polite">
             Deslizes: 0
           </span>
+          <span id="contador-mortes" class="hud-meta" aria-live="polite">
+            Mortes: 0
+          </span>
         </div>
-        <button id="btn-reiniciar" type="button" class="btn-secundario">
-          Reiniciar
+        <button
+          id="btn-pausa"
+          type="button"
+          class="btn-secundario"
+          aria-haspopup="dialog"
+        >
+          Pausa
         </button>
       </header>
 
@@ -35,9 +43,45 @@
       </main>
 
       <footer class="rodape">
-        <p>Setas ou WASD no PC · Deslize o dedo na tela no celular · R para reiniciar</p>
+        <p>
+          Setas ou WASD no PC · Deslize o dedo na tela no celular · Esc/P para pausar · R para
+          reiniciar
+        </p>
       </footer>
     </div>
+
+    <dialog id="modal-pausa" class="modal-pausa" aria-labelledby="titulo-pausa">
+      <h2 id="titulo-pausa">Pausa</h2>
+      <form method="dialog" class="acoes-pausa">
+        <button value="continuar" class="btn-primario" autofocus>
+          Continuar
+        </button>
+        <button value="totem" class="btn-secundario">
+          Voltar ao Totem
+        </button>
+        <button value="reiniciar" class="btn-secundario">
+          Reiniciar Fase
+        </button>
+        <button value="sair" class="btn-secundario btn-perigo">
+          Sair
+        </button>
+      </form>
+    </dialog>
+
+    <dialog id="modal-menu-provisorio" aria-labelledby="titulo-menu-provisorio">
+      <h2 id="titulo-menu-provisorio">Re(volta)</h2>
+      <p class="texto-suave">
+        Você saiu da Fase. O menu principal entra na próxima etapa do protótipo.
+      </p>
+      <form method="dialog" class="acoes-pausa">
+        <button value="jogar" class="btn-primario" autofocus>
+          Jogar Fase novamente
+        </button>
+        <button value="voltar" class="btn-secundario">
+          Voltar para onde estava
+        </button>
+      </form>
+    </dialog>
 
     <dialog id="modal-prova" class="modal-prova" aria-labelledby="prova-titulo">
       <figure class="prova-ilustracao">

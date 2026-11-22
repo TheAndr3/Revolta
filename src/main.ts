@@ -47,11 +47,20 @@ function preencherOverlayProva(
   elementos.texto.replaceChildren(...nosParagrafos);
 }
 
+function formatarContagemMortes(mortes: number): string {
+  return mortes === 1 ? '1 morte' : `${mortes} mortes`;
+}
+
 async function iniciar(): Promise<void> {
   const palco = document.getElementById('palco');
   const hudProvas = document.getElementById('contador-provas');
   const hudDeslizes = document.getElementById('contador-deslizes');
-  const botaoReiniciar = document.getElementById('btn-reiniciar');
+  const hudMortes = document.getElementById('contador-mortes');
+  const botaoPausa = document.getElementById('btn-pausa');
+  const dialogPausa = document.getElementById('modal-pausa') as HTMLDialogElement | null;
+  const dialogMenu = document.getElementById(
+    'modal-menu-provisorio',
+  ) as HTMLDialogElement | null;
   const dialogProva = document.getElementById('modal-prova') as HTMLDialogElement | null;
   const provaImagem = document.getElementById('prova-imagem') as HTMLImageElement | null;
   const provaTipo = document.getElementById('prova-tipo');
@@ -65,7 +74,10 @@ async function iniciar(): Promise<void> {
     !palco ||
     !hudProvas ||
     !hudDeslizes ||
-    !botaoReiniciar ||
+    !hudMortes ||
+    !botaoPausa ||
+    !dialogPausa ||
+    !dialogMenu ||
     !dialogProva ||
     !provaImagem ||
     !provaTipo ||
@@ -105,6 +117,9 @@ async function iniciar(): Promise<void> {
       aoAtualizarDeslizes: (deslizes) => {
         hudDeslizes.textContent = `Deslizes: ${deslizes}`;
       },
+      aoAtualizarMortes: (mortes) => {
+        hudMortes.textContent = `Mortes: ${mortes}`;
+      },
       aoAtualizarProvas: (coletadas, total) => {
         hudProvas.textContent = `Provas ${coletadas}/${total}`;
         hudProvas.dataset.completo = String(coletadas >= total);
@@ -125,8 +140,8 @@ async function iniciar(): Promise<void> {
           dialogProva.showModal();
         }
       },
-      aoConcluir: (deslizes) => {
-        textoResumo.textContent = `Você coletou as ${TOTAL_PROVAS_FASE}/${TOTAL_PROVAS_FASE} Provas e alcançou a Saída em ${deslizes} deslizes.`;
+      aoConcluir: ({ deslizes, mortes }) => {
+        textoResumo.textContent = `Você coletou as ${TOTAL_PROVAS_FASE}/${TOTAL_PROVAS_FASE} Provas em ${deslizes} deslizes e ${formatarContagemMortes(mortes)}.`;
         if (!dialogConclusao.open) {
           dialogConclusao.showModal();
         }
@@ -163,9 +178,18 @@ async function iniciar(): Promise<void> {
     window.addEventListener('resize', aplicarEscalaNoCanvas);
     window.addEventListener('orientationchange', aplicarEscalaNoCanvas);
 
+    const algumModalAberto = () =>
+      dialogConclusao.open || dialogProva.open || dialogPausa.open || dialogMenu.open;
+
     const reiniciarFase = () => {
       if (dialogProva.open) {
-        dialogProva.close('reiniciar');
+        dialogProva.close('ignorar');
+      }
+      if (dialogPausa.open) {
+        dialogPausa.close('ignorar');
+      }
+      if (dialogMenu.open) {
+        dialogMenu.close('ignorar');
       }
       if (dialogConclusao.open) {
         dialogConclusao.close();
@@ -173,12 +197,56 @@ async function iniciar(): Promise<void> {
       cena.reiniciar();
     };
 
-    botaoReiniciar.addEventListener('click', reiniciarFase);
+    const abrirPausa = () => {
+      if (algumModalAberto()) return;
+      cena.pausar();
+      dialogPausa.showModal();
+    };
+
+    botaoPausa.addEventListener('click', abrirPausa);
+
+    dialogPausa.addEventListener('close', () => {
+      const acao = dialogPausa.returnValue;
+      dialogPausa.returnValue = '';
+
+      switch (acao) {
+        case 'ignorar':
+          break;
+        case 'totem':
+          cena.voltarAoTotem();
+          break;
+        case 'reiniciar':
+          cena.reiniciar();
+          break;
+        case 'sair':
+          if (!dialogMenu.open) {
+            dialogMenu.showModal();
+          }
+          break;
+        case 'continuar':
+        case '':
+        default:
+          cena.retomar();
+          break;
+      }
+    });
+
+    dialogMenu.addEventListener('close', () => {
+      const acao = dialogMenu.returnValue;
+      dialogMenu.returnValue = '';
+
+      if (acao === 'ignorar') return;
+      if (acao === 'jogar') {
+        cena.reiniciar();
+      } else {
+        cena.retomar();
+      }
+    });
 
     dialogProva.addEventListener('close', () => {
       const acao = dialogProva.returnValue;
       dialogProva.returnValue = '';
-      if (acao !== 'reiniciar') {
+      if (acao !== 'ignorar') {
         cena.fecharProva();
       }
     });
@@ -195,7 +263,8 @@ async function iniciar(): Promise<void> {
       palco,
       (direcao) => cena.receberDirecao(direcao),
       reiniciarFase,
-      () => dialogConclusao.open || dialogProva.open,
+      algumModalAberto,
+      abrirPausa,
     );
   } catch (erro) {
     mensagemErro.hidden = false;

@@ -6,7 +6,12 @@ import {
   atualizarDeslize,
   criarEstadoFase,
   fecharProvaEmExibicao,
+  matarProtagonista,
+  pausarJogo,
+  pontoDeRetorno,
+  retomarJogo,
   solicitarDirecao,
+  voltarAoTotem,
   type Direcao,
 } from './deslize';
 import { parseFase } from './parser';
@@ -371,7 +376,7 @@ describe('núcleo de deslize', () => {
     expect(fase.altura).toBeLessThanOrEqual(120);
     expect(fase.provas).toHaveLength(3);
 
-    const estado = criarEstadoFase(fase);
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
     const rota: Direcao[] = [
       'baixo',
       'direita',
@@ -400,8 +405,246 @@ describe('núcleo de deslize', () => {
 
     expect(overlaysAbertos).toBe(3);
     expect(estado.provasColetadas).toEqual([1, 2, 3]);
+    expect(estado.totemAtivo).toEqual({ col: 2, lin: 11 });
+    expect(estado.mortes).toBe(0);
     expect(estado.saidaAcesa).toBe(true);
     expect(estado.concluida).toBe(true);
     expect(estado.celulaAtual).toEqual(fase.saida);
+  });
+
+  it('ativa o Totem ao passar por ele deslizando e atualiza para o último Totem tocado', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 9',
+        'ALTURA 5',
+        '[GRID]',
+        '#########',
+        '#@.T....#',
+        '#......T#',
+        '#......X#',
+        '#########',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+    expect(estado.totemAtivo).toBeNull();
+    expect(pontoDeRetorno(estado)).toEqual(fase.inicio);
+
+    solicitarDirecao(estado, 'direita');
+    const eventos1 = atualizarDeslize(estado, 1);
+
+    // Passou pelo Totem em (3,1) sem parar nele e seguiu até a parede (7,1)
+    expect(estado.celulaAtual).toEqual({ col: 7, lin: 1 });
+    expect(estado.totemAtivo).toEqual({ col: 3, lin: 1 });
+    expect(pontoDeRetorno(estado)).toEqual({ col: 3, lin: 1 });
+    expect(eventos1).toEqual([
+      { tipo: 'totem_ativado', celula: { col: 3, lin: 1 } },
+      { tipo: 'parou_na_parede', celula: { col: 7, lin: 1 }, direcao: 'direita' },
+    ]);
+
+    // Desce passando pelo segundo Totem em (7,2)
+    solicitarDirecao(estado, 'baixo');
+    const eventos2 = atualizarDeslize(estado, 1);
+    expect(estado.totemAtivo).toEqual({ col: 7, lin: 2 });
+    expect(eventos2.some((e) => e.tipo === 'totem_ativado')).toBe(true);
+  });
+
+  it('morrer sem Totem leva ao início, incrementa mortes e reinicia ciclos', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 8',
+        'ALTURA 3',
+        '[GRID]',
+        '########',
+        '#@..^..#',
+        '###X####',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+    expect(estado.mortes).toBe(0);
+    expect(estado.versaoCiclos).toBe(0);
+
+    solicitarDirecao(estado, 'direita');
+    solicitarDirecao(estado, 'baixo'); // buffer deve ser limpo ao morrer
+    const eventos = atualizarDeslize(estado, 1);
+
+    expect(estado.mortes).toBe(1);
+    expect(estado.versaoCiclos).toBe(1);
+    expect(estado.deslizando).toBe(false);
+    expect(estado.comandoEmBuffer).toBeNull();
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+    expect(estado.posicao).toEqual({ x: fase.inicio.col, y: fase.inicio.lin });
+    expect(eventos).toEqual([
+      {
+        tipo: 'morreu',
+        origem: { col: 4, lin: 1 },
+        destinoRetorno: fase.inicio,
+        mortes: 1,
+      },
+      { tipo: 'ciclos_reiniciados' },
+    ]);
+  });
+
+  it('morrer após Totem leva ao último Totem e preserva Provas e Habitante já coletados', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 11',
+        'ALTURA 4',
+        '[GRID]',
+        '###########',
+        '#@.1.H.T..#',
+        '#..X....^.#',
+        '###########',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+
+    // Coleta Prova 1, resgata Habitante e ativa Totem em (7,1), parando em (9,1)
+    solicitarDirecao(estado, 'direita');
+    atualizarDeslize(estado, 1);
+    expect(estado.provasColetadas).toEqual([1]);
+    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.totemAtivo).toEqual({ col: 7, lin: 1 });
+    fecharProvaEmExibicao(estado);
+
+    // Desce até (9,2) e vai para a esquerda acertando o perigo em (8,2)
+    solicitarDirecao(estado, 'baixo');
+    atualizarDeslize(estado, 1);
+    solicitarDirecao(estado, 'esquerda');
+    const eventosMorte = atualizarDeslize(estado, 1);
+
+    expect(estado.mortes).toBe(1);
+    expect(estado.versaoCiclos).toBe(1);
+    expect(estado.celulaAtual).toEqual({ col: 7, lin: 1 });
+    expect(estado.provasColetadas).toEqual([1]);
+    expect(estado.habitanteResgatado).toBe(true);
+    expect(eventosMorte).toEqual([
+      {
+        tipo: 'morreu',
+        origem: { col: 8, lin: 2 },
+        destinoRetorno: { col: 7, lin: 1 },
+        mortes: 1,
+      },
+      { tipo: 'ciclos_reiniciados' },
+    ]);
+  });
+
+  it('se coletar uma Prova e morrer antes de parar, preserva a Prova e abre o overlay após reaparecer', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 3',
+        '[GRID]',
+        '##########',
+        '#@.1..^..#',
+        '####X#####',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+
+    solicitarDirecao(estado, 'direita');
+    const eventos = atualizarDeslize(estado, 1);
+
+    expect(estado.provasColetadas).toEqual([1]);
+    expect(estado.mortes).toBe(1);
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+    expect(estado.provaEmExibicao?.numero).toBe(1);
+    expect(eventos.map((e) => e.tipo)).toEqual([
+      'prova_coletada',
+      'morreu',
+      'ciclos_reiniciados',
+      'abrir_prova',
+    ]);
+  });
+
+  it('não coleta Prova nem ativa Totem que esteja depois de um perigo no mesmo deslize', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 3',
+        '[GRID]',
+        '##########',
+        '#@.^.1.T.#',
+        '####X#####',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+
+    solicitarDirecao(estado, 'direita');
+    atualizarDeslize(estado, 1);
+
+    expect(estado.mortes).toBe(1);
+    expect(estado.provasColetadas).toEqual([]);
+    expect(estado.totemAtivo).toBeNull();
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+  });
+
+  it('pausa congela o movimento e "Voltar ao Totem" reseta como morte sem contar como morte', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 4',
+        '[GRID]',
+        '##########',
+        '#@.1.T...#',
+        '#..X.....#',
+        '##########',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase, { perigosProvisorios: fase.espinhos });
+
+    // Ativa Totem (5,1) e coleta Prova 1 (3,1)
+    solicitarDirecao(estado, 'direita');
+    atualizarDeslize(estado, 1);
+    fecharProvaEmExibicao(estado);
+
+    // Começa a deslizar para baixo e pausa no meio
+    solicitarDirecao(estado, 'baixo');
+    pausarJogo(estado);
+    expect(estado.pausado).toBe(true);
+    expect(solicitarDirecao(estado, 'esquerda')).toEqual([]);
+    expect(atualizarDeslize(estado, 1)).toEqual([]);
+
+    // Retomar continua funcionando; pausar de novo e usar "Voltar ao Totem"
+    retomarJogo(estado);
+    expect(estado.pausado).toBe(false);
+    atualizarDeslize(estado, 1);
+    expect(estado.celulaAtual).toEqual({ col: 8, lin: 2 });
+
+    pausarJogo(estado);
+    const eventosRetorno = voltarAoTotem(estado);
+
+    expect(estado.pausado).toBe(false);
+    expect(estado.mortes).toBe(0);
+    expect(estado.versaoCiclos).toBe(1);
+    expect(estado.celulaAtual).toEqual({ col: 5, lin: 1 });
+    expect(estado.provasColetadas).toEqual([1]);
+    expect(eventosRetorno).toEqual([
+      { tipo: 'retornou_ao_totem', destinoRetorno: { col: 5, lin: 1 } },
+      { tipo: 'ciclos_reiniciados' },
+    ]);
+
+    // Também expõe matarProtagonista diretamente para futuros sistemas de Ameaças/Armadilhas
+    const eventosMorteDireta = matarProtagonista(estado);
+    expect(estado.mortes).toBe(1);
+    expect(estado.versaoCiclos).toBe(2);
+    expect(eventosMorteDireta.map((e) => e.tipo)).toEqual(['morreu', 'ciclos_reiniciados']);
   });
 });

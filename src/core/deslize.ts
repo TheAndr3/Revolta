@@ -23,6 +23,8 @@ export type EventoDeslize =
       readonly celula: Coordenada;
       readonly direcao: Direcao;
     }
+  | { readonly tipo: 'totem_ativado'; readonly celula: Coordenada }
+  | { readonly tipo: 'habitante_resgatado'; readonly celula: Coordenada }
   | {
       readonly tipo: 'prova_coletada';
       readonly prova: ProvaNaFase;
@@ -31,11 +33,20 @@ export type EventoDeslize =
     }
   | { readonly tipo: 'saida_acesa'; readonly celula: Coordenada }
   | { readonly tipo: 'abrir_prova'; readonly prova: ProvaNaFase }
+  | {
+      readonly tipo: 'morreu';
+      readonly origem: Coordenada;
+      readonly destinoRetorno: Coordenada;
+      readonly mortes: number;
+    }
+  | { readonly tipo: 'retornou_ao_totem'; readonly destinoRetorno: Coordenada }
+  | { readonly tipo: 'ciclos_reiniciados' }
   | { readonly tipo: 'fase_concluida'; readonly celula: Coordenada };
 
 export interface EstadoFase {
   readonly fase: Fase;
   readonly velocidadeTilesPorSegundo: number;
+  readonly perigosProvisorios: readonly Coordenada[];
   posicao: PosicaoContinua;
   celulaAtual: Coordenada;
   deslizando: boolean;
@@ -43,9 +54,14 @@ export interface EstadoFase {
   destinoDeslize: Coordenada | null;
   comandoEmBuffer: Direcao | null;
   deslizes: number;
+  mortes: number;
+  versaoCiclos: number;
+  totemAtivo: Coordenada | null;
+  habitanteResgatado: boolean;
   provasColetadas: NumeroProva[];
   provasPendentesOverlay: ProvaNaFase[];
   provaEmExibicao: ProvaNaFase | null;
+  pausado: boolean;
   saidaAcesa: boolean;
   conclusaoPendente: boolean;
   concluida: boolean;
@@ -54,6 +70,8 @@ export interface EstadoFase {
 export interface OpcoesEstadoFase {
   velocidadeTilesPorSegundo?: number;
   provasJaColetadas?: readonly NumeroProva[];
+  habitanteJaResgatado?: boolean;
+  perigosProvisorios?: readonly Coordenada[];
 }
 
 export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: number }> = {
@@ -62,6 +80,19 @@ export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: 
   esquerda: { dc: -1, dl: 0 },
   direita: { dc: 1, dl: 0 },
 };
+
+function mesmaCoordenada(a: Coordenada | null, b: Coordenada | null): boolean {
+  return a !== null && b !== null && a.col === b.col && a.lin === b.lin;
+}
+
+export function pontoDeRetorno(estado: EstadoFase): Coordenada {
+  const ponto = estado.totemAtivo ?? estado.fase.inicio;
+  return { col: ponto.col, lin: ponto.lin };
+}
+
+function estaCongelado(estado: EstadoFase): boolean {
+  return estado.concluida || estado.pausado || estado.provaEmExibicao !== null;
+}
 
 export function criarEstadoFase(
   fase: Fase,
@@ -74,6 +105,10 @@ export function criarEstadoFase(
     fase,
     velocidadeTilesPorSegundo:
       opcoes.velocidadeTilesPorSegundo ?? CONFIG.velocidadeDeslizeTilesPorSegundo,
+    perigosProvisorios: (opcoes.perigosProvisorios ?? []).map((p) => ({
+      col: p.col,
+      lin: p.lin,
+    })),
     posicao: { x: inicio.col, y: inicio.lin },
     celulaAtual: inicio,
     deslizando: false,
@@ -81,13 +116,93 @@ export function criarEstadoFase(
     destinoDeslize: null,
     comandoEmBuffer: null,
     deslizes: 0,
+    mortes: 0,
+    versaoCiclos: 0,
+    totemAtivo: null,
+    habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
     provasColetadas,
     provasPendentesOverlay: [],
     provaEmExibicao: null,
+    pausado: false,
     saidaAcesa: provasColetadas.length >= TOTAL_PROVAS_FASE,
     conclusaoPendente: false,
     concluida: false,
   };
+}
+
+export function pausarJogo(estado: EstadoFase): void {
+  if (estado.concluida) return;
+  estado.pausado = true;
+}
+
+export function retomarJogo(estado: EstadoFase): void {
+  estado.pausado = false;
+}
+
+function reposicionarNoRetorno(
+  estado: EstadoFase,
+  contarMorte: boolean,
+  origemMorte: Coordenada,
+  eventos: EventoDeslize[],
+): void {
+  const destino = pontoDeRetorno(estado);
+
+  if (contarMorte) {
+    estado.mortes += 1;
+  }
+
+  estado.pausado = false;
+  estado.posicao = { x: destino.col, y: destino.lin };
+  estado.celulaAtual = { col: destino.col, lin: destino.lin };
+  estado.deslizando = false;
+  estado.direcaoAtual = null;
+  estado.destinoDeslize = null;
+  estado.comandoEmBuffer = null;
+  estado.conclusaoPendente = false;
+  estado.versaoCiclos += 1;
+
+  if (contarMorte) {
+    eventos.push({
+      tipo: 'morreu',
+      origem: { col: origemMorte.col, lin: origemMorte.lin },
+      destinoRetorno: destino,
+      mortes: estado.mortes,
+    });
+  } else {
+    eventos.push({
+      tipo: 'retornou_ao_totem',
+      destinoRetorno: destino,
+    });
+  }
+
+  eventos.push({ tipo: 'ciclos_reiniciados' });
+
+  if (estado.provaEmExibicao === null && estado.provasPendentesOverlay.length > 0) {
+    abrirProximaProvaPendente(estado, eventos);
+  }
+}
+
+export function matarProtagonista(
+  estado: EstadoFase,
+  origem: Coordenada = estado.celulaAtual,
+): EventoDeslize[] {
+  if (estado.concluida) {
+    return [];
+  }
+
+  const eventos: EventoDeslize[] = [];
+  reposicionarNoRetorno(estado, true, origem, eventos);
+  return eventos;
+}
+
+export function voltarAoTotem(estado: EstadoFase): EventoDeslize[] {
+  if (estado.concluida) {
+    return [];
+  }
+
+  const eventos: EventoDeslize[] = [];
+  reposicionarNoRetorno(estado, false, estado.celulaAtual, eventos);
+  return eventos;
 }
 
 function calcularDestino(fase: Fase, origem: Coordenada, direcao: Direcao): Coordenada {
@@ -158,7 +273,7 @@ export function fecharProvaEmExibicao(estado: EstadoFase): EventoDeslize[] {
 }
 
 export function solicitarDirecao(estado: EstadoFase, direcao: Direcao): EventoDeslize[] {
-  if (estado.concluida || estado.provaEmExibicao !== null) {
+  if (estaCongelado(estado)) {
     return [];
   }
 
@@ -192,16 +307,112 @@ function distanciaAteAlvoNoTrajeto(
   return dist >= -EPS && dist <= distanciaMaxima + EPS ? Math.max(0, dist) : null;
 }
 
+type EncontroNoPasso =
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'totem';
+      readonly celula: Coordenada;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'prova';
+      readonly prova: ProvaNaFase;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'habitante';
+      readonly celula: Coordenada;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'saida';
+      readonly celula: Coordenada;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'perigo';
+      readonly celula: Coordenada;
+    };
+
+function coletarEncontrosNoPasso(
+  estado: EstadoFase,
+  direcao: Direcao,
+  alcancePasso: number,
+): EncontroNoPasso[] {
+  const encontros: EncontroNoPasso[] = [];
+
+  for (const totem of estado.fase.totens) {
+    const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, totem, alcancePasso);
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 0, tipo: 'totem', celula: totem });
+    }
+  }
+
+  for (const prova of estado.fase.provas) {
+    if (estado.provasColetadas.includes(prova.numero)) continue;
+    const dist = distanciaAteAlvoNoTrajeto(
+      estado.posicao,
+      direcao,
+      prova.posicao,
+      alcancePasso,
+    );
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 1, tipo: 'prova', prova });
+    }
+  }
+
+  if (estado.fase.habitante && !estado.habitanteResgatado) {
+    const dist = distanciaAteAlvoNoTrajeto(
+      estado.posicao,
+      direcao,
+      estado.fase.habitante,
+      alcancePasso,
+    );
+    if (dist !== null) {
+      encontros.push({
+        dist,
+        prioridade: 2,
+        tipo: 'habitante',
+        celula: estado.fase.habitante,
+      });
+    }
+  }
+
+  const distSaida = distanciaAteAlvoNoTrajeto(
+    estado.posicao,
+    direcao,
+    estado.fase.saida,
+    alcancePasso,
+  );
+  if (distSaida !== null) {
+    encontros.push({
+      dist: distSaida,
+      prioridade: 3,
+      tipo: 'saida',
+      celula: estado.fase.saida,
+    });
+  }
+
+  for (const perigo of estado.perigosProvisorios) {
+    const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, perigo, alcancePasso);
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 4, tipo: 'perigo', celula: perigo });
+    }
+  }
+
+  return encontros.sort((a, b) => a.dist - b.dist || a.prioridade - b.prioridade);
+}
+
 export function atualizarDeslize(
   estado: EstadoFase,
   deltaSegundos: number,
 ): EventoDeslize[] {
-  if (
-    estado.concluida ||
-    estado.provaEmExibicao !== null ||
-    !estado.deslizando ||
-    deltaSegundos <= 0
-  ) {
+  if (estaCongelado(estado) || !estado.deslizando || deltaSegundos <= 0) {
     return [];
   }
 
@@ -220,64 +431,81 @@ export function atualizarDeslize(
     const deslocamento = estado.velocidadeTilesPorSegundo * tempoRestante;
     const alcancePasso = Math.min(deslocamento, distanciaAteDestino);
 
-    const provasNoPasso = estado.fase.provas
-      .filter((p) => !estado.provasColetadas.includes(p.numero))
-      .map((prova) => ({
-        prova,
-        dist: distanciaAteAlvoNoTrajeto(estado.posicao, direcao, prova.posicao, alcancePasso),
-      }))
-      .filter((item): item is { prova: ProvaNaFase; dist: number } => item.dist !== null)
-      .sort((a, b) => a.dist - b.dist);
+    const encontros = coletarEncontrosNoPasso(estado, direcao, alcancePasso);
+    let interrompido = false;
 
-    let distSaidaAcesa: number | null = estado.saidaAcesa ? 0 : null;
+    for (const encontro of encontros) {
+      switch (encontro.tipo) {
+        case 'totem':
+          if (!mesmaCoordenada(estado.totemAtivo, encontro.celula)) {
+            estado.totemAtivo = { col: encontro.celula.col, lin: encontro.celula.lin };
+            eventos.push({
+              tipo: 'totem_ativado',
+              celula: { col: encontro.celula.col, lin: encontro.celula.lin },
+            });
+          }
+          break;
 
-    for (const { prova, dist } of provasNoPasso) {
-      estado.provasColetadas.push(prova.numero);
-      estado.provasPendentesOverlay.push(prova);
-      eventos.push({
-        tipo: 'prova_coletada',
-        prova,
-        totalColetadas: estado.provasColetadas.length,
-        totalProvas: TOTAL_PROVAS_FASE,
-      });
+        case 'prova': {
+          const { prova } = encontro;
+          estado.provasColetadas.push(prova.numero);
+          estado.provasPendentesOverlay.push(prova);
+          eventos.push({
+            tipo: 'prova_coletada',
+            prova,
+            totalColetadas: estado.provasColetadas.length,
+            totalProvas: TOTAL_PROVAS_FASE,
+          });
 
-      if (!estado.saidaAcesa && estado.provasColetadas.length >= TOTAL_PROVAS_FASE) {
-        estado.saidaAcesa = true;
-        distSaidaAcesa = dist;
-        eventos.push({
-          tipo: 'saida_acesa',
-          celula: { col: estado.fase.saida.col, lin: estado.fase.saida.lin },
-        });
+          if (!estado.saidaAcesa && estado.provasColetadas.length >= TOTAL_PROVAS_FASE) {
+            estado.saidaAcesa = true;
+            eventos.push({
+              tipo: 'saida_acesa',
+              celula: { col: estado.fase.saida.col, lin: estado.fase.saida.lin },
+            });
+          }
+          break;
+        }
+
+        case 'habitante':
+          estado.habitanteResgatado = true;
+          eventos.push({
+            tipo: 'habitante_resgatado',
+            celula: { col: encontro.celula.col, lin: encontro.celula.lin },
+          });
+          break;
+
+        case 'saida': {
+          if (!estado.saidaAcesa) break;
+          const saida = { col: encontro.celula.col, lin: encontro.celula.lin };
+          estado.posicao = { x: saida.col, y: saida.lin };
+          estado.celulaAtual = saida;
+          estado.deslizando = false;
+          estado.direcaoAtual = null;
+          estado.destinoDeslize = null;
+          estado.comandoEmBuffer = null;
+
+          if (estado.provasPendentesOverlay.length > 0) {
+            estado.conclusaoPendente = true;
+            abrirProximaProvaPendente(estado, eventos);
+          } else {
+            estado.concluida = true;
+            eventos.push({ tipo: 'fase_concluida', celula: saida });
+          }
+          interrompido = true;
+          break;
+        }
+
+        case 'perigo':
+          reposicionarNoRetorno(estado, true, encontro.celula, eventos);
+          interrompido = true;
+          break;
       }
+
+      if (interrompido) break;
     }
 
-    const distSaida = distanciaAteAlvoNoTrajeto(
-      estado.posicao,
-      direcao,
-      estado.fase.saida,
-      alcancePasso,
-    );
-    if (
-      estado.saidaAcesa &&
-      distSaida !== null &&
-      distSaidaAcesa !== null &&
-      distSaida >= distSaidaAcesa - 1e-6
-    ) {
-      const saida = { col: estado.fase.saida.col, lin: estado.fase.saida.lin };
-      estado.posicao = { x: saida.col, y: saida.lin };
-      estado.celulaAtual = saida;
-      estado.deslizando = false;
-      estado.direcaoAtual = null;
-      estado.destinoDeslize = null;
-      estado.comandoEmBuffer = null;
-
-      if (estado.provasPendentesOverlay.length > 0) {
-        estado.conclusaoPendente = true;
-        abrirProximaProvaPendente(estado, eventos);
-      } else {
-        estado.concluida = true;
-        eventos.push({ tipo: 'fase_concluida', celula: saida });
-      }
+    if (interrompido) {
       break;
     }
 

@@ -4,8 +4,11 @@ import {
   atualizarDeslize,
   criarEstadoFase,
   fecharProvaEmExibicao,
+  pausarJogo,
+  retomarJogo,
   solicitarDirecao,
   VETOR_DIRECAO,
+  voltarAoTotem,
   type Direcao,
   type EstadoFase,
   type EventoDeslize,
@@ -19,9 +22,15 @@ import {
   type TipoAmeaca,
 } from '../core/fase';
 
+export interface ResumoConclusaoFase {
+  readonly deslizes: number;
+  readonly mortes: number;
+}
+
 export interface CallbacksFaseScene {
-  aoConcluir: (deslizes: number) => void;
+  aoConcluir: (resumo: ResumoConclusaoFase) => void;
   aoAtualizarDeslizes: (deslizes: number) => void;
+  aoAtualizarMortes: (mortes: number) => void;
   aoAtualizarProvas: (coletadas: number, total: number) => void;
   aoColetarProva: (prova: ProvaNaFase) => void;
   aoAbrirProva: (prova: ProvaNaFase) => void;
@@ -43,14 +52,18 @@ const CORES = {
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
-  totem: 0x38bdf8,
-  totemMarca: 0x082f49,
+  totemInativo: 0x1e4d63,
+  totemInativoMarca: 0x7dd3fc,
+  totemAtivo: 0x38bdf8,
+  totemAtivoMarca: 0x082f49,
+  totemHalo: 0x7dd3fc,
   prova: 0xfbbf24,
   provaMarca: 0x451a03,
   habitante: 0xc084fc,
   habitanteMarca: 0x3b0764,
-  espinhos: 0xf97316,
-  espinhosMarca: 0x431407,
+  espinhos: 0xdc2626,
+  espinhosBorda: 0xf97316,
+  espinhosMarca: 0xfef2f2,
   gosma: 0x84cc16,
   gosmaMarca: 0x1a2e05,
   drone: 0xef4444,
@@ -90,6 +103,13 @@ const ANGULO_PES: Record<Direcao, number> = {
   direita: -90,
 };
 
+interface MarcadorTotem {
+  readonly coord: Coordenada;
+  readonly halo: Phaser.GameObjects.Rectangle;
+  readonly inativo: Phaser.GameObjects.Graphics;
+  readonly ativo: Phaser.GameObjects.Graphics;
+}
+
 export class FaseScene extends Phaser.Scene {
   private readonly fase: Fase;
   private readonly callbacks: CallbacksFaseScene;
@@ -107,6 +127,9 @@ export class FaseScene extends Phaser.Scene {
   private haloSaidaTween: Phaser.Tweens.Tween | null = null;
 
   private readonly marcadoresProva = new Map<NumeroProva, Phaser.GameObjects.Graphics>();
+  private readonly marcadoresTotem: MarcadorTotem[] = [];
+  private haloTotemTween: Phaser.Tweens.Tween | null = null;
+  private marcadorHabitante: Phaser.GameObjects.Graphics | null = null;
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
@@ -141,8 +164,32 @@ export class FaseScene extends Phaser.Scene {
   }
 
   public receberDirecao(direcao: Direcao): void {
-    if (!this.estado || this.estado.provaEmExibicao !== null) return;
+    if (!this.estado || this.estado.pausado || this.estado.provaEmExibicao !== null) return;
     const eventos = solicitarDirecao(this.estado, direcao);
+    this.processarEventos(eventos);
+    this.atualizarIndicadorBuffer();
+  }
+
+  public pausar(): void {
+    if (!this.estado || this.estado.concluida) return;
+    pausarJogo(this.estado);
+    this.tweens.pauseAll();
+  }
+
+  public retomar(): void {
+    if (!this.estado) return;
+    retomarJogo(this.estado);
+    if (this.estado.provaEmExibicao === null) {
+      this.tweens.resumeAll();
+    }
+  }
+
+  public voltarAoTotem(): void {
+    if (!this.estado || this.estado.concluida) return;
+    const eventos = voltarAoTotem(this.estado);
+    if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
+      this.tweens.resumeAll();
+    }
     this.processarEventos(eventos);
     this.atualizarIndicadorBuffer();
   }
@@ -150,7 +197,7 @@ export class FaseScene extends Phaser.Scene {
   public fecharProva(): void {
     if (!this.estado || this.estado.provaEmExibicao === null) return;
     const eventos = fecharProvaEmExibicao(this.estado);
-    if (this.estado.provaEmExibicao === null) {
+    if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
       this.tweens.resumeAll();
     }
     this.processarEventos(eventos);
@@ -159,24 +206,25 @@ export class FaseScene extends Phaser.Scene {
 
   public reiniciar(): void {
     this.tweens.resumeAll();
-    this.estado = criarEstadoFase(this.fase);
-    this.trancoTween?.stop();
-    this.trancoOffset.x = 0;
-    this.trancoOffset.y = 0;
-    this.lookAheadAtualY = 0;
-    this.rotacaoTween?.stop();
-    this.corpoProtagonista.setAngle(0);
-    this.restaurarFormaProtagonista();
+    // Tiles de espinho (^) atuam como perigo provisório até a issue de Armadilhas/Ameaças.
+    this.estado = criarEstadoFase(this.fase, {
+      perigosProvisorios: this.fase.espinhos,
+    });
+    this.resetarVisualProtagonista();
 
     for (const marcador of this.marcadoresProva.values()) {
       marcador.setVisible(true);
     }
+    this.marcadorHabitante?.setVisible(true);
+    this.atualizarVisualTotemAtivo(null, false);
     this.atualizarVisualSaida(this.estado.saidaAcesa, false);
+    this.reiniciarCiclosAmeacasEArmadilhas();
 
     this.sincronizarProtagonista();
     this.atualizarIndicadorBuffer();
     this.centralizarCameraImediatamente();
     this.callbacks.aoAtualizarDeslizes(0);
+    this.callbacks.aoAtualizarMortes(0);
     this.callbacks.aoAtualizarProvas(this.estado.provasColetadas.length, TOTAL_PROVAS_FASE);
   }
 
@@ -187,7 +235,7 @@ export class FaseScene extends Phaser.Scene {
   }
 
   override update(_time: number, deltaMs: number): void {
-    if (!this.estado || this.estado.provaEmExibicao !== null) return;
+    if (!this.estado || this.estado.pausado || this.estado.provaEmExibicao !== null) return;
 
     // Limita delta para evitar saltos gigantes ao voltar de aba em segundo plano
     const deltaSegundos = Math.min(deltaMs, 100) / 1000;
@@ -197,9 +245,23 @@ export class FaseScene extends Phaser.Scene {
     this.sincronizarProtagonista();
     this.atualizarIndicadorBuffer();
 
-    if (this.estado.provaEmExibicao === null) {
+    if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
       this.atualizarCameraVertical(deltaSegundos);
     }
+  }
+
+  private resetarVisualProtagonista(): void {
+    this.trancoTween?.stop();
+    this.trancoOffset.x = 0;
+    this.trancoOffset.y = 0;
+    this.lookAheadAtualY = 0;
+    this.rotacaoTween?.stop();
+    this.corpoProtagonista.setAngle(0);
+    this.restaurarFormaProtagonista();
+  }
+
+  private reiniciarCiclosAmeacasEArmadilhas(): void {
+    // Ponto de extensão para resetar a fase visual/temporal de Ameaças e Armadilhas ao reaparecer.
   }
 
   private desenharGrade(): void {
@@ -248,6 +310,62 @@ export class FaseScene extends Phaser.Scene {
           this.nucleoSaida = this.add
             .rectangle(centroX, centroY, tile - 8, tile - 8, CORES.saidaApagadaNucleo, 0.75)
             .setDepth(4);
+        }
+      }
+    }
+  }
+
+  private atualizarVisualTotemAtivo(
+    totemAtivo: Coordenada | null,
+    animarAtivacao: boolean,
+  ): void {
+    this.haloTotemTween?.stop();
+    this.haloTotemTween = null;
+
+    for (const marcador of this.marcadoresTotem) {
+      const ehAtivo =
+        totemAtivo !== null &&
+        marcador.coord.col === totemAtivo.col &&
+        marcador.coord.lin === totemAtivo.lin;
+
+      marcador.inativo.setVisible(!ehAtivo);
+      marcador.ativo.setVisible(ehAtivo);
+      marcador.halo.setVisible(ehAtivo).setScale(1).setAlpha(ehAtivo ? 0.35 : 0);
+
+      if (ehAtivo) {
+        this.haloTotemTween = this.tweens.add({
+          targets: marcador.halo,
+          alpha: { from: 0.2, to: 0.55 },
+          scaleX: { from: 0.95, to: 1.3 },
+          scaleY: { from: 0.95, to: 1.3 },
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+
+        if (animarAtivacao) {
+          const tile = CONFIG.tamanhoTilePx;
+          const onda = this.add
+            .rectangle(
+              marcador.halo.x,
+              marcador.halo.y,
+              tile,
+              tile,
+              CORES.totemHalo,
+              0.75,
+            )
+            .setDepth(8);
+
+          this.tweens.add({
+            targets: onda,
+            scaleX: 2.1,
+            scaleY: 2.1,
+            alpha: 0,
+            duration: 340,
+            ease: 'Quad.easeOut',
+            onComplete: () => onda.destroy(),
+          });
         }
       }
     }
@@ -335,8 +453,34 @@ export class FaseScene extends Phaser.Scene {
       }
     }
 
+    this.marcadoresTotem.length = 0;
     for (const totem of this.fase.totens) {
-      this.desenharQuadradoMarcado(g, totem, CORES.totem, CORES.totemMarca, 'T');
+      const centroX = totem.col * tile + tile / 2;
+      const centroY = totem.lin * tile + tile / 2;
+      const halo = this.add
+        .rectangle(centroX, centroY, tile + 2, tile + 2, CORES.totemHalo, 0)
+        .setDepth(4)
+        .setVisible(false);
+
+      const inativo = this.add.graphics().setDepth(5);
+      this.desenharQuadradoMarcado(
+        inativo,
+        totem,
+        CORES.totemInativo,
+        CORES.totemInativoMarca,
+        'T',
+      );
+
+      const ativo = this.add.graphics().setDepth(5).setVisible(false);
+      this.desenharQuadradoMarcado(
+        ativo,
+        totem,
+        CORES.totemAtivo,
+        CORES.totemAtivoMarca,
+        'T',
+      );
+
+      this.marcadoresTotem.push({ coord: totem, halo, inativo, ativo });
     }
 
     this.marcadoresProva.clear();
@@ -354,17 +498,27 @@ export class FaseScene extends Phaser.Scene {
       this.marcadoresProva.set(prova.numero, marcador);
     }
 
+    this.marcadorHabitante = null;
     if (this.fase.habitante) {
+      const marcador = this.add.graphics().setDepth(6);
       this.desenharQuadradoMarcado(
-        g,
+        marcador,
         this.fase.habitante,
         CORES.habitante,
         CORES.habitanteMarca,
         'H',
       );
+      this.marcadorHabitante = marcador;
     }
 
     for (const espinho of this.fase.espinhos) {
+      g.lineStyle(1, CORES.espinhosBorda, 1);
+      g.strokeRect(
+        espinho.col * tile + 0.5,
+        espinho.lin * tile + 0.5,
+        tile - 1,
+        tile - 1,
+      );
       this.desenharQuadradoMarcado(g, espinho, CORES.espinhos, CORES.espinhosMarca, '^');
     }
 
@@ -435,6 +589,12 @@ export class FaseScene extends Phaser.Scene {
         case 'parou_na_parede':
           this.restaurarFormaProtagonista();
           break;
+        case 'totem_ativado':
+          this.atualizarVisualTotemAtivo(evento.celula, true);
+          break;
+        case 'habitante_resgatado':
+          this.marcadorHabitante?.setVisible(false);
+          break;
         case 'prova_coletada':
           this.marcadoresProva.get(evento.prova.numero)?.setVisible(false);
           this.callbacks.aoColetarProva(evento.prova);
@@ -442,6 +602,24 @@ export class FaseScene extends Phaser.Scene {
           break;
         case 'saida_acesa':
           this.atualizarVisualSaida(true, true);
+          break;
+        case 'morreu':
+          this.resetarVisualProtagonista();
+          this.sincronizarProtagonista();
+          this.atualizarIndicadorBuffer();
+          this.centralizarCameraImediatamente();
+          this.cameras.main.flash(180, 220, 60, 60);
+          this.callbacks.aoAtualizarMortes(evento.mortes);
+          break;
+        case 'retornou_ao_totem':
+          this.resetarVisualProtagonista();
+          this.sincronizarProtagonista();
+          this.atualizarIndicadorBuffer();
+          this.centralizarCameraImediatamente();
+          this.cameras.main.flash(140, 56, 189, 248);
+          break;
+        case 'ciclos_reiniciados':
+          this.reiniciarCiclosAmeacasEArmadilhas();
           break;
         case 'abrir_prova':
           this.restaurarFormaProtagonista();
@@ -452,7 +630,10 @@ export class FaseScene extends Phaser.Scene {
           break;
         case 'fase_concluida':
           this.restaurarFormaProtagonista();
-          this.callbacks.aoConcluir(this.estado.deslizes);
+          this.callbacks.aoConcluir({
+            deslizes: this.estado.deslizes,
+            mortes: this.estado.mortes,
+          });
           break;
       }
     }

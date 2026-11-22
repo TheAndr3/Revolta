@@ -40,14 +40,25 @@ export function direcaoDeSwipe(
   return dy > 0 ? 'baixo' : 'cima';
 }
 
+export function ehTeclaPausa(tecla: string): boolean {
+  return tecla === 'Escape' || tecla === 'p' || tecla === 'P';
+}
+
 export function registrarControles(
   alvoSwipe: HTMLElement,
   aoDirecionar: (direcao: Direcao) => void,
   aoReiniciar: () => void,
   estaBloqueado: () => boolean,
+  aoPausar?: () => void,
 ): () => void {
   const onKeyDown = (evento: KeyboardEvent) => {
     if (estaBloqueado()) return;
+
+    if (aoPausar && ehTeclaPausa(evento.key)) {
+      evento.preventDefault();
+      aoPausar();
+      return;
+    }
 
     if (evento.key === 'r' || evento.key === 'R') {
       evento.preventDefault();

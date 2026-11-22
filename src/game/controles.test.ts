@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { direcaoDeSwipe, direcaoDeTecla } from './controles';
+import { direcaoDeSwipe, direcaoDeTecla, ehTeclaPausa } from './controles';
 import { calcularEscalaInteira } from './escala';
 
 describe('controles', () => {
@@ -21,6 +21,13 @@ describe('controles', () => {
     expect(direcaoDeSwipe(-40, 12)).toBe('esquerda');
     expect(direcaoDeSwipe(8, -32)).toBe('cima');
     expect(direcaoDeSwipe(-5, 45)).toBe('baixo');
+  });
+
+  it('reconhece Esc e P como teclas de pausa', () => {
+    expect(ehTeclaPausa('Escape')).toBe(true);
+    expect(ehTeclaPausa('p')).toBe(true);
+    expect(ehTeclaPausa('P')).toBe(true);
+    expect(ehTeclaPausa('r')).toBe(false);
   });
 });
 
