@@ -184,7 +184,7 @@ describe('parseFase', () => {
 
   it('permite que o nucleo de deslize conclua a Fase de exemplo da legenda em 8 deslizes', () => {
     const fase = parseFase(FASE_EXEMPLO_LEGENDA);
-    const estado = criarEstadoFase(fase);
+    const estado = criarEstadoFase(fase, { simularAmeacas: false });
 
     const solucao: Direcao[] = [
       'direita',

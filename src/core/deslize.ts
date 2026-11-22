@@ -1,3 +1,11 @@
+import {
+  avaliarAmeacaNoTempo,
+  calcularPosicoesAmeacas,
+  colideComAmeaca,
+  compilarCicloAmeaca,
+  type CicloAmeaca,
+  type EstadoAmeacaNoInstante,
+} from './ameacas';
 import { CONFIG } from './config';
 import {
   TOTAL_PROVAS_FASE,
@@ -47,6 +55,8 @@ export interface EstadoFase {
   readonly fase: Fase;
   readonly velocidadeTilesPorSegundo: number;
   readonly perigosProvisorios: readonly Coordenada[];
+  readonly simularAmeacas: boolean;
+  readonly ciclosAmeacas: readonly CicloAmeaca[];
   posicao: PosicaoContinua;
   celulaAtual: Coordenada;
   deslizando: boolean;
@@ -56,6 +66,7 @@ export interface EstadoFase {
   deslizes: number;
   mortes: number;
   versaoCiclos: number;
+  tempoCicloSegundos: number;
   totemAtivo: Coordenada | null;
   habitanteResgatado: boolean;
   provasColetadas: NumeroProva[];
@@ -72,6 +83,7 @@ export interface OpcoesEstadoFase {
   provasJaColetadas?: readonly NumeroProva[];
   habitanteJaResgatado?: boolean;
   perigosProvisorios?: readonly Coordenada[];
+  simularAmeacas?: boolean;
 }
 
 export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: number }> = {
@@ -88,6 +100,10 @@ function mesmaCoordenada(a: Coordenada | null, b: Coordenada | null): boolean {
 export function pontoDeRetorno(estado: EstadoFase): Coordenada {
   const ponto = estado.totemAtivo ?? estado.fase.inicio;
   return { col: ponto.col, lin: ponto.lin };
+}
+
+export function posicoesAmeacasAtuais(estado: EstadoFase): EstadoAmeacaNoInstante[] {
+  return calcularPosicoesAmeacas(estado.ciclosAmeacas, estado.tempoCicloSegundos);
 }
 
 function estaCongelado(estado: EstadoFase): boolean {
@@ -109,6 +125,8 @@ export function criarEstadoFase(
       col: p.col,
       lin: p.lin,
     })),
+    simularAmeacas: opcoes.simularAmeacas ?? true,
+    ciclosAmeacas: fase.ameacas.map((ameaca) => compilarCicloAmeaca(ameaca)),
     posicao: { x: inicio.col, y: inicio.lin },
     celulaAtual: inicio,
     deslizando: false,
@@ -118,6 +136,7 @@ export function criarEstadoFase(
     deslizes: 0,
     mortes: 0,
     versaoCiclos: 0,
+    tempoCicloSegundos: 0,
     totemAtivo: null,
     habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
     provasColetadas,
@@ -159,6 +178,7 @@ function reposicionarNoRetorno(
   estado.destinoDeslize = null;
   estado.comandoEmBuffer = null;
   estado.conclusaoPendente = false;
+  estado.tempoCicloSegundos = 0;
   estado.versaoCiclos += 1;
 
   if (contarMorte) {
@@ -408,15 +428,11 @@ function coletarEncontrosNoPasso(
   return encontros.sort((a, b) => a.dist - b.dist || a.prioridade - b.prioridade);
 }
 
-export function atualizarDeslize(
+function avancarDeslize(
   estado: EstadoFase,
   deltaSegundos: number,
-): EventoDeslize[] {
-  if (estaCongelado(estado) || !estado.deslizando || deltaSegundos <= 0) {
-    return [];
-  }
-
-  const eventos: EventoDeslize[] = [];
+  eventos: EventoDeslize[],
+): void {
   let tempoRestante = deltaSegundos;
 
   // Limite de iterações evita laço infinito se uma configuração patológica surgir.
@@ -544,6 +560,64 @@ export function atualizarDeslize(
       const proximo = estado.comandoEmBuffer;
       estado.comandoEmBuffer = null;
       iniciarMovimento(estado, proximo, eventos);
+    }
+  }
+}
+
+function encontrarAmeacaEmContato(estado: EstadoFase): EstadoAmeacaNoInstante | null {
+  for (const ciclo of estado.ciclosAmeacas) {
+    const atual = avaliarAmeacaNoTempo(ciclo, estado.tempoCicloSegundos);
+    if (colideComAmeaca(estado.posicao, atual.posicao)) {
+      return atual;
+    }
+  }
+  return null;
+}
+
+export function atualizarDeslize(
+  estado: EstadoFase,
+  deltaSegundos: number,
+): EventoDeslize[] {
+  if (estaCongelado(estado) || deltaSegundos <= 0) {
+    return [];
+  }
+
+  const eventos: EventoDeslize[] = [];
+  const temAmeacasAtivas = estado.simularAmeacas && estado.ciclosAmeacas.length > 0;
+
+  if (!temAmeacasAtivas) {
+    if (!estado.deslizando) {
+      return [];
+    }
+    avancarDeslize(estado, deltaSegundos, eventos);
+    return eventos;
+  }
+
+  const passoMaximo = Math.min(
+    1 / 120,
+    0.35 / Math.max(1, estado.velocidadeTilesPorSegundo),
+  );
+  let tempoRestante = deltaSegundos;
+
+  while (tempoRestante > 1e-9 && !estaCongelado(estado)) {
+    const dt = Math.min(tempoRestante, passoMaximo);
+    tempoRestante -= dt;
+
+    const versaoAntes = estado.versaoCiclos;
+    estado.tempoCicloSegundos += dt;
+
+    if (estado.deslizando) {
+      avancarDeslize(estado, dt, eventos);
+    }
+
+    if (estado.versaoCiclos !== versaoAntes || estaCongelado(estado)) {
+      break;
+    }
+
+    const emContato = encontrarAmeacaEmContato(estado);
+    if (emContato) {
+      reposicionarNoRetorno(estado, true, emContato.celula, eventos);
+      break;
     }
   }
 

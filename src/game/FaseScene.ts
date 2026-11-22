@@ -5,6 +5,7 @@ import {
   criarEstadoFase,
   fecharProvaEmExibicao,
   pausarJogo,
+  posicoesAmeacasAtuais,
   retomarJogo,
   solicitarDirecao,
   VETOR_DIRECAO,
@@ -70,6 +71,8 @@ const CORES = {
   espinhosMarca: 0xfef2f2,
   gosma: 0x84cc16,
   gosmaMarca: 0x1a2e05,
+  gosmaBrilho: 0xd9f99d,
+  gosmaTrilho: 0xa3e635,
   drone: 0xef4444,
   droneMarca: 0x450a0a,
   guarda: 0x6366f1,
@@ -114,6 +117,12 @@ interface MarcadorTotem {
   readonly ativo: Phaser.GameObjects.Graphics;
 }
 
+interface CelulaBrilhoTrilho {
+  readonly celula: Coordenada;
+  readonly rect: Phaser.GameObjects.Rectangle;
+  intensidade: number;
+}
+
 export class FaseScene extends Phaser.Scene {
   private readonly fase: Fase;
   private readonly callbacks: CallbacksFaseScene;
@@ -134,6 +143,8 @@ export class FaseScene extends Phaser.Scene {
   private readonly marcadoresTotem: MarcadorTotem[] = [];
   private haloTotemTween: Phaser.Tweens.Tween | null = null;
   private marcadorHabitante: Phaser.GameObjects.Graphics | null = null;
+  private readonly spritesAmeaca = new Map<string, Phaser.GameObjects.Container>();
+  private readonly brilhosTrilhoGosma: CelulaBrilhoTrilho[] = [];
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
@@ -251,6 +262,7 @@ export class FaseScene extends Phaser.Scene {
     this.processarEventos(eventos);
 
     this.sincronizarProtagonista();
+    this.sincronizarAmeacas(deltaSegundos);
     this.atualizarIndicadorBuffer();
 
     if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
@@ -269,7 +281,13 @@ export class FaseScene extends Phaser.Scene {
   }
 
   private reiniciarCiclosAmeacasEArmadilhas(): void {
-    // Ponto de extensão para resetar a fase visual/temporal de Ameaças e Armadilhas ao reaparecer.
+    for (const item of this.brilhosTrilhoGosma) {
+      item.intensidade = 0;
+      item.rect.setAlpha(0.18);
+    }
+    if (this.estado) {
+      this.sincronizarAmeacas(0);
+    }
   }
 
   private desenharGrade(): void {
@@ -448,11 +466,29 @@ export class FaseScene extends Phaser.Scene {
     g.setDepth(5);
 
     // Trilhos e pausas das Ameaças (camada abaixo dos marcadores)
+    this.brilhosTrilhoGosma.length = 0;
     for (const ameaca of this.fase.ameacas) {
       const estilo = ESTILO_AMEACA[ameaca.tipo];
-      g.fillStyle(estilo.cor, 0.25);
+      g.fillStyle(estilo.cor, ameaca.tipo === 'gosma' ? 0.16 : 0.25);
       for (const celula of ameaca.trilho) {
         g.fillRect(celula.col * tile + 4, celula.lin * tile + 4, tile - 8, tile - 8);
+        if (ameaca.tipo === 'gosma') {
+          const brilho = this.add
+            .rectangle(
+              celula.col * tile + tile / 2,
+              celula.lin * tile + tile / 2,
+              tile - 4,
+              tile - 4,
+              CORES.gosmaTrilho,
+              0.18,
+            )
+            .setDepth(5);
+          this.brilhosTrilhoGosma.push({
+            celula,
+            rect: brilho,
+            intensidade: 0,
+          });
+        }
       }
 
       g.fillStyle(CORES.pausaMarca, 0.9);
@@ -530,29 +566,57 @@ export class FaseScene extends Phaser.Scene {
       this.desenharQuadradoMarcado(g, espinho, CORES.espinhos, CORES.espinhosMarca, '^');
     }
 
+    this.spritesAmeaca.clear();
     for (const ameaca of this.fase.ameacas) {
       const estilo = ESTILO_AMEACA[ameaca.tipo];
-      this.desenharQuadradoMarcado(
-        g,
-        ameaca.posicaoInicial,
-        estilo.cor,
-        estilo.marca,
-        estilo.glifo,
-      );
+      const centroX = ameaca.posicaoInicial.col * tile + tile / 2;
+      const centroY = ameaca.posicaoInicial.lin * tile + tile / 2;
+
+      if (ameaca.tipo === 'gosma') {
+        const aura = this.add.rectangle(0, 0, tile, tile, CORES.gosmaTrilho, 0.28);
+        const corpo = this.add.rectangle(0, 0, tile - 3, tile - 3, CORES.gosma, 1);
+        const brilhoA = this.add.rectangle(-2, -2, 4, 3, CORES.gosmaBrilho, 0.9);
+        const brilhoB = this.add.rectangle(2, 2, 3, 2, CORES.gosmaBrilho, 0.75);
+        const container = this.add
+          .container(centroX, centroY, [aura, corpo, brilhoA, brilhoB])
+          .setDepth(8);
+
+        this.tweens.add({
+          targets: container,
+          scaleX: { from: 0.94, to: 1.08 },
+          scaleY: { from: 1.06, to: 0.92 },
+          duration: 420,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+
+        this.spritesAmeaca.set(ameaca.id, container);
+      } else {
+        const grafico = this.add.graphics();
+        this.desenharQuadradoMarcadoLocal(
+          grafico,
+          -tile / 2,
+          -tile / 2,
+          estilo.cor,
+          estilo.marca,
+          estilo.glifo,
+        );
+        const container = this.add.container(centroX, centroY, [grafico]).setDepth(8);
+        this.spritesAmeaca.set(ameaca.id, container);
+      }
     }
   }
 
-  private desenharQuadradoMarcado(
+  private desenharQuadradoMarcadoLocal(
     g: Phaser.GameObjects.Graphics,
-    coord: Coordenada,
+    x: number,
+    y: number,
     corFundo: number,
     corMarca: number,
     glifo: GlifoMarcador,
   ): void {
     const tile = CONFIG.tamanhoTilePx;
-    const x = coord.col * tile;
-    const y = coord.lin * tile;
-
     g.fillStyle(corFundo, 1);
     g.fillRect(x + 1, y + 1, tile - 3, tile - 3);
 
@@ -566,6 +630,24 @@ export class FaseScene extends Phaser.Scene {
         }
       }
     }
+  }
+
+  private desenharQuadradoMarcado(
+    g: Phaser.GameObjects.Graphics,
+    coord: Coordenada,
+    corFundo: number,
+    corMarca: number,
+    glifo: GlifoMarcador,
+  ): void {
+    const tile = CONFIG.tamanhoTilePx;
+    this.desenharQuadradoMarcadoLocal(
+      g,
+      coord.col * tile,
+      coord.lin * tile,
+      corFundo,
+      corMarca,
+      glifo,
+    );
   }
 
   private criarProtagonista(): void {
@@ -727,6 +809,38 @@ export class FaseScene extends Phaser.Scene {
     const px = this.estado.posicao.x * tile + tile / 2 + this.trancoOffset.x;
     const py = this.estado.posicao.y * tile + tile / 2 + this.trancoOffset.y;
     this.protagonista.setPosition(Math.round(px), Math.round(py));
+  }
+
+  private sincronizarAmeacas(deltaSegundos: number): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const estadosAmeacas = posicoesAmeacasAtuais(this.estado);
+    const posicoesGosma: Array<{ x: number; y: number }> = [];
+
+    for (const ameaca of estadosAmeacas) {
+      const sprite = this.spritesAmeaca.get(ameaca.id);
+      if (sprite) {
+        const ax = ameaca.posicao.x * tile + tile / 2;
+        const ay = ameaca.posicao.y * tile + tile / 2;
+        sprite.setPosition(Math.round(ax), Math.round(ay));
+      }
+      if (ameaca.tipo === 'gosma') {
+        posicoesGosma.push(ameaca.posicao);
+      }
+    }
+
+    if (this.brilhosTrilhoGosma.length === 0) return;
+
+    const decaimento = deltaSegundos * 0.9;
+    for (const item of this.brilhosTrilhoGosma) {
+      item.intensidade = Math.max(0, item.intensidade - decaimento);
+      for (const pos of posicoesGosma) {
+        if (Math.hypot(pos.x - item.celula.col, pos.y - item.celula.lin) <= 0.75) {
+          item.intensidade = 1;
+          break;
+        }
+      }
+      item.rect.setAlpha(0.18 + item.intensidade * 0.54);
+    }
   }
 
   private atualizarIndicadorBuffer(): void {

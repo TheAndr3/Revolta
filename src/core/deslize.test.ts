@@ -9,6 +9,7 @@ import {
   matarProtagonista,
   pausarJogo,
   pontoDeRetorno,
+  posicoesAmeacasAtuais,
   retomarJogo,
   solicitarDirecao,
   voltarAoTotem,
@@ -737,5 +738,141 @@ describe('núcleo de deslize', () => {
       'morreu',
       'ciclos_reiniciados',
     ]);
+  });
+
+  it('move a Gosma mesmo com o Protagonista parado, mata ao encostar e reinicia o ciclo ao voltar ao Totem', () => {
+    const faseEspera = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 9',
+        'ALTURA 5',
+        '[GRID]',
+        '#########',
+        '#@.T..#.#',
+        '#..G....#',
+        '#......X#',
+        '#########',
+        '[AMEACAS]',
+        'G1 | loop | 3 | 3,2 5,2 5,3 3,3 | -',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estadoEspera = criarEstadoFase(faseEspera);
+    // Direita até (5,1) ativando Totem (3,1)
+    solicitarDirecao(estadoEspera, 'direita');
+    atualizarDeslize(estadoEspera, 0.15);
+    expect(estadoEspera.celulaAtual).toEqual({ col: 5, lin: 1 });
+    expect(estadoEspera.totemAtivo).toEqual({ col: 3, lin: 1 });
+
+    // Desce até (5,3) (no trilho da Gosma, ainda longe dela) e fica parado esperando-a chegar
+    solicitarDirecao(estadoEspera, 'baixo');
+    atualizarDeslize(estadoEspera, 0.1);
+    expect(estadoEspera.celulaAtual).toEqual({ col: 5, lin: 3 });
+    expect(estadoEspera.deslizando).toBe(false);
+
+    // Avança o tempo em 60 Hz enquanto o Protagonista está parado; Gosma chega em (5,3) e mata
+    let morreu = false;
+    for (let i = 0; i < 200 && !morreu; i++) {
+      const eventos = atualizarDeslize(estadoEspera, 1 / 60);
+      if (eventos.some((e) => e.tipo === 'morreu')) {
+        morreu = true;
+      }
+    }
+
+    expect(morreu).toBe(true);
+    expect(estadoEspera.mortes).toBe(1);
+    expect(estadoEspera.celulaAtual).toEqual({ col: 3, lin: 1 });
+    expect(estadoEspera.tempoCicloSegundos).toBe(0);
+    expect(posicoesAmeacasAtuais(estadoEspera)[0].posicao).toEqual({ x: 3, y: 2 });
+  });
+
+  it('congela a Ameaça no overlay da Prova e garante comportamento idêntico em duas tentativas iguais', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 5',
+        '[GRID]',
+        '##########',
+        '#@.1.....#',
+        '#..G.....#',
+        '#.......X#',
+        '##########',
+        '[AMEACAS]',
+        'G1 | loop | 3 | 3,2 7,2 7,3 3,3 | -',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const rodarTentativa = () => {
+      const estado = criarEstadoFase(fase);
+      solicitarDirecao(estado, 'direita');
+      for (let i = 0; i < 25; i++) {
+        atualizarDeslize(estado, 1 / 60);
+      }
+      // Prova 1 abriu ao parar na parede; registra posição exata da Gosma ao pausar
+      expect(estado.provaEmExibicao?.numero).toBe(1);
+      const posAoAbrirOverlay = posicoesAmeacasAtuais(estado)[0].posicao;
+      const tempoAoAbrirOverlay = estado.tempoCicloSegundos;
+
+      // Avança 2 segundos com overlay aberto: nada deve se mover
+      atualizarDeslize(estado, 2.0);
+      expect(estado.tempoCicloSegundos).toBe(tempoAoAbrirOverlay);
+      expect(posicoesAmeacasAtuais(estado)[0].posicao).toEqual(posAoAbrirOverlay);
+
+      // Fecha overlay e avança mais 0.5s: Gosma retoma exatamente de onde parou
+      fecharProvaEmExibicao(estado);
+      atualizarDeslize(estado, 0.5);
+      expect(estado.tempoCicloSegundos).toBeCloseTo(tempoAoAbrirOverlay + 0.5, 5);
+      const posAposRetomar = posicoesAmeacasAtuais(estado)[0].posicao;
+
+      // Voltar ao Totem (sem contar morte) zera o ciclo da Gosma
+      voltarAoTotem(estado);
+      expect(estado.mortes).toBe(0);
+      expect(estado.tempoCicloSegundos).toBe(0);
+      expect(posicoesAmeacasAtuais(estado)[0].posicao).toEqual({ x: 3, y: 2 });
+
+      return { posAoAbrirOverlay, posAposRetomar };
+    };
+
+    const tentativaA = rodarTentativa();
+    const tentativaB = rodarTentativa();
+
+    expect(tentativaA).toEqual(tentativaB);
+  });
+
+  it('mata o Protagonista ao deslizar diretamente contra a Gosma sem tunneling', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 5',
+        '[GRID]',
+        '##########',
+        '#@.......#',
+        '#..G.....#',
+        '##......X#',
+        '##########',
+        '[AMEACAS]',
+        'G1 | loop | 3 | 3,2 7,2 7,3 3,3 | -',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    const estado = criarEstadoFase(fase);
+    // Desce para (1,2) (parede em 1,3) e dispara para direita na mesma linha da Gosma
+    solicitarDirecao(estado, 'baixo');
+    atualizarDeslize(estado, 0.1);
+    expect(estado.celulaAtual).toEqual({ col: 1, lin: 2 });
+
+    // Na linha 2, vai para direita passando exatamente sobre a Gosma
+    solicitarDirecao(estado, 'direita');
+    const eventos = atualizarDeslize(estado, 1.0);
+
+    expect(eventos.some((e) => e.tipo === 'morreu')).toBe(true);
+    expect(estado.mortes).toBe(1);
+    expect(estado.tempoCicloSegundos).toBe(0);
+    expect(estado.celulaAtual).toEqual(fase.inicio);
   });
 });
