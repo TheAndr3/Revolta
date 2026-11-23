@@ -192,6 +192,14 @@ export class FaseScene extends Phaser.Scene {
       'protagonista',
       `${import.meta.env.BASE_URL}assets/protagonista.png`,
     );
+    // Experimento com assets CC0 (ver public/assets/cc0/CREDITOS.md).
+    const tamanho = { frameWidth: CONFIG.tamanhoTilePx, frameHeight: CONFIG.tamanhoTilePx };
+    this.load.spritesheet(
+      'tiles-floresta',
+      `${import.meta.env.BASE_URL}assets/cc0/tiles-floresta.png`,
+      tamanho,
+    );
+    this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
   }
 
   create(): void {
@@ -418,7 +426,10 @@ export class FaseScene extends Phaser.Scene {
 
   private desenharGrade(): void {
     const tile = CONFIG.tamanhoTilePx;
-    const g = this.add.graphics();
+    // Marcas por cima dos tiles (início etc.).
+    const g = this.add.graphics().setDepth(1);
+    // Variação estável entre os 2 tiles de cada tipo, sem padrão visível.
+    const variacao = (col: number, lin: number) => (col * 7 + lin * 13 + ((col * lin) % 3)) % 2;
 
     for (let lin = 0; lin < this.fase.altura; lin++) {
       for (let col = 0; col < this.fase.largura; col++) {
@@ -426,21 +437,15 @@ export class FaseScene extends Phaser.Scene {
         const x = col * tile;
         const y = lin * tile;
 
+        // Chão de grama em toda célula; as paredes são arbustos por cima dele.
+        this.add.image(x, y, 'tiles-floresta', variacao(col, lin)).setOrigin(0, 0).setDepth(0);
         if (tipo === 'parede') {
-          g.fillStyle(CORES.parede, 1);
-          g.fillRect(x, y, tile, tile);
-          g.fillStyle(CORES.paredeBorda, 1);
-          g.fillRect(x, y, tile, 2);
-          g.fillStyle(CORES.paredeSombra, 1);
-          g.fillRect(x, y + tile - 2, tile, 2);
+          this.add
+            .image(x, y, 'tiles-floresta', 2 + variacao(lin, col))
+            .setOrigin(0, 0)
+            .setDepth(0.5);
           continue;
         }
-
-        // Chão base
-        g.fillStyle(CORES.chao, 1);
-        g.fillRect(x, y, tile, tile);
-        g.lineStyle(1, CORES.gradeChao, 0.35);
-        g.strokeRect(x + 0.5, y + 0.5, tile - 1, tile - 1);
 
         if (tipo === 'inicio') {
           g.fillStyle(CORES.inicio, 1);
@@ -699,13 +704,17 @@ export class FaseScene extends Phaser.Scene {
       const centroY = ameaca.posicaoInicial.lin * tile + tile / 2;
 
       if (ameaca.tipo === 'gosma') {
-        const aura = this.add.rectangle(0, 0, tile, tile, CORES.gosmaTrilho, 0.28);
-        const corpo = this.add.rectangle(0, 0, tile - 3, tile - 3, CORES.gosma, 1);
-        const brilhoA = this.add.rectangle(-2, -2, 4, 3, CORES.gosmaBrilho, 0.9);
-        const brilhoB = this.add.rectangle(2, 2, 3, 2, CORES.gosmaBrilho, 0.75);
-        const container = this.add
-          .container(centroX, centroY, [aura, corpo, brilhoA, brilhoB])
-          .setDepth(8);
+        if (!this.anims.exists('gosma-loop')) {
+          this.anims.create({
+            key: 'gosma-loop',
+            frames: this.anims.generateFrameNumbers('gosma', { start: 0, end: 3 }),
+            frameRate: 6,
+            repeat: -1,
+          });
+        }
+        const aura = this.add.rectangle(0, 0, tile, tile, CORES.gosmaTrilho, 0.18);
+        const corpo = this.add.sprite(0, 0, 'gosma').play('gosma-loop');
+        const container = this.add.container(centroX, centroY, [aura, corpo]).setDepth(8);
 
         this.tweens.add({
           targets: container,
