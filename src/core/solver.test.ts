@@ -47,6 +47,55 @@ describe('solver estático', () => {
     expect(estado.provasColetadas.sort()).toEqual([1, 2, 3]);
   });
 
+  it('a proposta da Fase 1 é válida, sem avisos, e todo Deslize às cegas termina seguro', () => {
+    const fase = parseFase(
+      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
+    );
+    const resultado = resolverFase(fase);
+    expect(resultado.erros).toEqual([]);
+    expect(resultado.avisos).toEqual([]);
+    expect(fase.altura).toBeGreaterThanOrEqual(60); // R14: 60–100 linhas
+    expect(fase.almas.length).toBeGreaterThan(0);
+  });
+
+  it('a Fase 1 é jogável de ponta a ponta com os espinhos ligados, reagindo sem demora', () => {
+    const fase = parseFase(
+      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
+    );
+    const rota = resolverFase(fase).rotaMinima ?? [];
+    const estado = criarEstadoFase(fase); // espinhos ligados, como no jogo
+    for (const direcao of rota) {
+      solicitarDirecao(estado, direcao);
+      for (let i = 0; i < 600 && (estado.deslizando || estado.provaEmExibicao); i++) {
+        if (estado.provaEmExibicao) fecharProvaEmExibicao(estado);
+        else atualizarDeslize(estado, 1 / 60);
+      }
+      atualizarDeslize(estado, 1 / 60); // um quadro de reação antes do próximo comando
+    }
+    expect(estado.mortes).toBe(0);
+    expect(estado.concluida).toBe(true);
+    expect(estado.almasColetadas.filter(Boolean).length).toBeGreaterThan(0);
+  });
+
+  it('na Fase 1, ficar parado sobre o espinho da lição mata', () => {
+    const fase = parseFase(
+      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
+    );
+    const rota = resolverFase(fase).rotaMinima ?? [];
+    const estado = criarEstadoFase(fase);
+    // Joga até a 12ª parada (o espinho do meio da Fase) e fica parado 1 s.
+    for (const direcao of rota.slice(0, 12)) {
+      solicitarDirecao(estado, direcao);
+      for (let i = 0; i < 600 && (estado.deslizando || estado.provaEmExibicao); i++) {
+        if (estado.provaEmExibicao) fecharProvaEmExibicao(estado);
+        else atualizarDeslize(estado, 1 / 60);
+      }
+    }
+    expect(fase.espinhos).toContainEqual(estado.celulaAtual);
+    for (let i = 0; i < 60; i++) atualizarDeslize(estado, 1 / 60);
+    expect(estado.mortes).toBe(1);
+  });
+
   it('acha a rota mínima em número de deslizes', () => {
     // Início em (1,1): direita coleta 1 e 2 e para em (13,1); baixo coleta 3 em (13,3)
     // e para em (13,4); esquerda atravessa a Saída em (7,4). Mínimo: 3 deslizes.

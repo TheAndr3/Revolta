@@ -1,11 +1,11 @@
 {
-  "_nota": "Ordem de jogo do protótipo. Enquanto as Fases desenhadas (#31/#32) e as Provas (#22) não chegam, as 4 entradas usam o mapa e o conteúdo da fase-00 como placeholder: troque 'mapa' e 'conteudo' quando os arquivos reais existirem.",
+  "_nota": "Ordem de jogo do protótipo. A Fase 1 usa a proposta de teste (fases/fase-01.txt); as demais seguem com o mapa da fase-00 como placeholder. Todas usam o conteúdo da fase-00 até as Provas reais (#22). Troque 'mapa' e 'conteudo' quando os arquivos reais existirem.",
   "fases": [
     {
       "id": "fase-01",
       "nome": "Fase 1",
       "subtitulo": "Paredes e espinhos",
-      "mapa": "fases/fase-00-teste.txt",
+      "mapa": "fases/fase-01.txt",
       "conteudo": "fase-00"
     },
     {
