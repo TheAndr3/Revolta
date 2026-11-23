@@ -57,6 +57,9 @@ const CORES = {
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
+  folhaClara: 0x84cc16,
+  folhaEscura: 0x4d7c0f,
+  folhaSeca: 0xa16207,
   totemInativo: 0x1e4d63,
   totemInativoMarca: 0x7dd3fc,
   totemAtivo: 0x38bdf8,
@@ -151,6 +154,16 @@ export class FaseScene extends Phaser.Scene {
   private rotacaoTween: Phaser.Tweens.Tween | null = null;
   private lookAheadAtualY = 0;
 
+  // Efeitos por código (#20). Valores em CONFIG.feel.
+  private reduzirMovimento = false;
+  private achatamentoTween: Phaser.Tweens.Tween | null = null;
+  private emissorRastro: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorFolhas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorTotem: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorSaida: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private brilhoSaida: Phaser.GameObjects.Image | null = null;
+  private brilhoSaidaPulso: Phaser.Tweens.Tween | null = null;
+
   constructor(fase: Fase, callbacks: CallbacksFaseScene) {
     super({ key: 'FaseScene' });
     this.fase = fase;
@@ -175,6 +188,7 @@ export class FaseScene extends Phaser.Scene {
     this.desenharGrade();
     this.desenharElementosPlaceholder();
     this.criarProtagonista();
+    this.criarEfeitos();
     this.reiniciar();
   }
 
@@ -404,6 +418,7 @@ export class FaseScene extends Phaser.Scene {
     this.haloSaidaTween = null;
 
     if (!this.baseSaida || !this.nucleoSaida || !this.haloSaida) return;
+    this.atualizarLuzSaida(acesa);
 
     if (!acesa) {
       this.baseSaida.setFillStyle(CORES.saidaApagadaBase, 1);
@@ -677,9 +692,10 @@ export class FaseScene extends Phaser.Scene {
           this.executarAnimacaoTranco(evento.direcao);
           break;
         case 'parou_na_parede':
-          this.restaurarFormaProtagonista();
+          this.achatarAoBater();
           break;
         case 'totem_ativado':
+          this.efeitoAtivacaoTotem(evento.celula);
           this.atualizarVisualTotemAtivo(evento.celula, true);
           break;
         case 'habitante_resgatado':
@@ -697,6 +713,7 @@ export class FaseScene extends Phaser.Scene {
           this.atualizarVisualSaida(true, true);
           break;
         case 'morreu':
+          this.efeitoMorte(evento.origem);
           this.resetarVisualProtagonista();
           this.sincronizarProtagonista();
           this.atualizarIndicadorBuffer();
@@ -761,8 +778,25 @@ export class FaseScene extends Phaser.Scene {
 
   private aplicarEstiramentoDeslize(direcao: Direcao): void {
     this.girarPesPara(direcao);
+    this.restaurarFormaProtagonista();
     const base = this.escalaBaseProtagonista;
-    this.corpoProtagonista.setScale(base * 0.9, base * 1.12);
+    const { x, y } = CONFIG.feel.estiramentoDeslize;
+    this.corpoProtagonista.setScale(base * x, base * y);
+  }
+
+  /** Achata na direção do deslize ao bater na parede e volta ao normal com um quique. */
+  private achatarAoBater(): void {
+    const base = this.escalaBaseProtagonista;
+    const { x, y, duracaoMs } = CONFIG.feel.achatamentoBatida;
+    this.restaurarFormaProtagonista();
+    this.corpoProtagonista.setScale(base * x, base * y);
+    this.achatamentoTween = this.tweens.add({
+      targets: this.corpoProtagonista,
+      scaleX: base,
+      scaleY: base,
+      duration: duracaoMs,
+      ease: 'Back.easeOut',
+    });
   }
 
   private girarPesPara(direcao: Direcao): void {
@@ -781,6 +815,8 @@ export class FaseScene extends Phaser.Scene {
   }
 
   private restaurarFormaProtagonista(): void {
+    this.achatamentoTween?.stop();
+    this.achatamentoTween = null;
     this.corpoProtagonista.setScale(this.escalaBaseProtagonista);
   }
 
@@ -809,6 +845,13 @@ export class FaseScene extends Phaser.Scene {
     const px = this.estado.posicao.x * tile + tile / 2 + this.trancoOffset.x;
     const py = this.estado.posicao.y * tile + tile / 2 + this.trancoOffset.y;
     this.protagonista.setPosition(Math.round(px), Math.round(py));
+
+    // Rastro só enquanto desliza.
+    const rastro = this.emissorRastro;
+    if (rastro && rastro.emitting !== this.estado.deslizando) {
+      if (this.estado.deslizando) rastro.start();
+      else rastro.stop();
+    }
   }
 
   private sincronizarAmeacas(deltaSegundos: number): void {
@@ -876,7 +919,8 @@ export class FaseScene extends Phaser.Scene {
     if (dir === 'cima') lookAheadAlvo = -CONFIG.lookAheadVerticalTiles * tile;
     if (dir === 'baixo') lookAheadAlvo = CONFIG.lookAheadVerticalTiles * tile;
 
-    const fator = Math.min(1, deltaSegundos * 9);
+    const { suavidadeLookAhead, suavidadeRolagem } = CONFIG.feel.camera;
+    const fator = Math.min(1, deltaSegundos * suavidadeLookAhead);
     this.lookAheadAtualY = Phaser.Math.Linear(this.lookAheadAtualY, lookAheadAlvo, fator);
 
     const centroY = this.estado.posicao.y * tile + tile / 2 + this.lookAheadAtualY;
@@ -885,7 +929,180 @@ export class FaseScene extends Phaser.Scene {
 
     cam.scrollX = 0;
     cam.scrollY = Math.round(
-      Phaser.Math.Linear(cam.scrollY, scrollAlvo, Math.min(1, deltaSegundos * 12)),
+      Phaser.Math.Linear(cam.scrollY, scrollAlvo, Math.min(1, deltaSegundos * suavidadeRolagem)),
     );
+  }
+
+  // ------------------------------------------------------------------
+  // Efeitos por código (#20): texturas geradas, partículas e luz da Saída.
+
+  private criarEfeitos(): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const feel = CONFIG.feel;
+    this.reduzirMovimento =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+    this.gerarTexturasEfeitos();
+
+    this.emissorRastro = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: feel.rastro.vidaMs,
+        frequency: feel.rastro.intervaloMs,
+        quantity: 1,
+        speed: 0,
+        scale: { start: 2.5, end: 0.5 },
+        alpha: { start: feel.rastro.alfaInicial, end: 0 },
+        tint: feel.rastro.cor,
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(9);
+    this.emissorRastro.startFollow(this.protagonista);
+
+    this.emissorFolhas = this.add
+      .particles(0, 0, 'fx-folha', {
+        lifespan: feel.morte.vidaFolhasMs,
+        speed: { min: 30, max: 120 },
+        angle: { min: 0, max: 360 },
+        gravityY: 150,
+        rotate: { min: 0, max: 360 },
+        scale: { start: 1.5, end: 0.8 },
+        alpha: { start: 1, end: 0 },
+        tint: [CORES.folhaClara, CORES.folhaEscura, CORES.folhaSeca],
+        emitting: false,
+      })
+      .setDepth(11);
+
+    this.emissorTotem = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: feel.totem.vidaParticulasMs,
+        speed: { min: 25, max: 80 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.8, end: 0 },
+        alpha: { start: 1, end: 0 },
+        tint: CORES.totemHalo,
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(9);
+
+    const saidaX = this.fase.saida.col * tile + tile / 2;
+    const saidaY = this.fase.saida.lin * tile + tile / 2;
+    const diametroBrilho = feel.saida.raioBrilhoTiles * 2 * tile;
+    this.brilhoSaida = this.add
+      .image(saidaX, saidaY, 'fx-brilho')
+      .setDisplaySize(diametroBrilho, diametroBrilho)
+      .setTint(CORES.saidaHalo)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(2)
+      .setVisible(false);
+
+    const velocidadeSubida = 30; // px/s em média
+    this.emissorSaida = this.add
+      .particles(saidaX, saidaY, 'fx-ponto', {
+        lifespan: ((feel.saida.alturaParticulasTiles * tile) / velocidadeSubida) * 1000,
+        frequency: 1000 / feel.saida.particulasPorSegundo,
+        speedY: { min: -velocidadeSubida * 1.3, max: -velocidadeSubida * 0.7 },
+        speedX: { min: -6, max: 6 },
+        // Nascem espalhadas sobre o tile da Saída.
+        emitZone: new Phaser.GameObjects.Particles.Zones.RandomZone({
+          getRandomPoint: (ponto) => {
+            ponto.x = (Math.random() - 0.5) * tile;
+            ponto.y = (Math.random() - 0.5) * tile;
+          },
+        }),
+        scale: { start: 1.6, end: 0.4 },
+        alpha: { start: 0.95, end: 0 },
+        tint: CORES.saidaBrilho,
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(9);
+  }
+
+  private gerarTexturasEfeitos(): void {
+    if (!this.textures.exists('fx-ponto')) {
+      const g = this.make.graphics({}, false);
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 2, 2);
+      g.generateTexture('fx-ponto', 2, 2);
+      g.clear();
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 3, 2);
+      g.fillRect(1, 2, 1, 1);
+      g.generateTexture('fx-folha', 3, 3);
+      g.destroy();
+    }
+
+    if (!this.textures.exists('fx-brilho')) {
+      const tamanho = 64;
+      const textura = this.textures.createCanvas('fx-brilho', tamanho, tamanho);
+      if (textura) {
+        const ctx = textura.getContext();
+        const meio = tamanho / 2;
+        const gradiente = ctx.createRadialGradient(meio, meio, 0, meio, meio, meio);
+        gradiente.addColorStop(0, 'rgba(255,255,255,1)');
+        gradiente.addColorStop(0.35, 'rgba(255,255,255,0.5)');
+        gradiente.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradiente;
+        ctx.fillRect(0, 0, tamanho, tamanho);
+        textura.refresh();
+        // Luz suave mesmo com pixelArt ligado no jogo.
+        textura.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
+  }
+
+  /** Saída acesa: brilho grande pulsando e partículas subindo; apagada: nada. */
+  private atualizarLuzSaida(acesa: boolean): void {
+    this.brilhoSaidaPulso?.stop();
+    this.brilhoSaidaPulso = null;
+    if (!this.brilhoSaida || !this.emissorSaida) return;
+
+    this.brilhoSaida.setVisible(acesa);
+    if (!acesa) {
+      this.emissorSaida.stop();
+      return;
+    }
+
+    const { alfaBrilho, pulsoMs } = CONFIG.feel.saida;
+    this.brilhoSaida.setAlpha(alfaBrilho.min);
+    this.brilhoSaidaPulso = this.tweens.add({
+      targets: this.brilhoSaida,
+      alpha: { from: alfaBrilho.min, to: alfaBrilho.max },
+      duration: pulsoMs,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.emissorSaida.start();
+  }
+
+  /** Morte: o Protagonista "se desfaz em folhas" e a tela treme. */
+  private efeitoMorte(origem: Coordenada): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const { folhas, tremorMs, tremorIntensidade } = CONFIG.feel.morte;
+    this.emissorRastro?.stop();
+    this.emissorFolhas?.explode(
+      folhas,
+      origem.col * tile + tile / 2,
+      origem.lin * tile + tile / 2,
+    );
+    if (!this.reduzirMovimento) {
+      this.cameras.main.shake(tremorMs, tremorIntensidade);
+    }
+  }
+
+  /** Totem ativado: clarão e partículas em volta. */
+  private efeitoAtivacaoTotem(celula: Coordenada): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const { particulas, claraoMs } = CONFIG.feel.totem;
+    this.emissorTotem?.explode(
+      particulas,
+      celula.col * tile + tile / 2,
+      celula.lin * tile + tile / 2,
+    );
+    this.cameras.main.flash(claraoMs, 125, 211, 252, true);
   }
 }
