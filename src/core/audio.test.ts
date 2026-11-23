@@ -14,6 +14,7 @@ describe('áudio: eventos → sons', () => {
     expect(sonsDoEvento('espinho_acionado')).toEqual(['espinho']);
     expect(sonsDoEvento('habitante_resgatado')).toEqual(['resgate']);
     expect(sonsDoEvento('fase_concluida')).toEqual(['conclusao']);
+    expect(sonsDoEvento('alma_coletada')).toEqual(['alma']);
   });
 
   it('ignora eventos sem som', () => {
@@ -26,7 +27,7 @@ describe('áudio: eventos → sons', () => {
     const eventos = [
       'iniciou_deslize', 'parou_na_parede', 'tranco', 'prova_coletada', 'totem_ativado',
       'saida_acesa', 'morreu', 'retornou_ao_totem', 'espinho_acionado',
-      'habitante_resgatado', 'fase_concluida',
+      'habitante_resgatado', 'fase_concluida', 'alma_coletada',
     ];
     const usados = new Set([...eventos.flatMap(sonsDoEvento), 'interface']);
     expect([...usados].sort()).toEqual([...IDS_SOM].sort());

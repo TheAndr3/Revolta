@@ -61,6 +61,13 @@ export type EventoDeslize =
   | { readonly tipo: 'retornou_ao_totem'; readonly destinoRetorno: Coordenada }
   | { readonly tipo: 'ciclos_reiniciados' }
   | { readonly tipo: 'espinho_acionado'; readonly celula: Coordenada }
+  | {
+      readonly tipo: 'alma_coletada';
+      readonly indice: number;
+      readonly celula: Coordenada;
+      readonly coletadas: number;
+      readonly total: number;
+    }
   | { readonly tipo: 'fase_concluida'; readonly celula: Coordenada };
 
 export interface EstadoFase {
@@ -87,6 +94,8 @@ export interface EstadoFase {
   totemAtivo: Coordenada | null;
   habitanteResgatado: boolean;
   provasColetadas: NumeroProva[];
+  /** Uma posição por Alma da Fase (mesma ordem de `fase.almas`); não voltam ao morrer. */
+  almasColetadas: boolean[];
   provasPendentesOverlay: ProvaNaFase[];
   provaEmExibicao: ProvaNaFase | null;
   pausado: boolean;
@@ -114,6 +123,10 @@ export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: 
 
 function mesmaCoordenada(a: Coordenada | null, b: Coordenada | null): boolean {
   return a !== null && b !== null && a.col === b.col && a.lin === b.lin;
+}
+
+export function contarAlmasColetadas(estado: EstadoFase): number {
+  return estado.almasColetadas.filter(Boolean).length;
 }
 
 export function pontoDeRetorno(estado: EstadoFase): Coordenada {
@@ -182,6 +195,7 @@ export function criarEstadoFase(
     totemAtivo: null,
     habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
     provasColetadas,
+    almasColetadas: fase.almas.map(() => false),
     provasPendentesOverlay: [],
     provaEmExibicao: null,
     pausado: false,
@@ -406,6 +420,12 @@ type EncontroNoPasso =
       readonly prioridade: number;
       readonly tipo: 'espinho';
       readonly espinho: EstadoEspinho;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'alma';
+      readonly indice: number;
     };
 
 function coletarEncontrosNoPasso(
@@ -486,6 +506,14 @@ function coletarEncontrosNoPasso(
     }
   }
 
+  estado.fase.almas.forEach((alma, indice) => {
+    if (estado.almasColetadas[indice]) return;
+    const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, alma, alcancePasso);
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 6, tipo: 'alma', indice });
+    }
+  });
+
   return encontros.sort((a, b) => a.dist - b.dist || a.prioridade - b.prioridade);
 }
 
@@ -522,6 +550,20 @@ function avancarDeslize(
             });
           }
           break;
+
+        case 'alma': {
+          if (estado.almasColetadas[encontro.indice]) break;
+          estado.almasColetadas[encontro.indice] = true;
+          const celula = estado.fase.almas[encontro.indice];
+          eventos.push({
+            tipo: 'alma_coletada',
+            indice: encontro.indice,
+            celula: { col: celula.col, lin: celula.lin },
+            coletadas: contarAlmasColetadas(estado),
+            total: estado.fase.almas.length,
+          });
+          break;
+        }
 
         case 'prova': {
           const { prova } = encontro;

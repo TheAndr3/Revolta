@@ -5,7 +5,10 @@ import { TOTAL_PROVAS_FASE } from './core/fase';
 import type { ConteudoHabitante } from './core/habitantes';
 import { parseFase } from './core/parser';
 import {
+  calcularMarcas,
+  contarMarcas,
   faseDesbloqueada,
+  TOTAL_MARCAS,
   formatarTempo,
   lerCatalogoFases,
   proximaFase,
@@ -145,6 +148,7 @@ function iniciar(): void {
   const palco = elemento('palco');
   const hudNomeFase = elemento('hud-nome-fase');
   const hudProvas = elemento('contador-provas');
+  const hudAlmas = elemento('contador-almas');
   const hudHabitante = elemento('status-habitante');
   const hudDeslizes = elemento('contador-deslizes');
   const hudMortes = elemento('contador-mortes');
@@ -228,7 +232,18 @@ function iniciar(): void {
         detalhe.textContent = TEXTOS.selecao.bloqueadaDica;
       }
 
-      botao.append(nome, subtitulo, status, detalhe);
+      const marcas = document.createElement('span');
+      marcas.className = 'cartao-fase-marcas';
+      if (liberada) {
+        const daFase = marcasDaFase(entrada.id);
+        marcas.textContent = simbolosMarcas(daFase);
+        marcas.setAttribute(
+          'aria-label',
+          formatarTexto(TEXTOS.selecao.marcas, { n: contarMarcas(daFase), total: TOTAL_MARCAS }),
+        );
+      }
+
+      botao.append(nome, subtitulo, status, detalhe, marcas);
       li.append(botao);
       return li;
     });
@@ -400,10 +415,28 @@ function iniciar(): void {
     hudHabitante.title = descricao;
   };
 
+  /** Marcas da Fase pelo progresso salvo (concluir · todas as Almas · Habitante). */
+  const marcasDaFase = (faseId: string) => {
+    const recorde = progresso.recordeAlmas(faseId);
+    return calcularMarcas({
+      concluida: progresso.faseConcluida(faseId),
+      melhorAlmas: recorde?.melhor ?? 0,
+      // Sem recorde (Fase nunca concluída), a Marca das Almas ainda não foi ganha.
+      totalAlmas: recorde?.total ?? Number.POSITIVE_INFINITY,
+      habitanteResgatado: progresso.habitanteResgatado(faseId),
+    });
+  };
+
+  /** ✦ para Marca ganha, ✧ para Marca que falta, na ordem do glossário. */
+  const simbolosMarcas = (marcas: ReturnType<typeof calcularMarcas>) =>
+    [marcas.concluida, marcas.todasAsAlmas, marcas.habitante].map((m) => (m ? '✦' : '✧')).join('');
+
   const mostrarFimDeFase = (indice: number, resumo: ResumoConclusaoFase) => {
     const entrada = catalogo[indice];
     progresso.registrarConclusao(entrada.id);
+    progresso.registrarAlmas(entrada.id, resumo.almasColetadas, resumo.almasTotal);
     descartarFalaPendente();
+    const marcas = marcasDaFase(entrada.id);
 
     tituloConclusao.textContent = formatarTexto(TEXTOS.fimFase.titulo, { fase: entrada.nome });
     const linhas = [
@@ -411,13 +444,31 @@ function iniciar(): void {
         coletadas: TOTAL_PROVAS_FASE,
         total: TOTAL_PROVAS_FASE,
       }),
+      ...(resumo.almasTotal > 0
+        ? [
+            formatarTexto(TEXTOS.fimFase.almas, {
+              coletadas: resumo.almasColetadas,
+              total: resumo.almasTotal,
+            }),
+          ]
+        : []),
       ...(resumo.temHabitante
         ? [resumo.habitanteResgatado ? TEXTOS.fimFase.habitanteSim : TEXTOS.fimFase.habitanteNao]
         : []),
       formatarContagemMortes(resumo.mortes),
       formatarTexto(TEXTOS.fimFase.tempo, { tempo: formatarTempo(resumo.tempoSegundos) }),
     ];
+    const linhaMarcas = document.createElement('li');
+    linhaMarcas.className = 'resumo-marcas';
+    linhaMarcas.textContent = formatarTexto(TEXTOS.fimFase.marcas, {
+      simbolos: simbolosMarcas(marcas),
+    });
+    linhaMarcas.setAttribute(
+      'aria-label',
+      formatarTexto(TEXTOS.fimFase.marcasAria, { n: contarMarcas(marcas), total: TOTAL_MARCAS }),
+    );
     resumoConclusao.replaceChildren(
+      linhaMarcas,
       ...linhas.map((linha) => {
         const li = document.createElement('li');
         li.textContent = linha;
@@ -482,6 +533,11 @@ function iniciar(): void {
           hudProvas.dataset.completo = String(coletadas >= total);
         },
         aoAtualizarHabitante: atualizarHudHabitante,
+        aoAtualizarAlmas: (coletadas, total) => {
+          hudAlmas.hidden = total === 0;
+          hudAlmas.textContent = formatarTexto(TEXTOS.hud.almas, { coletadas, total });
+          hudAlmas.dataset.completo = String(total > 0 && coletadas >= total);
+        },
         aoColetarProva: (prova) => {
           progresso.registrarProva(entrada.id, prova.numero);
         },

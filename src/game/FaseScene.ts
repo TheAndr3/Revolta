@@ -3,6 +3,7 @@ import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
 import {
   atualizarDeslize,
+  contarAlmasColetadas,
   criarEstadoFase,
   distanciaAteAmeacaMaisProxima,
   fecharProvaEmExibicao,
@@ -33,6 +34,8 @@ export interface ResumoConclusaoFase {
   readonly tempoSegundos: number;
   readonly habitanteResgatado: boolean;
   readonly temHabitante: boolean;
+  readonly almasColetadas: number;
+  readonly almasTotal: number;
 }
 
 export interface CallbacksFaseScene {
@@ -41,6 +44,7 @@ export interface CallbacksFaseScene {
   aoAtualizarMortes: (mortes: number) => void;
   aoAtualizarProvas: (coletadas: number, total: number) => void;
   aoAtualizarHabitante: (resgatado: boolean, temHabitante: boolean) => void;
+  aoAtualizarAlmas: (coletadas: number, total: number) => void;
   aoColetarProva: (prova: ProvaNaFase) => void;
   aoAbrirProva: (prova: ProvaNaFase) => void;
   aoResgatarHabitante: () => void;
@@ -61,6 +65,9 @@ const CORES = {
   saidaBase: 0x2ec474,
   saidaBrilho: 0x9ef7c2,
   saidaHalo: 0x52e596,
+  almaNucleo: 0xeef4f0,
+  almaBrilho: 0x52e596,
+  almaContorno: 0x163325,
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
@@ -170,6 +177,14 @@ export class FaseScene extends Phaser.Scene {
   private trancoTween: Phaser.Tweens.Tween | null = null;
   private rotacaoTween: Phaser.Tweens.Tween | null = null;
   private lookAheadAtualY = 0;
+  private lookAheadAtualX = 0;
+
+  // Almas (colecionável opcional). O sprite `alma` vem da arte, se carregado no preload;
+  // senão, um espírito de 4 quadros é desenhado por código.
+  private readonly spritesAlma: Phaser.GameObjects.Sprite[] = [];
+  /** Halo suave atrás de cada Alma (o brilho de um espírito), na mesma ordem. */
+  private readonly halosAlma: Phaser.GameObjects.Image[] = [];
+  private emissorAlmas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   // Efeitos por código (#20). Valores em CONFIG.feel.
   private reduzirMovimento = false;
@@ -206,6 +221,7 @@ export class FaseScene extends Phaser.Scene {
     this.desenharElementosPlaceholder();
     this.criarProtagonista();
     this.criarEfeitos();
+    this.criarAlmas();
     this.reiniciar();
   }
 
@@ -275,6 +291,12 @@ export class FaseScene extends Phaser.Scene {
       marcador.setVisible(true);
     }
     this.marcadorHabitante?.setVisible(true);
+    for (const alma of this.spritesAlma) {
+      alma.setVisible(true);
+    }
+    for (const halo of this.halosAlma) {
+      halo.setVisible(true);
+    }
     this.atualizarVisualTotemAtivo(null, false);
     this.atualizarVisualSaida(this.estado.saidaAcesa, false);
     this.reiniciarCiclosAmeacasEArmadilhas();
@@ -289,6 +311,7 @@ export class FaseScene extends Phaser.Scene {
       this.estado.habitanteResgatado,
       this.fase.habitante !== null,
     );
+    this.callbacks.aoAtualizarAlmas(0, this.fase.almas.length);
   }
 
   /**
@@ -331,7 +354,7 @@ export class FaseScene extends Phaser.Scene {
     this.atualizarIndicadorBuffer();
 
     if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
-      this.atualizarCameraVertical(deltaSegundos);
+      this.atualizarCamera(deltaSegundos);
     }
   }
 
@@ -340,6 +363,7 @@ export class FaseScene extends Phaser.Scene {
     this.trancoOffset.x = 0;
     this.trancoOffset.y = 0;
     this.lookAheadAtualY = 0;
+    this.lookAheadAtualX = 0;
     this.rotacaoTween?.stop();
     this.corpoProtagonista.setAngle(0);
     this.restaurarFormaProtagonista();
@@ -855,6 +879,10 @@ export class FaseScene extends Phaser.Scene {
           this.tweens.pauseAll();
           this.callbacks.aoAbrirProva(evento.prova);
           break;
+        case 'alma_coletada':
+          this.coletarAlmaVisual(evento.indice);
+          this.callbacks.aoAtualizarAlmas(evento.coletadas, evento.total);
+          break;
         case 'fase_concluida':
           this.restaurarFormaProtagonista();
           this.callbacks.aoConcluir({
@@ -863,6 +891,8 @@ export class FaseScene extends Phaser.Scene {
             tempoSegundos: this.estado.tempoJogadoSegundos,
             habitanteResgatado: this.estado.habitanteResgatado,
             temHabitante: this.fase.habitante !== null,
+            almasColetadas: contarAlmasColetadas(this.estado),
+            almasTotal: this.fase.almas.length,
           });
           break;
       }
@@ -1022,40 +1052,54 @@ export class FaseScene extends Phaser.Scene {
     this.marcadorBuffer.setVisible(true);
   }
 
+  /** Limites de rolagem: a câmera nunca mostra fora da Fase. */
+  private limitesCamera(): { maxX: number; maxY: number } {
+    const cam = this.cameras.main;
+    const tile = CONFIG.tamanhoTilePx;
+    return {
+      maxX: Math.max(0, this.fase.largura * tile - cam.width),
+      maxY: Math.max(0, this.fase.altura * tile - cam.height),
+    };
+  }
+
   private centralizarCameraImediatamente(): void {
     const cam = this.cameras.main;
     const tile = CONFIG.tamanhoTilePx;
+    const { maxX, maxY } = this.limitesCamera();
+    const centroX = this.estado.posicao.x * tile + tile / 2;
     const centroY = this.estado.posicao.y * tile + tile / 2;
-    const scrollYAlvo = centroY - cam.height / 2;
-    cam.scrollX = 0;
-    cam.scrollY = Phaser.Math.Clamp(
-      scrollYAlvo,
-      0,
-      Math.max(0, this.fase.altura * tile - cam.height),
-    );
+    cam.scrollX = Phaser.Math.Clamp(Math.round(centroX - cam.width / 2), 0, maxX);
+    cam.scrollY = Phaser.Math.Clamp(Math.round(centroY - cam.height / 2), 0, maxY);
   }
 
-  private atualizarCameraVertical(deltaSegundos: number): void {
+  /**
+   * Câmera próxima (ADR 0006): segue o Protagonista nos dois eixos, antecipando
+   * a direção do deslize para mostrar mais do caminho à frente.
+   */
+  private atualizarCamera(deltaSegundos: number): void {
     const cam = this.cameras.main;
     const tile = CONFIG.tamanhoTilePx;
     const dir = this.estado.direcaoAtual;
 
-    let lookAheadAlvo = 0;
-    if (dir === 'cima') lookAheadAlvo = -CONFIG.lookAheadVerticalTiles * tile;
-    if (dir === 'baixo') lookAheadAlvo = CONFIG.lookAheadVerticalTiles * tile;
+    const alcanceY = CONFIG.lookAheadVerticalTiles * tile;
+    const alcanceX = CONFIG.camera.lookAheadHorizontalTiles * tile;
+    const alvoY = dir === 'cima' ? -alcanceY : dir === 'baixo' ? alcanceY : 0;
+    const alvoX = dir === 'esquerda' ? -alcanceX : dir === 'direita' ? alcanceX : 0;
 
     const { suavidadeLookAhead, suavidadeRolagem } = CONFIG.feel.camera;
     const fator = Math.min(1, deltaSegundos * suavidadeLookAhead);
-    this.lookAheadAtualY = Phaser.Math.Linear(this.lookAheadAtualY, lookAheadAlvo, fator);
+    this.lookAheadAtualY = Phaser.Math.Linear(this.lookAheadAtualY, alvoY, fator);
+    this.lookAheadAtualX = Phaser.Math.Linear(this.lookAheadAtualX, alvoX, fator);
 
+    const { maxX, maxY } = this.limitesCamera();
+    const centroX = this.estado.posicao.x * tile + tile / 2 + this.lookAheadAtualX;
     const centroY = this.estado.posicao.y * tile + tile / 2 + this.lookAheadAtualY;
-    const maxScrollY = Math.max(0, this.fase.altura * tile - cam.height);
-    const scrollAlvo = Phaser.Math.Clamp(centroY - cam.height / 2, 0, maxScrollY);
+    const alvoScrollX = Phaser.Math.Clamp(centroX - cam.width / 2, 0, maxX);
+    const alvoScrollY = Phaser.Math.Clamp(centroY - cam.height / 2, 0, maxY);
+    const suavidade = Math.min(1, deltaSegundos * suavidadeRolagem);
 
-    cam.scrollX = 0;
-    cam.scrollY = Math.round(
-      Phaser.Math.Linear(cam.scrollY, scrollAlvo, Math.min(1, deltaSegundos * suavidadeRolagem)),
-    );
+    cam.scrollX = Math.round(Phaser.Math.Linear(cam.scrollX, alvoScrollX, suavidade));
+    cam.scrollY = Math.round(Phaser.Math.Linear(cam.scrollY, alvoScrollY, suavidade));
   }
 
   // ------------------------------------------------------------------
@@ -1229,5 +1273,116 @@ export class FaseScene extends Phaser.Scene {
       celula.lin * tile + tile / 2,
     );
     this.cameras.main.flash(claraoMs, 125, 211, 252, true);
+  }
+
+  // ------------------------------------------------------------------
+  // Almas da floresta: colecionável opcional que conta na nota da Fase.
+
+  /** Gera o sprite provisório da Alma (4 quadros de 16×16) quando a arte não foi carregada. */
+  private gerarTexturaAlma(): void {
+    if (this.textures.exists('alma')) return;
+    const tile = CONFIG.tamanhoTilePx;
+    const g = this.make.graphics({}, false);
+    // Raio do brilho e posição da "chama" de cada quadro: a Alma pulsa e tremula.
+    const quadros = [
+      { brilho: 5, chama: -1 },
+      { brilho: 6, chama: 0 },
+      { brilho: 5, chama: 1 },
+      { brilho: 4, chama: 0 },
+    ];
+    quadros.forEach(({ brilho, chama }, i) => {
+      const cx = i * tile + tile / 2;
+      const cy = tile / 2 + 1;
+      g.fillStyle(CORES.almaBrilho, 0.35);
+      g.fillCircle(cx, cy, brilho);
+      g.fillStyle(CORES.almaContorno, 1);
+      g.fillCircle(cx, cy, 3);
+      g.fillStyle(CORES.almaBrilho, 1);
+      g.fillCircle(cx, cy, 2.5);
+      g.fillRect(cx - 1 + chama, cy - 5, 2, 3);
+      g.fillStyle(CORES.almaNucleo, 1);
+      g.fillRect(cx - 1, cy - 1, 2, 2);
+      g.fillRect(cx + chama, cy - 6, 1, 1);
+    });
+    g.generateTexture('alma', quadros.length * tile, tile);
+    g.destroy();
+    const textura = this.textures.get('alma');
+    quadros.forEach((_, i) => textura.add(i, 0, i * tile, 0, tile, tile));
+  }
+
+  private criarAlmas(): void {
+    const tile = CONFIG.tamanhoTilePx;
+    this.gerarTexturaAlma();
+    if (!this.anims.exists('alma-flutuar')) {
+      const quadros = this.textures.get('alma').getFrameNames(false);
+      this.anims.create({
+        key: 'alma-flutuar',
+        frames: quadros.map((frame) => ({ key: 'alma', frame })),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
+
+    this.spritesAlma.length = 0;
+    this.halosAlma.length = 0;
+    this.fase.almas.forEach((alma, i) => {
+      if (this.textures.exists('fx-brilho')) {
+        const halo = this.add
+          .image(alma.col * tile + tile / 2, alma.lin * tile + tile / 2, 'fx-brilho')
+          .setDisplaySize(tile * 1.5, tile * 1.5)
+          .setTint(CORES.almaBrilho)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setAlpha(0.3)
+          .setDepth(5);
+        this.tweens.add({
+          targets: halo,
+          alpha: { from: 0.2, to: 0.45 },
+          duration: 900,
+          delay: (i * 131) % 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.halosAlma.push(halo);
+      }
+      const sprite = this.add
+        .sprite(alma.col * tile + tile / 2, alma.lin * tile + tile / 2, 'alma')
+        .setDepth(6)
+        .play({ key: 'alma-flutuar', startFrame: i % 4 });
+      // Flutua de leve, fora de fase com as vizinhas.
+      this.tweens.add({
+        targets: sprite,
+        y: sprite.y - 2,
+        duration: 650,
+        delay: (i * 97) % 650,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.spritesAlma.push(sprite);
+    });
+
+    this.emissorAlmas = this.add
+      .particles(0, 0, this.textures.exists('fx-ponto') ? 'fx-ponto' : 'alma', {
+        lifespan: 380,
+        speed: { min: 15, max: 45 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.4, end: 0 },
+        alpha: { start: 1, end: 0 },
+        tint: CORES.almaBrilho,
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(9);
+  }
+
+  private coletarAlmaVisual(indice: number): void {
+    const sprite = this.spritesAlma[indice];
+    if (!sprite) return;
+    sprite.setVisible(false);
+    this.halosAlma[indice]?.setVisible(false);
+    const tile = CONFIG.tamanhoTilePx;
+    const alma = this.fase.almas[indice];
+    this.emissorAlmas?.explode(8, alma.col * tile + tile / 2, alma.lin * tile + tile / 2);
   }
 }
