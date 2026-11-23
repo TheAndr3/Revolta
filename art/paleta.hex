@@ -1,0 +1,35 @@
+; Paleta do Re(volta): fonte única de verdade (32 cores).
+; Formato: um hex por linha, opcionalmente seguido de " ; nome · grupo · uso".
+; Depois de editar, rode `npm run gerar-paleta` para atualizar paleta.png e paleta.gpl.
+0d1512 ; noite · neutros · fundo, contorno mais escuro
+1a2620 ; sombra da mata · neutros · chão na sombra
+3b4d45 ; pedra · neutros · paredes, rochas
+8a9a90 ; névoa · neutros · fumaça clara, interface apagada
+eef4f0 ; luz · neutros · brilhos, olhos, texto
+163325 ; verde profundo · floresta viva · copa na sombra
+234836 ; verde copa · floresta viva · massa das árvores
+3f7a4f ; verde folha · floresta viva · folhagem média
+6fae5a ; broto · floresta viva · folhas iluminadas
+b5d96a ; verde claro · floresta viva · reflexos de luz na folha
+2f6f73 ; água limpa · floresta viva · igarapé preservado
+7cc6b8 ; reflexo · floresta viva · espelho d'água, brilho úmido
+3a2a20 ; terra escura · terra e madeira · solo, troncos na sombra
+6b4a32 ; madeira · terra e madeira · troncos, casas, cabos de ferramenta
+a0703f ; barro · terra e madeira · caminhos, cerâmica, cestaria
+d9a066 ; areia · terra e madeira · praias de rio, luz quente
+4a4a2a ; lodo · floresta contaminada · água parada, chão doente
+6f7a2a ; verde doente · floresta contaminada · folhas morrendo
+a3b83a ; gosma · floresta contaminada · Gosma Tóxica, corpo
+d9f05a ; gosma acesa · floresta contaminada · brilho da Gosma e do trilho
+5a3f4f ; óleo · floresta contaminada · manchas, lama escura
+8a6a7a ; fumaça · floresta contaminada · queimadas, poluição
+c23b22 ; vermelho máquina · empresa · Drone, motosserra, perigo
+f2913d ; laranja alerta · empresa · espinhos (aviso), placas, coletes
+f4d35e ; amarelo sinal · empresa · fitas, avisos; Provas no mapa
+3a4a6a ; azul uniforme · empresa · uniforme do Guarda
+6a7fae ; metal · empresa · máquinas, cercas, capacetes
+5c3a28 ; pele escura · pessoas · tom de pele
+8d5a3b ; pele média · pessoas · tom de pele
+c08a5e ; pele clara · pessoas · tom de pele
+52e596 ; espírito · luzes · Saída acesa, magia da mata
+7dd3fc ; Totem · luzes · Totem ativo, água com luz
