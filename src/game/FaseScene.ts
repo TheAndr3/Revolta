@@ -182,6 +182,8 @@ export class FaseScene extends Phaser.Scene {
   // Almas (colecionável opcional). O sprite `alma` vem da arte, se carregado no preload;
   // senão, um espírito de 4 quadros é desenhado por código.
   private readonly spritesAlma: Phaser.GameObjects.Sprite[] = [];
+  /** Halo suave atrás de cada Alma (o brilho de um espírito), na mesma ordem. */
+  private readonly halosAlma: Phaser.GameObjects.Image[] = [];
   private emissorAlmas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   // Efeitos por código (#20). Valores em CONFIG.feel.
@@ -301,6 +303,9 @@ export class FaseScene extends Phaser.Scene {
     this.marcadorHabitante?.setVisible(true);
     for (const alma of this.spritesAlma) {
       alma.setVisible(true);
+    }
+    for (const halo of this.halosAlma) {
+      halo.setVisible(true);
     }
     this.atualizarVisualTotemAtivo(null, false);
     this.atualizarVisualSaida(this.estado.saidaAcesa, false);
@@ -1330,7 +1335,27 @@ export class FaseScene extends Phaser.Scene {
     }
 
     this.spritesAlma.length = 0;
+    this.halosAlma.length = 0;
     this.fase.almas.forEach((alma, i) => {
+      if (this.textures.exists('fx-brilho')) {
+        const halo = this.add
+          .image(alma.col * tile + tile / 2, alma.lin * tile + tile / 2, 'fx-brilho')
+          .setDisplaySize(tile * 1.5, tile * 1.5)
+          .setTint(CORES.almaBrilho)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setAlpha(0.3)
+          .setDepth(5);
+        this.tweens.add({
+          targets: halo,
+          alpha: { from: 0.2, to: 0.45 },
+          duration: 900,
+          delay: (i * 131) % 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.halosAlma.push(halo);
+      }
       const sprite = this.add
         .sprite(alma.col * tile + tile / 2, alma.lin * tile + tile / 2, 'alma')
         .setDepth(6)
@@ -1366,6 +1391,7 @@ export class FaseScene extends Phaser.Scene {
     const sprite = this.spritesAlma[indice];
     if (!sprite) return;
     sprite.setVisible(false);
+    this.halosAlma[indice]?.setVisible(false);
     const tile = CONFIG.tamanhoTilePx;
     const alma = this.fase.almas[indice];
     this.emissorAlmas?.explode(8, alma.col * tile + tile / 2, alma.lin * tile + tile / 2);
