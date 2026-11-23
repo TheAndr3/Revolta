@@ -898,3 +898,82 @@ dialog::backdrop {
 .resumo-marcas {
   font-size: 1.3rem;
 }
+
+/* ------------------------------------------------- Aviso de Prova coletada */
+
+.aviso-prova {
+  display: none;
+  position: fixed;
+  inset: max(3.6rem, calc(3.2rem + env(safe-area-inset-top, 0px))) 0.75rem auto 0.75rem;
+  margin: 0 auto;
+  inline-size: min(24rem, calc(100vw - 1.5rem));
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgb(251 191 36 / 0.6);
+  border-radius: 12px;
+  background-color: rgb(20 18 12 / 0.92);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.4),
+    0 0 22px rgb(251 191 36 / 0.25),
+    0 10px 24px rgb(0 0 0 / 0.45);
+  color: var(--cor-texto);
+  text-align: start;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition: opacity 200ms ease, transform 200ms ease;
+  transition-behavior: allow-discrete;
+}
+
+.aviso-prova:is(:popover-open, .visivel) {
+  display: grid;
+  gap: 0.15rem;
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .aviso-prova:is(:popover-open, .visivel) {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+}
+
+.aviso-prova:hover {
+  border-color: var(--cor-prova);
+}
+
+.aviso-prova:focus-visible {
+  outline: 2px solid var(--cor-prova);
+  outline-offset: 2px;
+}
+
+.aviso-prova-tipo {
+  color: var(--cor-prova);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.aviso-prova-titulo {
+  font-size: 0.95rem;
+}
+
+.aviso-prova-resumo {
+  color: #dce8e1;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.aviso-prova-dica {
+  margin-block-start: 0.2rem;
+  color: var(--cor-texto-suave);
+  font-size: 0.72rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-prova {
+    transition: none;
+    transform: none;
+  }
+}
