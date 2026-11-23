@@ -46,31 +46,6 @@ const rgbPorNome = (nome: string) => {
 
 const abrir = (nome: string) => lerPng(readFileSync(resolve(pastaDownloads, nome)));
 
-/** Distância perceptual simples ("redmean") entre duas cores RGB. */
-function distancia(a: readonly number[], b: readonly number[]): number {
-  const rm = (a[0] + b[0]) / 2;
-  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
-  return (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
-}
-
-/**
- * Troca cada pixel opaco pela cor mais próxima da paleta (a paleta fica travada, ADR 0004),
- * usando só os grupos indicados (ex.: o chão da floresta viva não pode virar verde tóxico).
- */
-function remapearParaPaleta(img: ImagemRgba, grupos: readonly string[]): void {
-  const permitidas = coresPaleta.filter((c) => grupos.includes(c.grupo));
-  for (let i = 0; i < img.dados.length; i += 4) {
-    if (img.dados[i + 3] === 0) continue;
-    const px = [img.dados[i], img.dados[i + 1], img.dados[i + 2]];
-    let melhor = permitidas[0].rgb;
-    let menor = Infinity;
-    for (const cor of permitidas) {
-      const d = distancia(px, cor.rgb);
-      if (d < menor) { menor = d; melhor = cor.rgb; }
-    }
-    img.dados.set([...melhor, 255], i);
-  }
-}
 
 /** Recolore pela luminância numa rampa de cores da paleta (escuro → claro). */
 function recolorirPorRampa(img: ImagemRgba, rampa: readonly string[]): void {
@@ -118,28 +93,168 @@ function montarFolha(quadros: readonly ImagemRgba[]): ImagemRgba {
 // --- Cenário da floresta: trilha, grama e objetos -------------------------------
 const chao = abrir('tileset_floor.png');
 const vila = abrir('tileset_village_abandoned.png');
-const GRUPOS_FLORESTA = ['floresta viva', 'terra e madeira', 'neutros'];
 
-const recortarArea = (origem: ImagemRgba, col: number, lin: number, w: number, h: number) => {
+/*
+ * Floresta à noite (referências: noite azul com bioluminescência + selva escura
+ * com sombras roxas e contorno verde-lima). Cada camada tem uma rampa por família
+ * de cor do original:
+ *   verde  → folhagem: quase preta, com contorno lima/teal só no topo
+ *   quente → madeira, troncos, terra: sombras arroxeadas (óleo, fumaça)
+ *   frio   → pedra: cinza-azulado de luz de lua
+ * Hierarquia: a mata recua (escura); a trilha é o valor médio, legível;
+ * Almas, cogumelos e vagalumes brilham por cima (desenhados no jogo).
+ */
+interface RampasCamada {
+  readonly verde: readonly string[];
+  readonly quente: readonly string[];
+  readonly frio: readonly string[];
+}
+const CAMADAS: Record<'grama' | 'trilha' | 'arvore' | 'arbusto' | 'construcao', RampasCamada> = {
+  grama: {
+    verde: ['noite', 'noite', 'sombra da mata'],
+    quente: ['noite', 'terra escura'],
+    frio: ['noite', 'sombra da mata'],
+  },
+  trilha: {
+    verde: ['sombra da mata', 'verde copa', 'broto'],
+    quente: ['óleo', 'fumaça', 'fumaça'],
+    frio: ['pedra', 'névoa'],
+  },
+  arvore: {
+    verde: ['noite', 'sombra da mata', 'verde profundo', 'verde copa'],
+    quente: ['noite', 'terra escura', 'óleo', 'fumaça'],
+    frio: ['noite', 'pedra'],
+  },
+  arbusto: {
+    verde: ['noite', 'sombra da mata', 'verde profundo', 'verde copa'],
+    quente: ['noite', 'terra escura', 'óleo'],
+    frio: ['noite', 'sombra da mata'],
+  },
+  construcao: {
+    verde: ['sombra da mata', 'verde profundo', 'verde copa'],
+    quente: ['noite', 'terra escura', 'óleo', 'fumaça'],
+    frio: ['noite', 'sombra da mata', 'pedra', 'água limpa'],
+  },
+};
+
+type Familia = keyof RampasCamada;
+const luminancia = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+function familiaDaCor(r: number, g: number, b: number): Familia {
+  if (g > r * 1.05 && g > b * 1.15) return 'verde';
+  return r > b + 8 ? 'quente' : 'frio';
+}
+
+/** Distribuição de luminância de cada família de cor nos dois tilesets (para os cortes). */
+function distribuicoes(imagens: readonly ImagemRgba[]): Record<Familia, number[]> {
+  const dist: Record<Familia, number[]> = { verde: [], quente: [], frio: [] };
+  for (const img of imagens) {
+    for (let i = 0; i < img.dados.length; i += 4) {
+      const [r, g, b, a] = [img.dados[i], img.dados[i + 1], img.dados[i + 2], img.dados[i + 3]];
+      if (a > 0) dist[familiaDaCor(r, g, b)].push(luminancia(r, g, b));
+    }
+  }
+  for (const lista of Object.values(dist)) lista.sort((x, y) => x - y);
+  return dist;
+}
+const DISTRIBUICOES = distribuicoes([chao, vila]);
+function percentil(familia: Familia, lum: number): number {
+  const lista = DISTRIBUICOES[familia];
+  let lo = 0;
+  let hi = lista.length;
+  while (lo < hi) {
+    const meio = (lo + hi) >> 1;
+    if (lista[meio] < lum) lo = meio + 1;
+    else hi = meio;
+  }
+  return lo / Math.max(1, lista.length);
+}
+
+/** Devolve a máscara de pixels de folhagem (família verde), para a luz de contorno. */
+function remapearNoturno(img: ImagemRgba, camada: RampasCamada): boolean[] {
+  const folhagem: boolean[] = new Array(img.largura * img.altura).fill(false);
+  const rampas = {
+    verde: camada.verde.map(rgbPorNome),
+    quente: camada.quente.map(rgbPorNome),
+    frio: camada.frio.map(rgbPorNome),
+  };
+  for (let i = 0; i < img.dados.length; i += 4) {
+    if (img.dados[i + 3] === 0) continue;
+    const [r, g, b] = [img.dados[i], img.dados[i + 1], img.dados[i + 2]];
+    const familia = familiaDaCor(r, g, b);
+    folhagem[i / 4] = familia === 'verde';
+    const rampa = rampas[familia];
+    const indice = Math.min(rampa.length - 1, Math.floor(percentil(familia, luminancia(r, g, b)) * rampa.length));
+    img.dados.set([...rampa[indice], 255], i);
+  }
+  return folhagem;
+}
+
+/**
+ * Luz de contorno no topo da folhagem (como luar batendo nas copas): o primeiro
+ * pixel de folha logo abaixo de um vazio ou de um contorno escuro vira lima, e o
+ * seguinte, verde médio.
+ */
+function aplicarLuzDeContorno(img: ImagemRgba, folhagem: readonly boolean[]): void {
+  const noite = rgbPorNome('noite');
+  const [lima, medio] = [rgbPorNome('broto'), rgbPorNome('verde folha')];
+  const ehEscuroOuVazio = (x: number, y: number) => {
+    if (y < 0) return true;
+    const i = (y * img.largura + x) * 4;
+    return (
+      img.dados[i + 3] === 0 ||
+      (img.dados[i] === noite[0] && img.dados[i + 1] === noite[1] && img.dados[i + 2] === noite[2])
+    );
+  };
+  const alvos: [number, readonly number[]][] = [];
+  for (let y = 0; y < img.altura; y++) {
+    for (let x = 0; x < img.largura; x++) {
+      const p = y * img.largura + x;
+      if (!folhagem[p] || ehEscuroOuVazio(x, y)) continue;
+      if (ehEscuroOuVazio(x, y - 1)) {
+        alvos.push([p, lima]);
+        if (y + 1 < img.altura && folhagem[p + img.largura]) alvos.push([p + img.largura, medio]);
+      }
+    }
+  }
+  for (const [p, cor] of alvos) img.dados.set([...cor, 255], p * 4);
+}
+
+const recortarArea = (
+  origem: ImagemRgba,
+  col: number,
+  lin: number,
+  w: number,
+  h: number,
+  camada: RampasCamada,
+  luzDeContorno = false,
+) => {
   const img = criarImagem(w * TILE, h * TILE);
   copiar(origem, col * TILE, lin * TILE, w * TILE, h * TILE, img, 0, 0);
-  remapearParaPaleta(img, GRUPOS_FLORESTA);
+  const folhagem = remapearNoturno(img, camada);
+  if (luzDeContorno) aplicarLuzDeContorno(img, folhagem);
   return img;
 };
 
-const trilha = TRILHA_POR_MASCARA.map(([c, l]) => recortarArea(chao, c, l, 1, 1));
+const trilha = TRILHA_POR_MASCARA.map(([c, l]) => recortarArea(chao, c, l, 1, 1, CAMADAS.trilha));
 writeFileSync(resolve(SAIDA, 'trilha.png'), escreverPng(montarFolha(trilha)));
 
-const grama = GRAMA.map(([c, l]) => recortarArea(chao, c, l, 1, 1));
+const grama = GRAMA.map(([c, l]) => recortarArea(chao, c, l, 1, 1, CAMADAS.grama));
 writeFileSync(resolve(SAIDA, 'grama.png'), escreverPng(montarFolha(grama)));
 
-const pequenos = OBJETOS_PEQUENOS.map(({ origem: [c, l] }) => recortarArea(vila, c, l, 1, 1));
+// Os dois primeiros pequenos são arbustos; o resto (tocos, pedras) leva musgo.
+const pequenos = OBJETOS_PEQUENOS.map(({ origem: [c, l] }, i) =>
+  i < 2
+    ? recortarArea(vila, c, l, 1, 1, CAMADAS.arbusto, true)
+    : recortarArea(vila, c, l, 1, 1, CAMADAS.construcao),
+);
 writeFileSync(resolve(SAIDA, 'cenario-pequeno.png'), escreverPng(montarFolha(pequenos)));
 
 mkdirSync(resolve(SAIDA, 'cenario'), { recursive: true });
 for (const obj of OBJETOS_GRANDES) {
   const [c, l] = obj.origem;
-  const img = recortarArea(vila, c, l, obj.largura, obj.altura);
+  const ehArvore = obj.chave.startsWith('arvore');
+  const camada = ehArvore ? CAMADAS.arvore : CAMADAS.construcao;
+  const img = recortarArea(vila, c, l, obj.largura, obj.altura, camada, ehArvore);
   writeFileSync(resolve(SAIDA, 'cenario', `${obj.chave}.png`), escreverPng(img));
 }
 

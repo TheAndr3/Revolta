@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseFase } from '../core/parser';
 import {
   DISTANCIA_MESMA_FAMILIA,
+  decorarBeiras,
   decorarParedes,
   familia,
   mascaraTrilha,
@@ -59,5 +60,24 @@ describe('cenário da floresta', () => {
         expect(perto, `${a.chave} (${a.col},${a.lin}) e ${b.chave} (${b.col},${b.lin})`).toBe(false);
       }
     }
+  });
+
+  it('põe cogumelos e flores só na mata vizinha da trilha, de forma estável', () => {
+    const luzes = decorarBeiras(FASE.grade);
+    expect(luzes.length).toBeGreaterThan(5);
+    expect(decorarBeiras(FASE.grade)).toEqual(luzes);
+    expect(new Set(luzes.map((l) => `${l.col},${l.lin}`)).size).toBe(luzes.length);
+    for (const { col, lin } of luzes) {
+      expect(FASE.grade[lin][col]).toBe('parede');
+      const vizinhas = [
+        FASE.grade[lin - 1]?.[col],
+        FASE.grade[lin]?.[col + 1],
+        FASE.grade[lin + 1]?.[col],
+        FASE.grade[lin]?.[col - 1],
+      ];
+      expect(vizinhas.some((t) => t !== undefined && t !== 'parede')).toBe(true);
+    }
+    expect(luzes.some((l) => l.tipo === 'cogumelo')).toBe(true);
+    expect(luzes.some((l) => l.tipo === 'flor')).toBe(true);
   });
 });

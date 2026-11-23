@@ -3,6 +3,7 @@ import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
 import {
   OBJETOS_GRANDES,
+  decorarBeiras,
   decorarParedes,
   mascaraTrilha,
   variacaoGrama,
@@ -72,8 +73,16 @@ const CORES = {
   saidaBrilho: 0x9ef7c2,
   saidaHalo: 0x52e596,
   almaNucleo: 0xeef4f0,
-  almaBrilho: 0x52e596,
-  almaContorno: 0x163325,
+  almaBrilho: 0x7dd3fc,
+  almaContorno: 0x2f6f73,
+  // Floresta à noite
+  cogumeloChapeu: 0x7dd3fc,
+  cogumeloBrilho: 0x7cc6b8,
+  cogumeloPe: 0x8a9a90,
+  florPetala: 0x8a6a7a,
+  florMiolo: 0xf4d35e,
+  vagalumeLima: 0xb5d96a,
+  vagalumeCiano: 0x7dd3fc,
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
@@ -191,6 +200,8 @@ export class FaseScene extends Phaser.Scene {
   /** Halo suave atrás de cada Alma (o brilho de um espírito), na mesma ordem. */
   private readonly halosAlma: Phaser.GameObjects.Image[] = [];
   private emissorAlmas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  /** Vinheta da noite: fixa na tela, acompanha o tamanho da câmera. */
+  private vinheta: Phaser.GameObjects.Image | null = null;
 
   // Efeitos por código (#20). Valores em CONFIG.feel.
   private reduzirMovimento = false;
@@ -239,6 +250,7 @@ export class FaseScene extends Phaser.Scene {
     this.criarProtagonista();
     this.criarEfeitos();
     this.criarAlmas();
+    this.criarNoite();
     this.reiniciar();
   }
 
@@ -343,6 +355,7 @@ export class FaseScene extends Phaser.Scene {
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
     if (!this.cameras?.main) return;
+    this.vinheta?.setDisplaySize(larguraLogica, alturaLogica);
     this.cameras.main.setViewport(0, 0, larguraLogica, alturaLogica);
     this.centralizarCameraImediatamente();
   }
@@ -1462,5 +1475,136 @@ export class FaseScene extends Phaser.Scene {
         if (c === '#') g.fillRect(x + 6 + col, y + 8 + l, 1, 1);
       }),
     );
+  }
+
+  // ------------------------------------------------------------------
+  // Floresta à noite: cogumelos que brilham, flores, vagalumes, halo e vinheta.
+
+  private gerarTexturasNoite(): void {
+    if (!this.textures.exists('cogumelo')) {
+      const g = this.make.graphics({}, false);
+      // três cogumelinhos de tamanhos diferentes, no pé da mata
+      const cogumelos: [number, number, number][] = [
+        [4, 12, 2],
+        [9, 13, 3],
+        [12, 11, 2],
+      ];
+      for (const [x, y, r] of cogumelos) {
+        g.fillStyle(CORES.cogumeloPe, 1);
+        g.fillRect(x, y, 1, 3);
+        g.fillStyle(CORES.cogumeloBrilho, 1);
+        g.fillRect(x - r, y - 1, r * 2 + 1, 2);
+        g.fillStyle(CORES.cogumeloChapeu, 1);
+        g.fillRect(x - r + 1, y - 2, r * 2 - 1, 1);
+        g.fillStyle(CORES.almaNucleo, 1);
+        g.fillRect(x - 1, y - 1, 1, 1);
+      }
+      g.generateTexture('cogumelo', 16, 16);
+      g.destroy();
+    }
+    if (!this.textures.exists('flor')) {
+      const g = this.make.graphics({}, false);
+      const flores: [number, number][] = [
+        [5, 12],
+        [11, 10],
+      ];
+      for (const [x, y] of flores) {
+        g.fillStyle(0x234836, 1);
+        g.fillRect(x, y + 1, 1, 3);
+        g.fillStyle(CORES.florPetala, 1);
+        g.fillRect(x - 1, y, 3, 1);
+        g.fillRect(x, y - 1, 1, 3);
+        g.fillStyle(CORES.florMiolo, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+      g.generateTexture('flor', 16, 16);
+      g.destroy();
+    }
+    if (!this.textures.exists('fx-vinheta')) {
+      const tamanho = 128;
+      const textura = this.textures.createCanvas('fx-vinheta', tamanho, tamanho);
+      if (textura) {
+        const ctx = textura.getContext();
+        const meio = tamanho / 2;
+        const gradiente = ctx.createRadialGradient(meio, meio, tamanho * 0.36, meio, meio, tamanho * 0.75);
+        gradiente.addColorStop(0, 'rgba(5,10,14,0)');
+        gradiente.addColorStop(1, 'rgba(5,10,14,0.65)');
+        ctx.fillStyle = gradiente;
+        ctx.fillRect(0, 0, tamanho, tamanho);
+        textura.refresh();
+        textura.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
+  }
+
+  private criarNoite(): void {
+    const tile = CONFIG.tamanhoTilePx;
+    this.gerarTexturasNoite();
+
+    // Cogumelos e flores na beira da mata; os cogumelos brilham e pulsam devagar.
+    decorarBeiras(this.fase.grade).forEach(({ tipo, col, lin }, i) => {
+      const x = col * tile;
+      const y = lin * tile;
+      if (tipo === 'cogumelo' && this.textures.exists('fx-brilho')) {
+        const brilho = this.add
+          .image(x + tile / 2, y + tile * 0.75, 'fx-brilho')
+          .setDisplaySize(tile * 1.8, tile * 1.8)
+          .setTint(CORES.cogumeloBrilho)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setAlpha(0.3)
+          .setDepth(0.8);
+        this.tweens.add({
+          targets: brilho,
+          alpha: { from: 0.18, to: 0.42 },
+          duration: 1600,
+          delay: (i * 233) % 1600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+      this.add.image(x, y, tipo).setOrigin(0, 0).setDepth(0.9);
+    });
+
+    // Vagalumes: pontinhos lima e ciano à deriva por toda a Fase.
+    const largura = this.fase.largura * tile;
+    const altura = this.fase.altura * tile;
+    if (this.textures.exists('fx-ponto')) {
+      this.add
+        .particles(0, 0, 'fx-ponto', {
+          emitZone: new Phaser.GameObjects.Particles.Zones.RandomZone({
+            getRandomPoint: (ponto) => {
+              ponto.x = Math.random() * largura;
+              ponto.y = Math.random() * altura;
+            },
+          }),
+          lifespan: { min: 3000, max: 6000 },
+          frequency: 45,
+          speedX: { min: -6, max: 6 },
+          speedY: { min: -8, max: 2 },
+          scale: { start: 1, end: 0.6 },
+          alpha: { values: [0, 0.9, 0.3, 0.9, 0] },
+          tint: [CORES.vagalumeLima, CORES.vagalumeCiano],
+          blendMode: Phaser.BlendModes.ADD,
+        })
+        .setDepth(9.5);
+
+      // Halo suave em volta do Protagonista: ele nunca some no escuro.
+      const halo = this.add
+        .image(0, 0, 'fx-brilho')
+        .setDisplaySize(tile * 3.6, tile * 3.6)
+        .setTint(0xeef4f0)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setAlpha(0.32);
+      this.protagonista.addAt(halo, 0);
+    }
+
+    // Vinheta: escurece as bordas da tela, como a noite fechando em volta.
+    this.vinheta = this.add
+      .image(0, 0, 'fx-vinheta')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(50)
+      .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
   }
 }

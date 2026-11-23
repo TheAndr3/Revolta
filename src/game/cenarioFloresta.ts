@@ -181,3 +181,38 @@ export function decorarParedes(grade: readonly (readonly TipoCelula[])[]): Coloc
   }
   return colocacoes;
 }
+
+export type TipoLuzDaMata = 'cogumelo' | 'flor';
+
+export interface LuzDaMata {
+  readonly tipo: TipoLuzDaMata;
+  readonly col: number;
+  readonly lin: number;
+}
+
+/** Chance de uma célula de mata na beira da trilha ganhar cogumelo ou flor. */
+export const CHANCE_BEIRA = { cogumelo: 0.14, flor: 0.1 } as const;
+
+/**
+ * Cogumelos que brilham e flores na beira da mata (células de parede vizinhas da
+ * trilha), à noite. Determinístico; no máximo um por célula.
+ */
+export function decorarBeiras(grade: readonly (readonly TipoCelula[])[]): LuzDaMata[] {
+  const luzes: LuzDaMata[] = [];
+  grade.forEach((linha, lin) =>
+    linha.forEach((tipo, col) => {
+      if (tipo !== 'parede') return;
+      const vizinhaDaTrilha = [
+        [0, -1],
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+      ].some(([dc, dl]) => !ehParede(grade, col + dc, lin + dl));
+      if (!vizinhaDaTrilha) return;
+      const r = aleatorio(col, lin, 300);
+      if (r < CHANCE_BEIRA.cogumelo) luzes.push({ tipo: 'cogumelo', col, lin });
+      else if (r < CHANCE_BEIRA.cogumelo + CHANCE_BEIRA.flor) luzes.push({ tipo: 'flor', col, lin });
+    }),
+  );
+  return luzes;
+}
