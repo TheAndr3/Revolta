@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../core/config';
+import type { EtapaEspinho } from '../core/espinhos';
 import {
   atualizarDeslize,
   criarEstadoFase,
@@ -69,6 +70,8 @@ const CORES = {
   espinhos: 0xdc2626,
   espinhosBorda: 0xf97316,
   espinhosMarca: 0xfef2f2,
+  espinhosFuro: 0x3a2a24,
+  espinhosAviso: 0xfb923c,
   gosma: 0x84cc16,
   gosmaMarca: 0x1a2e05,
   gosmaBrilho: 0xd9f99d,
@@ -145,6 +148,11 @@ export class FaseScene extends Phaser.Scene {
   private marcadorHabitante: Phaser.GameObjects.Graphics | null = null;
   private readonly spritesAmeaca = new Map<string, Phaser.GameObjects.Container>();
   private readonly brilhosTrilhoGosma: CelulaBrilhoTrilho[] = [];
+  /** Um gráfico por espinho, redesenhado quando a etapa muda (e piscando no aviso). */
+  private readonly graficosEspinho: Array<{
+    readonly grafico: Phaser.GameObjects.Graphics;
+    desenho: string;
+  }> = [];
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
@@ -221,10 +229,7 @@ export class FaseScene extends Phaser.Scene {
 
   public reiniciar(): void {
     this.tweens.resumeAll();
-    // Tiles de espinho (^) atuam como perigo provisório até a issue de Armadilhas/Ameaças.
-    this.estado = criarEstadoFase(this.fase, {
-      perigosProvisorios: this.fase.espinhos,
-    });
+    this.estado = criarEstadoFase(this.fase);
     this.resetarVisualProtagonista();
 
     for (const marcador of this.marcadoresProva.values()) {
@@ -263,6 +268,7 @@ export class FaseScene extends Phaser.Scene {
 
     this.sincronizarProtagonista();
     this.sincronizarAmeacas(deltaSegundos);
+    this.sincronizarEspinhos();
     this.atualizarIndicadorBuffer();
 
     if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
@@ -287,6 +293,67 @@ export class FaseScene extends Phaser.Scene {
     }
     if (this.estado) {
       this.sincronizarAmeacas(0);
+      this.sincronizarEspinhos();
+    }
+  }
+
+  /** Desenho provisório das 4 etapas dos espinhos (a arte final troca por sprites). */
+  private sincronizarEspinhos(): void {
+    this.estado.espinhos.forEach((espinho, i) => {
+      const item = this.graficosEspinho[i];
+      if (!item) return;
+      // No aviso, pisca 8 vezes por segundo para chamar atenção.
+      const piscando =
+        espinho.etapa === 'aviso' && Math.floor(espinho.tempoNaEtapa * 8) % 2 === 1;
+      const desenho = `${espinho.etapa}:${piscando ? 1 : 0}`;
+      if (desenho === item.desenho) return;
+      item.desenho = desenho;
+      this.desenharEspinho(item.grafico, espinho.etapa, piscando);
+    });
+  }
+
+  private desenharEspinho(
+    g: Phaser.GameObjects.Graphics,
+    etapa: EtapaEspinho,
+    piscando: boolean,
+  ): void {
+    const tile = CONFIG.tamanhoTilePx;
+    g.clear();
+
+    if (etapa === 'ativo') {
+      g.lineStyle(1, CORES.espinhosBorda, 1);
+      g.strokeRect(0.5, 0.5, tile - 1, tile - 1);
+      this.desenharQuadradoMarcadoLocal(g, 0, 0, CORES.espinhos, CORES.espinhosMarca, '^');
+      return;
+    }
+
+    if (etapa === 'recolhendo') {
+      g.fillStyle(CORES.espinhos, 0.45);
+      g.fillRect(2, 2, tile - 4, tile - 4);
+      g.fillStyle(CORES.espinhosMarca, 0.5);
+      for (const x of [4, 8, 11]) g.fillRect(x, 8, 1, 3);
+      return;
+    }
+
+    // Recolhido e aviso: furos no chão; no aviso, borda laranja e pontas aparecendo.
+    const corBorda = etapa === 'aviso' ? CORES.espinhosAviso : CORES.espinhosBorda;
+    const alfaBorda = etapa === 'aviso' ? (piscando ? 0.35 : 1) : 0.35;
+    g.lineStyle(1, corBorda, alfaBorda);
+    g.strokeRect(0.5, 0.5, tile - 1, tile - 1);
+    g.fillStyle(CORES.espinhosFuro, 1);
+    for (const [x, y] of [
+      [4, 4],
+      [10, 4],
+      [7, 8],
+      [4, 11],
+      [10, 11],
+    ] as const) {
+      g.fillRect(x, y, 2, 2);
+      if (etapa === 'aviso') {
+        g.fillStyle(CORES.espinhosAviso, 1);
+        g.fillRect(x, y, 2, 1);
+        g.fillStyle(CORES.espinhosFuro, 1);
+      }
     }
   }
 
@@ -555,15 +622,13 @@ export class FaseScene extends Phaser.Scene {
       this.marcadorHabitante = marcador;
     }
 
+    this.graficosEspinho.length = 0;
     for (const espinho of this.fase.espinhos) {
-      g.lineStyle(1, CORES.espinhosBorda, 1);
-      g.strokeRect(
-        espinho.col * tile + 0.5,
-        espinho.lin * tile + 0.5,
-        tile - 1,
-        tile - 1,
-      );
-      this.desenharQuadradoMarcado(g, espinho, CORES.espinhos, CORES.espinhosMarca, '^');
+      const grafico = this.add
+        .graphics()
+        .setPosition(espinho.col * tile, espinho.lin * tile)
+        .setDepth(5);
+      this.graficosEspinho.push({ grafico, desenho: '' });
     }
 
     this.spritesAmeaca.clear();

@@ -7,6 +7,15 @@ export const CONFIG = {
   larguraFaseTiles: 15,
   /** Distância mínima de arrasto (em CSS px) para reconhecer um swipe no celular/pointer. */
   distanciaMinimaSwipePx: 30,
+  /** Espinhos temporários: tempos de cada etapa do ciclo, em segundos. */
+  espinhos: {
+    /** Depois de pisado, quanto tempo até subir (o deslize atravessa o tile bem antes disso). */
+    avisoSegundos: 0.5,
+    /** Quanto tempo fica ativo (mata ao contato). */
+    ativoSegundos: 1.5,
+    /** Animação de recolher; já não mata. */
+    recolhendoSegundos: 0.25,
+  },
   /** Duração visual do tranco contra a parede em milissegundos. */
   duracaoTrancoMs: 110,
   /** Alcance do look-ahead vertical da câmera em tiles. */
