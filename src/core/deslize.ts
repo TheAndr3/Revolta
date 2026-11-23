@@ -97,6 +97,11 @@ export interface EstadoFase {
   /** Uma posição por Alma da Fase (mesma ordem de `fase.almas`); não voltam ao morrer. */
   almasColetadas: boolean[];
   provasPendentesOverlay: ProvaNaFase[];
+  /**
+   * Se a Prova coletada abre o overlay sozinha (pausando o jogo) ao parar. Desligado,
+   * a coleta não interrompe o deslize: quem mostra a Prova é a interface, sob demanda.
+   */
+  readonly abrirProvaAoColetar: boolean;
   provaEmExibicao: ProvaNaFase | null;
   pausado: boolean;
   saidaAcesa: boolean;
@@ -112,6 +117,8 @@ export interface OpcoesEstadoFase {
   simularAmeacas?: boolean;
   /** Liga o ciclo dos espinhos temporários da Fase (padrão: ligado). */
   simularEspinhos?: boolean;
+  /** Abre o overlay da Prova ao parar depois de coletá-la (padrão: sim). */
+  abrirProvaAoColetar?: boolean;
 }
 
 export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: number }> = {
@@ -197,6 +204,7 @@ export function criarEstadoFase(
     provasColetadas,
     almasColetadas: fase.almas.map(() => false),
     provasPendentesOverlay: [],
+    abrirProvaAoColetar: opcoes.abrirProvaAoColetar ?? true,
     provaEmExibicao: null,
     pausado: false,
     saidaAcesa: provasColetadas.length >= TOTAL_PROVAS_FASE,
@@ -568,7 +576,9 @@ function avancarDeslize(
         case 'prova': {
           const { prova } = encontro;
           estado.provasColetadas.push(prova.numero);
-          estado.provasPendentesOverlay.push(prova);
+          if (estado.abrirProvaAoColetar) {
+            estado.provasPendentesOverlay.push(prova);
+          }
           eventos.push({
             tipo: 'prova_coletada',
             prova,

@@ -83,6 +83,12 @@
     "continuar": "Continuar",
     "ilustracao": "Ilustração da Prova: {titulo}"
   },
+  "avisoProva": {
+    "regiao": "Provas coletadas",
+    "dica": "Toque ou clique para ler · Enter",
+    "rotulo": "Ler a Prova {tipo}: {titulo}",
+    "anuncio": "Prova coletada: {titulo}. {resumo} Pressione Enter para ler."
+  },
   "fimFase": {
     "titulo": "{fase} concluída",
     "provas": "Provas {coletadas}/{total}",

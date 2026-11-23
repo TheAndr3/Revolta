@@ -17,6 +17,21 @@ export interface ConteudoProva {
   readonly fontes: readonly string[];
   readonly texto: string;
   readonly paragrafos: readonly string[];
+  /** Uma frase curta para o aviso que aparece ao coletar (campo `resumo` ou início do texto). */
+  readonly resumo: string;
+}
+
+/** Máximo de palavras do resumo tirado do texto quando a Prova não tem o campo `resumo`. */
+export const PALAVRAS_RESUMO = 18;
+
+/** Primeira frase do texto, cortada em até `maxPalavras` palavras (com reticências). */
+export function resumirTexto(texto: string, maxPalavras = PALAVRAS_RESUMO): string {
+  const limpo = texto.replace(/\s+/g, ' ').trim();
+  const fimFrase = limpo.search(/[.!?](\s|$)/);
+  const frase = fimFrase >= 0 ? limpo.slice(0, fimFrase + 1) : limpo;
+  const palavras = frase.split(' ');
+  if (palavras.length <= maxPalavras) return frase;
+  return `${palavras.slice(0, maxPalavras).join(' ').replace(/[,;:.]$/, '')}…`;
 }
 
 export class ErroParseProva extends Error {
@@ -179,5 +194,6 @@ export function parseProvaMarkdown(
     fontes,
     texto: paragrafos.join('\n\n'),
     paragrafos,
+    resumo: campos.get('resumo') || resumirTexto(paragrafos[0]),
   };
 }

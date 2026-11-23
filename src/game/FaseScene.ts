@@ -313,7 +313,8 @@ export class FaseScene extends Phaser.Scene {
 
   public reiniciar(): void {
     this.tweens.resumeAll();
-    this.estado = criarEstadoFase(this.fase);
+    // A Prova não interrompe o deslize: a interface mostra um aviso e abre sob demanda.
+    this.estado = criarEstadoFase(this.fase, { abrirProvaAoColetar: false });
     this.resetarVisualProtagonista();
 
     for (const marcador of this.marcadoresProva.values()) {
