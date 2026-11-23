@@ -73,7 +73,8 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 - **HUD:** Provas x/3 · ícone do Habitante (cinza/colorido) · botão de pausa.
 - **Pausa:** Continuar · Voltar ao Totem · Reiniciar Fase · Sair.
 - **Overlay da Prova:** ilustração + tipo (O Passado / A Transformação / Os Responsáveis) + título + texto de **até ~100 palavras** + fechar.
-- **Fim de Fase:** Provas 3/3 · Habitante ✔/✘ · mortes · tempo · [Próxima] [Repetir]. Sem XP.
+- **Fim de Fase:** Provas 3/3 · Almas x/total · Habitante ✔/✘ · mortes · tempo · [Próxima] [Repetir]. Sem XP.
+- **Nota da Fase:** 3 Marcas (concluir · todas as Almas · Habitante), mostradas no fim da Fase e na seleção. As Almas são opcionais e não dão poder (sessão de 23/11/2026, ver `boas-praticas-level-design.md`).
 - **Fim do protótipo:** tela simples depois da Fase 4.
 - **Arquivo da Resistência:** abas **Provas** (por Fase, na ordem Passado → Transformação → Responsáveis) e **Povo** (fichas dos Habitantes: nome, retrato, uma frase).
 - **Sobre o projeto:** contexto educativo + fontes reais que inspiraram as Provas.

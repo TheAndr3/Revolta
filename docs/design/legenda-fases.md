@@ -9,7 +9,8 @@
 | Parâmetro | Valor | Onde é usado |
 |---|---|---|
 | `VEL_PROTAGONISTA` | 15 tiles/s | Seção 4 (validação de tempo) |
-| `RAIO_VISAO` | 7 linhas (câmera mostra 7 linhas acima e 7 abaixo do Protagonista) | Regras R05 e R06 |
+| `RAIO_VISAO` | 7 linhas (câmera mostra pelo menos 7 linhas acima e 7 abaixo do Protagonista) | Regras R05, R06 e R13 |
+| `RAIO_VISAO_H` | 4 colunas (câmera mostra cerca de 9 colunas: 4 de cada lado do Protagonista; ADR 0006) | Regras R06 e R13 |
 | `DESLIZES_INICIAIS` | 3 | Regra R05 |
 | Velocidade de referência do Guarda | 5 tiles/s | Seção 2 |
 
@@ -163,7 +164,9 @@ Checklist exigido do desenhista e do *solver* estático. Cada item é verificáv
 **Legibilidade (sem minimapa nem seta; só sinalização diegética)**
 
 - [ ] **R05 — Saída visível cedo:** existe uma célula de parada alcançável do Início em no máximo `DESLIZES_INICIAIS` (3) deslizes (contando o próprio Início como 0) cuja linha difere da linha da `X` em no máximo `RAIO_VISAO` (7) linhas. A rota até a Saída pode ser longa e dobrar-se, mas a Saída precisa ser vista (ou seu brilho) logo cedo.
-- [ ] **R06 — Trilho visível antes do cruzamento:** para cada deslize da solução que cruza o trilho de uma Ameaça, a primeira célula de trilho cruzada está a no máximo `RAIO_VISAO` linhas da **célula de onde o deslize parte**. A largura de 15 colunas cabe inteira na tela.
+- [ ] **R06 — Trilho visível antes do cruzamento:** para cada deslize da solução que cruza o trilho de uma Ameaça, a primeira célula de trilho cruzada está a no máximo `RAIO_VISAO` linhas **e** `RAIO_VISAO_H` colunas da **célula de onde o deslize parte**. A câmera mostra só cerca de 9 das 15 colunas (ADR 0006).
+- [ ] **R13 — Deslize às cegas termina seguro:** todo deslize cuja Parada fica a mais de `RAIO_VISAO` linhas ou `RAIO_VISAO_H` colunas de onde ele parte termina numa Parada segura: fora de trilho de Ameaça, fora de espinhos, e sem cruzar trilho ou espinhos fora da área visível no caminho. Prefira deslizes curtos; deslizes longos são respiros, não armadilhas.
+- [ ] **R14 — Exploração com Desvios:** além da Rota crítica, a Fase tem de 2 a 3 Desvios que voltam a ela; o Habitante fica num Desvio, e Almas recompensam os Desvios. Altura recomendada: 60–100 linhas (o limite de R01 continua 40–120); jogada limpa de 1 a 2 min.
 
 **Ameaças**
 
