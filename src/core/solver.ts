@@ -4,7 +4,7 @@
  * - R11: existe rota que coleta as 3 Provas e atravessa a Saída (busca em largura
  *   sobre célula de parada + Provas coletadas). Cada deslize é simulado pelo próprio
  *   núcleo do jogo (`solicitarDirecao` + `atualizarDeslize`), sem duplicar a regra.
- * - Habitante alcançável (aviso, não erro).
+ * - Habitante e Almas alcançáveis (aviso, não erro).
  * - R09: nenhum Totem em trilho de Ameaça.
  * - R08: trilhos de Ameaças não se cruzam.
  */
@@ -45,6 +45,8 @@ interface ResultadoDeslize {
   readonly parada: Coordenada;
   readonly provas: readonly NumeroProva[];
   readonly resgatouHabitante: boolean;
+  /** Índices das Almas atravessadas neste deslize. */
+  readonly almas: readonly number[];
   readonly concluiu: boolean;
 }
 
@@ -81,6 +83,7 @@ function simularDeslize(
     parada: { col: estado.celulaAtual.col, lin: estado.celulaAtual.lin },
     provas: [...estado.provasColetadas].sort(),
     resgatouHabitante: estado.habitanteResgatado,
+    almas: estado.almasColetadas.flatMap((pega, i) => (pega ? [i] : [])),
     concluiu: estado.concluida,
   };
 }
@@ -108,16 +111,23 @@ function buscarRota(fase: Fase): {
   rota: Direcao[] | null;
   provasAlcancadas: Set<NumeroProva>;
   habitanteAlcancado: boolean;
+  almasAlcancadas: Set<number>;
   explorados: number;
 } {
   const inicio: NoBusca = { parada: fase.inicio, provas: [], anterior: null, direcao: null };
   const visitados = new Set([chaveNo(inicio.parada, inicio.provas)]);
   const provasAlcancadas = new Set<NumeroProva>();
+  const almasAlcancadas = new Set<number>();
   let habitanteAlcancado = false;
   let fila: NoBusca[] = [inicio];
   let rota: Direcao[] | null = null;
 
-  while (fila.length > 0 && rota === null) {
+  const faltaAlgoOpcional = () =>
+    (fase.habitante !== null && !habitanteAlcancado) || almasAlcancadas.size < fase.almas.length;
+
+  // Busca em largura: a primeira rota achada é a mínima. Depois de achá-la, a busca
+  // continua só enquanto falta saber se o Habitante e todas as Almas são alcançáveis.
+  while (fila.length > 0 && (rota === null || faltaAlgoOpcional())) {
     const proxima: NoBusca[] = [];
     for (const no of fila) {
       for (const direcao of DIRECOES) {
@@ -125,6 +135,7 @@ function buscarRota(fase: Fase): {
         if (!resultado) continue;
 
         resultado.provas.forEach((p) => provasAlcancadas.add(p));
+        resultado.almas.forEach((a) => almasAlcancadas.add(a));
         habitanteAlcancado ||= resultado.resgatouHabitante;
 
         if (resultado.concluiu) {
@@ -141,26 +152,7 @@ function buscarRota(fase: Fase): {
     fila = proxima;
   }
 
-  // Com rota achada, a busca parou cedo: continua só para saber do Habitante.
-  if (rota !== null && !habitanteAlcancado && fase.habitante) {
-    while (fila.length > 0 && !habitanteAlcancado) {
-      const proxima: NoBusca[] = [];
-      for (const no of fila) {
-        for (const direcao of DIRECOES) {
-          const resultado = simularDeslize(fase, no.parada, no.provas, direcao);
-          if (!resultado) continue;
-          habitanteAlcancado ||= resultado.resgatouHabitante;
-          const chave = chaveNo(resultado.parada, resultado.provas);
-          if (resultado.concluiu || visitados.has(chave)) continue;
-          visitados.add(chave);
-          proxima.push({ parada: resultado.parada, provas: resultado.provas, anterior: no, direcao });
-        }
-      }
-      fila = proxima;
-    }
-  }
-
-  return { rota, provasAlcancadas, habitanteAlcancado, explorados: visitados.size };
+  return { rota, provasAlcancadas, habitanteAlcancado, almasAlcancadas, explorados: visitados.size };
 }
 
 function verificarTotensEmTrilho(fase: Fase): string[] {
@@ -225,6 +217,15 @@ export function resolverFase(fase: Fase): ResultadoSolver {
   if (fase.habitante && !busca.habitanteAlcancado) {
     avisos.push(
       `Habitante em ${formatarCoordenada(fase.habitante)} não é alcançável: ninguém conseguirá resgatá-lo.`,
+    );
+  }
+
+  const almasInalcancaveis = fase.almas.filter((_, i) => !busca.almasAlcancadas.has(i));
+  if (almasInalcancaveis.length > 0) {
+    avisos.push(
+      `${almasInalcancaveis.length} Alma(s) inalcançável(is): ${almasInalcancaveis
+        .map(formatarCoordenada)
+        .join(', ')}. Ninguém conseguirá a Marca de todas as Almas.`,
     );
   }
 

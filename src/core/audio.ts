@@ -16,6 +16,7 @@ export type IdSom =
   | 'espinho'
   | 'resgate'
   | 'conclusao'
+  | 'alma'
   | 'interface';
 
 /** Loops contínuos: a música e o som das Ameaças. */
@@ -33,6 +34,7 @@ export const IDS_SOM: readonly IdSom[] = [
   'espinho',
   'resgate',
   'conclusao',
+  'alma',
   'interface',
 ];
 
@@ -74,6 +76,8 @@ export function sonsDoEvento(tipo: string): IdSom[] {
       return ['resgate'];
     case 'fase_concluida':
       return ['conclusao'];
+    case 'alma_coletada':
+      return ['alma'];
     default:
       return [];
   }

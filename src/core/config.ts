@@ -31,6 +31,17 @@ export const CONFIG = {
   },
   /** Largura fixa de todas as Fases em tiles. */
   larguraFaseTiles: 15,
+  /**
+   * Câmera próxima (ADR 0006): mostra cerca de 9 das 15 colunas e segue nos dois eixos.
+   * A escala é sempre inteira, então o número de linhas visíveis varia com a tela.
+   */
+  camera: {
+    colunasVisiveis: 9,
+    /** Mínimo de linhas visíveis: 7 acima e 7 abaixo do Protagonista (RAIO_VISAO da legenda). */
+    linhasMinimasVisiveis: 15,
+    /** Alcance do look-ahead horizontal em tiles (o vertical é `lookAheadVerticalTiles`). */
+    lookAheadHorizontalTiles: 2,
+  },
   /** Distância mínima de arrasto (em CSS px) para reconhecer um swipe no celular/pointer. */
   distanciaMinimaSwipePx: 30,
   /** Espinhos temporários: tempos de cada etapa do ciclo, em segundos. */

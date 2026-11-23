@@ -49,11 +49,13 @@
     "concluida": "Concluída",
     "naoConcluida": "Nova",
     "habitanteResgatado": "Habitante resgatado",
-    "habitanteNaoResgatado": "Habitante não resgatado"
+    "habitanteNaoResgatado": "Habitante não resgatado",
+    "marcas": "{n} de {total} Marcas"
   },
   "hud": {
     "titulo": "Re(volta)",
     "provas": "Provas {coletadas}/{total}",
+    "almas": "Almas {coletadas}/{total}",
     "habitante": "Habitante",
     "habitanteResgatado": "Habitante: resgatado",
     "habitanteNaoResgatado": "Habitante: ainda não resgatado",
@@ -84,6 +86,9 @@
   "fimFase": {
     "titulo": "{fase} concluída",
     "provas": "Provas {coletadas}/{total}",
+    "almas": "Almas {coletadas}/{total}",
+    "marcas": "Marcas {simbolos}",
+    "marcasAria": "{n} de {total} Marcas",
     "habitanteSim": "Habitante ✔",
     "habitanteNao": "Habitante ✘",
     "morteUma": "1 morte",

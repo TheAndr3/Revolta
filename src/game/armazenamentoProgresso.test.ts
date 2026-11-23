@@ -75,4 +75,21 @@ describe('repositório de progresso', () => {
     expect(() => quebrado.registrarIntroVista()).not.toThrow();
     expect(quebrado.introVista()).toBe(true);
   });
+
+  it('guarda só o melhor número de Almas de cada Fase, com o total', () => {
+    const storage = criarStorageMemoria();
+    const repositorio = criarRepositorioProgresso(storage);
+    expect(repositorio.recordeAlmas('fase-01')).toBeNull();
+    repositorio.registrarAlmas('fase-01', 30, 50);
+    repositorio.registrarAlmas('fase-01', 12, 50);
+    expect(repositorio.recordeAlmas('fase-01')).toEqual({ melhor: 30, total: 50 });
+    expect(criarRepositorioProgresso(storage).recordeAlmas('fase-01')).toEqual({
+      melhor: 30,
+      total: 50,
+    });
+
+    const quebrado = criarRepositorioProgresso(criarStorageQuebrado());
+    expect(() => quebrado.registrarAlmas('fase-01', 5, 20)).not.toThrow();
+    expect(quebrado.recordeAlmas('fase-01')).toEqual({ melhor: 5, total: 20 });
+  });
 });

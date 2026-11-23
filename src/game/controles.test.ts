@@ -31,22 +31,38 @@ describe('controles', () => {
   });
 });
 
-describe('calcularEscalaInteira', () => {
-  it('usa escala inteira ×4 em desktop Full HD e ×3 em laptop 768p', () => {
+describe('calcularEscalaInteira (câmera de ~9 colunas, ADR 0006)', () => {
+  it('mostra 9 colunas no PC, com a escala limitada pela altura (mínimo de 15 linhas)', () => {
     const fhd = calcularEscalaInteira(1920, 1080, 1, 240, 704);
-    expect(fhd.escalaInteira).toBe(4);
-    expect(fhd.larguraLogica).toBe(240);
-    expect(fhd.larguraCss).toBe(960);
+    expect(fhd.escalaInteira).toBe(4); // 1080 / (15 × 16) = 4,5
+    expect(fhd.larguraLogica).toBe(9 * 16);
+    expect(fhd.larguraCss).toBe(576);
+    expect(fhd.alturaLogica).toBe(270); // ~16,9 linhas
 
     const laptop = calcularEscalaInteira(1366, 768, 1, 240, 704);
     expect(laptop.escalaInteira).toBe(3);
-    expect(laptop.larguraCss).toBe(720);
+    expect(laptop.larguraCss).toBe(432);
   });
 
-  it('usa escala física inteira em celular retrato sem exceder a largura da tela', () => {
+  it('no celular retrato, o personagem fica ~2× maior que com 15 colunas', () => {
     const celular = calcularEscalaInteira(360, 640, 2, 240, 704);
-    expect(celular.escalaInteira).toBe(3);
+    expect(celular.escalaInteira).toBe(5); // antes: 3 (15 colunas)
+    expect(celular.larguraLogica).toBe(9 * 16);
     expect(celular.larguraCss).toBe(360);
-    expect(celular.larguraLogica).toBe(240);
+    expect(celular.alturaLogica).toBe(256); // 16 linhas
+
+    const iphone = calcularEscalaInteira(375, 812, 3, 240, 704);
+    expect(iphone.escalaInteira).toBe(7);
+    expect(iphone.larguraLogica).toBe(144);
+    expect(Math.floor(iphone.alturaLogica / 16)).toBeGreaterThanOrEqual(15);
+  });
+
+  it('nunca passa do tamanho do mundo nem da tela', () => {
+    const faseBaixa = calcularEscalaInteira(1920, 1080, 1, 240, 160);
+    expect(faseBaixa.alturaLogica).toBeLessThanOrEqual(160);
+
+    const telaMinuscula = calcularEscalaInteira(100, 200, 1, 240, 704);
+    expect(telaMinuscula.escalaInteira).toBe(1);
+    expect(telaMinuscula.larguraCss).toBeLessThanOrEqual(100);
   });
 });
