@@ -24,4 +24,5 @@ export const ARQUIVOS_AUDIO: Partial<Record<IdSom | IdLoop, string>> = {
   resgate: 'audio/sfx/resgate.ogg',
   conclusao: 'audio/sfx/conclusao.ogg',
   interface: 'audio/sfx/interface.ogg',
+  alma: 'audio/sfx/alma.ogg',
 };

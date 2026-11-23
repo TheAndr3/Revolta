@@ -10,6 +10,7 @@
  * Saída em public/assets/cc0/:
  *   tiles-floresta.png  quadros 16×16: [chão A, chão B, arbusto A, arbusto B]
  *   gosma.png           4 quadros 16×16 do slime, recolorido para a rampa "floresta contaminada"
+ *   alma.png            4 quadros 16×16 de um passarinho, recolorido como espírito translúcido
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -130,4 +131,21 @@ const gosma = [0, 1, 2, 3].map((i) => {
 });
 writeFileSync(resolve(SAIDA, 'gosma.png'), escreverPng(montarFolha(gosma)));
 
-console.log('Assets CC0 importados em public/assets/cc0/: tiles-floresta.png, gosma.png');
+// --- Alma da floresta: passarinho de frente, 4 quadros, como espírito translúcido -----
+const alma = [0, 1, 2, 3].map((i) => {
+  const quadro = recortar(criaturas, 4 + i, 0);
+  removerFundo(quadro);
+  recolorirPorRampa(quadro, ['verde copa', 'verde folha', 'espírito']);
+  // Translúcido: o contorno fica firme e o corpo deixa ver o chão, como um espírito.
+  const contorno = rgbPorNome('verde copa');
+  for (let p = 0; p < quadro.dados.length; p += 4) {
+    if (quadro.dados[p + 3] === 0) continue;
+    const ehContorno =
+      quadro.dados[p] === contorno[0] && quadro.dados[p + 1] === contorno[1] && quadro.dados[p + 2] === contorno[2];
+    quadro.dados[p + 3] = ehContorno ? 255 : 210;
+  }
+  return quadro;
+});
+writeFileSync(resolve(SAIDA, 'alma.png'), escreverPng(montarFolha(alma)));
+
+console.log('Assets CC0 importados em public/assets/cc0/: tiles-floresta.png, gosma.png, alma.png');

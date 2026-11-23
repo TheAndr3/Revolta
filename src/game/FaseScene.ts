@@ -213,6 +213,8 @@ export class FaseScene extends Phaser.Scene {
       tamanho,
     );
     this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
+    // Substitui o espírito desenhado por código (ver criarAlmas).
+    this.load.spritesheet('alma', `${import.meta.env.BASE_URL}assets/cc0/alma.png`, tamanho);
   }
 
   create(): void {
