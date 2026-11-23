@@ -67,6 +67,8 @@ export interface EstadoFase {
   mortes: number;
   versaoCiclos: number;
   tempoCicloSegundos: number;
+  /** Tempo jogado na tentativa atual, sem contar pausas e overlays (não zera ao morrer). */
+  tempoJogadoSegundos: number;
   totemAtivo: Coordenada | null;
   habitanteResgatado: boolean;
   provasColetadas: NumeroProva[];
@@ -137,6 +139,7 @@ export function criarEstadoFase(
     mortes: 0,
     versaoCiclos: 0,
     tempoCicloSegundos: 0,
+    tempoJogadoSegundos: 0,
     totemAtivo: null,
     habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
     provasColetadas,
@@ -581,6 +584,8 @@ export function atualizarDeslize(
   if (estaCongelado(estado) || deltaSegundos <= 0) {
     return [];
   }
+
+  estado.tempoJogadoSegundos += deltaSegundos;
 
   const eventos: EventoDeslize[] = [];
   const temAmeacasAtivas = estado.simularAmeacas && estado.ciclosAmeacas.length > 0;
