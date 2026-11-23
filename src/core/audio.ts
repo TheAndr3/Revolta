@@ -44,7 +44,29 @@ export const CONFIG_AUDIO = {
   volumeMaximoLoop: { gosma: 0.35, drone: 0.55 },
   /** A partir desta distância (em tiles) o loop da Ameaça fica em silêncio. */
   alcanceLoopTiles: { gosma: 6, drone: 9 },
+  /** Com a Prova aberta ou o jogo pausado, a música continua, só que mais baixa. */
+  fatorMusicaPausada: 0.55,
 } as const;
+
+export interface Mixagem {
+  readonly musica: number;
+  /** Efeitos do jogo e loops das Ameaças. */
+  readonly efeitos: number;
+  /** Cliques de botões: tocam até no menu de pausa. */
+  readonly interface: number;
+}
+
+/**
+ * Volumes de cada saída de áudio. Pausado (overlay da Prova ou menu de pausa), os
+ * sons do jogo param e a música segue mais baixa; a trilha nunca é interrompida.
+ */
+export function mixagem(pausado: boolean): Mixagem {
+  return {
+    musica: CONFIG_AUDIO.volumeMusica * (pausado ? CONFIG_AUDIO.fatorMusicaPausada : 1),
+    efeitos: pausado ? 0 : CONFIG_AUDIO.volumeEfeitos,
+    interface: CONFIG_AUDIO.volumeEfeitos,
+  };
+}
 
 /**
  * Sons disparados por um evento do núcleo do deslize.

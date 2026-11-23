@@ -599,7 +599,8 @@ function iniciar(): void {
     }
   });
 
-  // O áudio pausa junto com a pausa e com o overlay da Prova durante uma Fase.
+  // Com a Prova aberta ou em pausa (durante uma Fase), os sons do jogo param e a
+  // música segue mais baixa; ela nunca é interrompida.
   const sincronizarPausaDoAudio = () => {
     if (sessao && (dialogPausa.open || dialogProva.open)) {
       audio.pausar();
