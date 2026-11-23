@@ -61,4 +61,18 @@ describe('repositório de progresso', () => {
     corrompido.dados.set('revolta:fases-concluidas:v1', '{nao-e-json');
     expect(criarRepositorioProgresso(corrompido).fasesConcluidas().size).toBe(0);
   });
+
+  it('lembra que a introdução já foi vista, mesmo com o armazenamento quebrado na sessão', () => {
+    const storage = criarStorageMemoria();
+    const primeiro = criarRepositorioProgresso(storage);
+    expect(primeiro.introVista()).toBe(false);
+    primeiro.registrarIntroVista();
+    expect(primeiro.introVista()).toBe(true);
+    expect(criarRepositorioProgresso(storage).introVista()).toBe(true);
+
+    const quebrado = criarRepositorioProgresso(criarStorageQuebrado());
+    expect(quebrado.introVista()).toBe(false);
+    expect(() => quebrado.registrarIntroVista()).not.toThrow();
+    expect(quebrado.introVista()).toBe(true);
+  });
 });

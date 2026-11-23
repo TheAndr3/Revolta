@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check-content": "vite-node scripts/check-content.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "gerar-paleta": "vite-node scripts/gerar-paleta.ts",

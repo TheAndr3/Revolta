@@ -25,7 +25,7 @@
       <div class="tela-conteudo">
         <h1 id="titulo-menu" class="titulo-jogo" data-texto="menu.titulo">Re(volta)</h1>
         <nav class="lista-acoes" aria-labelledby="titulo-menu">
-          <button type="button" class="btn-primario btn-grande" data-ir-para="selecao" data-texto="menu.jogar">
+          <button type="button" class="btn-primario btn-grande" data-ir-para="jogar" data-texto="menu.jogar">
             Jogar
           </button>
           <button type="button" class="btn-secundario btn-grande" data-ir-para="arquivo" data-texto="menu.arquivo">
@@ -38,23 +38,55 @@
       </div>
     </section>
 
-    <section id="tela-arquivo" class="tela" aria-labelledby="titulo-arquivo" hidden>
-      <div class="tela-conteudo">
+    <section id="tela-arquivo" class="tela tela-longa" aria-labelledby="titulo-arquivo" hidden>
+      <div class="tela-conteudo tela-conteudo-larga">
         <h1 id="titulo-arquivo" data-texto="arquivo.titulo">Arquivo da Resistência</h1>
-        <p class="texto-suave" data-texto="arquivo.texto"></p>
+
+        <div class="abas" role="tablist" data-texto-aria="arquivo.abas">
+          <button id="aba-provas" type="button" role="tab" class="aba" aria-controls="painel-provas" aria-selected="true" data-texto="arquivo.abaProvas">
+            Provas
+          </button>
+          <button id="aba-povo" type="button" role="tab" class="aba" aria-controls="painel-povo" aria-selected="false" tabindex="-1" data-texto="arquivo.abaPovo">
+            Povo
+          </button>
+        </div>
+
+        <div id="painel-provas" class="painel-arquivo" role="tabpanel" aria-labelledby="aba-provas"></div>
+        <div id="painel-povo" class="painel-arquivo" role="tabpanel" aria-labelledby="aba-povo" hidden></div>
+
         <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="arquivo.voltar">
           Voltar ao menu
         </button>
       </div>
     </section>
 
-    <section id="tela-sobre" class="tela" aria-labelledby="titulo-sobre" hidden>
-      <div class="tela-conteudo">
+    <section id="tela-sobre" class="tela tela-longa" aria-labelledby="titulo-sobre" hidden>
+      <div class="tela-conteudo tela-conteudo-larga">
         <h1 id="titulo-sobre" data-texto="sobre.titulo">Sobre o projeto</h1>
-        <p class="texto-suave" data-texto="sobre.texto"></p>
+        <!-- Preenchido a partir de content/sobre.md -->
+        <div id="sobre-conteudo" class="sobre-conteudo"></div>
         <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="sobre.voltar">
           Voltar ao menu
         </button>
+      </div>
+    </section>
+
+    <section id="tela-intro" class="tela" data-texto-aria="intro.regiao" hidden>
+      <!-- Quadros e textos vêm de content/intro.json -->
+      <div class="tela-conteudo tela-conteudo-larga intro">
+        <figure class="intro-quadro">
+          <img id="intro-imagem" src="" alt="" />
+        </figure>
+        <p id="intro-texto" class="intro-texto" aria-live="polite"></p>
+        <p id="intro-progresso" class="texto-suave intro-progresso"></p>
+        <div class="intro-acoes">
+          <button id="btn-intro-pular" type="button" class="btn-secundario" data-texto="intro.pular">
+            Pular
+          </button>
+          <button id="btn-intro-proximo" type="button" class="btn-primario" data-texto="intro.proximo">
+            Próximo
+          </button>
+        </div>
       </div>
     </section>
 

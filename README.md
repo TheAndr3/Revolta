@@ -23,6 +23,7 @@ Abra o endereço exibido no terminal (normalmente `http://localhost:5173`).
 - `npm run validar-fase` — valida todas as Fases de `public/fases/` com o solver estático (rota que coleta as 3 Provas e chega à Saída, Habitante alcançável, Totens fora de trilhos, trilhos sem cruzamento) e mostra a rota mínima; para uma Fase só: `npm run validar-fase -- public/fases/<arquivo>.txt`
 - `npm run build` — valida tipos TypeScript (`tsc --noEmit`) e gera o build de produção em `dist/`
 - `npm run preview` — pré-visualiza localmente o build de produção
+- `npm run check-content` — valida os arquivos de `content/` (cabeçalho completo, Provas com até 100 palavras, ilustrações e retratos existentes); roda também no deploy
 
 ### Controles
 
