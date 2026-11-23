@@ -1,30 +1,69 @@
 import Phaser from 'phaser';
+import catalogoFasesJson from '../content/fases.json';
 import { CONFIG } from './core/config';
 import { TOTAL_PROVAS_FASE } from './core/fase';
 import type { ConteudoHabitante } from './core/habitantes';
 import { parseFase } from './core/parser';
+import {
+  faseDesbloqueada,
+  formatarTempo,
+  lerCatalogoFases,
+  proximaFase,
+  type EntradaCatalogoFase,
+} from './core/progresso';
 import type { ConteudoProva } from './core/provas';
-import { salvarHabitanteResgatado } from './game/armazenamentoHabitantes';
-import { salvarProvaColetada } from './game/armazenamentoProvas';
+import { criarRepositorioProgresso } from './game/armazenamentoProgresso';
 import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
-import { carregarConteudoProvasDaFase } from './game/carregarProvas';
+import {
+  carregarConteudoProvasDaFase,
+  type MapaConteudoProvas,
+} from './game/carregarProvas';
 import { registrarControles } from './game/controles';
 import { calcularEscalaInteira } from './game/escala';
-import { FaseScene } from './game/FaseScene';
+import { FaseScene, type ResumoConclusaoFase } from './game/FaseScene';
+import { aplicarTextosEstaticos, formatarTexto, TEXTOS } from './game/textos';
 import './style.css';
 
-const FASE_ID_ATUAL = 'fase-00';
 const DURACAO_BALAO_HABITANTE_MS = 5000;
+
+type NomeTela = 'capa' | 'menu' | 'arquivo' | 'sobre' | 'selecao' | 'fim-prototipo' | 'jogo';
+
+const NOMES_TELA: readonly NomeTela[] = [
+  'capa',
+  'menu',
+  'arquivo',
+  'sobre',
+  'selecao',
+  'fim-prototipo',
+  'jogo',
+];
 
 interface DocumentoComAriaNotify extends Document {
   ariaNotify?: (mensagem: string) => void;
+}
+
+interface SessaoFase {
+  readonly indice: number;
+  readonly entrada: EntradaCatalogoFase;
+  readonly cena: FaseScene;
+  readonly jogo: Phaser.Game;
+  readonly conteudoProvas: MapaConteudoProvas;
+  readonly conteudoHabitante: ConteudoHabitante | null;
+}
+
+function elemento<T extends HTMLElement = HTMLElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) {
+    throw new Error(`Elemento esperado do DOM não encontrado: #${id}`);
+  }
+  return el as T;
 }
 
 async function carregarFaseDeTexto(caminhoRelativo: string): Promise<string> {
   const url = `${import.meta.env.BASE_URL}${caminhoRelativo}`;
   const resposta = await fetch(url);
   if (!resposta.ok) {
-    throw new Error(`Não foi possível carregar a Fase (${resposta.status}): ${url}`);
+    throw new Error(formatarTexto(TEXTOS.erros.carregarFase, { status: resposta.status, url }));
   }
   return resposta.text();
 }
@@ -43,7 +82,7 @@ function preencherOverlayProva(
   },
 ): void {
   elementos.imagem.src = resolverUrlAsset(prova.ilustracao);
-  elementos.imagem.alt = `Ilustração da Prova: ${prova.titulo}`;
+  elementos.imagem.alt = formatarTexto(TEXTOS.prova.ilustracao, { titulo: prova.titulo });
   elementos.tipo.textContent = prova.rotuloTipo;
   elementos.titulo.textContent = prova.titulo;
 
@@ -56,13 +95,12 @@ function preencherOverlayProva(
 }
 
 function formatarContagemMortes(mortes: number): string {
-  return mortes === 1 ? '1 morte' : `${mortes} mortes`;
+  return mortes === 1
+    ? TEXTOS.fimFase.morteUma
+    : formatarTexto(TEXTOS.fimFase.mortesVarias, { n: mortes });
 }
 
-function anunciarParaLeitorDeTela(
-  mensagem: string,
-  liveRegionFallback: HTMLElement,
-): void {
+function anunciarParaLeitorDeTela(mensagem: string, liveRegionFallback: HTMLElement): void {
   const doc = document as DocumentoComAriaNotify;
   if (typeof doc.ariaNotify === 'function') {
     doc.ariaNotify(mensagem);
@@ -75,351 +113,531 @@ function anunciarParaLeitorDeTela(
   });
 }
 
-async function iniciar(): Promise<void> {
-  const palco = document.getElementById('palco');
-  const hudProvas = document.getElementById('contador-provas');
-  const hudHabitante = document.getElementById('status-habitante');
-  const hudDeslizes = document.getElementById('contador-deslizes');
-  const hudMortes = document.getElementById('contador-mortes');
-  const botaoPausa = document.getElementById('btn-pausa');
-  const balaoHabitante = document.getElementById('balao-habitante');
-  const balaoRetrato = document.getElementById('balao-retrato') as HTMLImageElement | null;
-  const balaoNome = document.getElementById('balao-nome');
-  const balaoFala = document.getElementById('balao-fala');
-  const botaoFecharBalao = document.getElementById('btn-fechar-balao');
-  const anuncioHabitante = document.getElementById('anuncio-habitante');
-  const dialogPausa = document.getElementById('modal-pausa') as HTMLDialogElement | null;
-  const dialogMenu = document.getElementById(
-    'modal-menu-provisorio',
-  ) as HTMLDialogElement | null;
-  const dialogProva = document.getElementById('modal-prova') as HTMLDialogElement | null;
-  const provaImagem = document.getElementById('prova-imagem') as HTMLImageElement | null;
-  const provaTipo = document.getElementById('prova-tipo');
-  const provaTitulo = document.getElementById('prova-titulo');
-  const provaTexto = document.getElementById('prova-texto');
-  const dialogConclusao = document.getElementById('modal-conclusao') as HTMLDialogElement | null;
-  const textoResumo = document.getElementById('resumo-conclusao');
-  const mensagemErro = document.getElementById('mensagem-erro');
+function iniciar(): void {
+  aplicarTextosEstaticos();
+  document.title = TEXTOS.documento.titulo;
 
-  if (
-    !palco ||
-    !hudProvas ||
-    !hudHabitante ||
-    !hudDeslizes ||
-    !hudMortes ||
-    !botaoPausa ||
-    !balaoHabitante ||
-    !balaoRetrato ||
-    !balaoNome ||
-    !balaoFala ||
-    !botaoFecharBalao ||
-    !anuncioHabitante ||
-    !dialogPausa ||
-    !dialogMenu ||
-    !dialogProva ||
-    !provaImagem ||
-    !provaTipo ||
-    !provaTitulo ||
-    !provaTexto ||
-    !dialogConclusao ||
-    !textoResumo ||
-    !mensagemErro
-  ) {
-    throw new Error('Elementos esperados do DOM não foram encontrados.');
-  }
+  const catalogo = lerCatalogoFases(catalogoFasesJson);
+  const progresso = criarRepositorioProgresso();
 
-  try {
-    const [textoFase, conteudoProvas, conteudoHabitante] = await Promise.all([
-      carregarFaseDeTexto('fases/fase-00-teste.txt'),
-      Promise.resolve(carregarConteudoProvasDaFase(FASE_ID_ATUAL)),
-      Promise.resolve(carregarConteudoHabitanteDaFase(FASE_ID_ATUAL)),
-    ]);
-    const fase = parseFase(textoFase);
+  const telas = new Map<NomeTela, HTMLElement>(
+    NOMES_TELA.map((nome) => [nome, elemento(`tela-${nome}`)]),
+  );
+  const telaJogo = elemento('tela-jogo');
+  const listaFases = elemento<HTMLOListElement>('lista-fases');
+  const botaoComecar = elemento('btn-comecar');
 
-    const larguraMundoPx = fase.largura * CONFIG.tamanhoTilePx;
-    const alturaMundoPx = fase.altura * CONFIG.tamanhoTilePx;
+  const palco = elemento('palco');
+  const hudNomeFase = elemento('hud-nome-fase');
+  const hudProvas = elemento('contador-provas');
+  const hudHabitante = elemento('status-habitante');
+  const hudDeslizes = elemento('contador-deslizes');
+  const hudMortes = elemento('contador-mortes');
+  const botaoPausa = elemento('btn-pausa');
+  const balaoHabitante = elemento('balao-habitante');
+  const balaoRetrato = elemento<HTMLImageElement>('balao-retrato');
+  const balaoNome = elemento('balao-nome');
+  const balaoFala = elemento('balao-fala');
+  const botaoFecharBalao = elemento('btn-fechar-balao');
+  const anuncioHabitante = elemento('anuncio-habitante');
+  const dialogPausa = elemento<HTMLDialogElement>('modal-pausa');
+  const dialogProva = elemento<HTMLDialogElement>('modal-prova');
+  const provaImagem = elemento<HTMLImageElement>('prova-imagem');
+  const provaTipo = elemento('prova-tipo');
+  const provaTitulo = elemento('prova-titulo');
+  const provaTexto = elemento('prova-texto');
+  const dialogConclusao = elemento<HTMLDialogElement>('modal-conclusao');
+  const tituloConclusao = elemento('titulo-conclusao');
+  const resumoConclusao = elemento<HTMLUListElement>('resumo-conclusao');
+  const botaoProxima = elemento('btn-proxima');
+  const mensagemErro = elemento('mensagem-erro');
+  const mensagemErroTexto = elemento('mensagem-erro-texto');
+  const botaoErroVoltar = elemento('btn-erro-voltar');
 
-    const medirEscala = () => {
-      const rect = palco.getBoundingClientRect();
-      return calcularEscalaInteira(
-        rect.width || window.innerWidth,
-        rect.height || window.innerHeight,
-        window.devicePixelRatio || 1,
-        larguraMundoPx,
-        alturaMundoPx,
-      );
-    };
+  let sessao: SessaoFase | null = null;
+  /** Incrementado a cada Fase iniciada/encerrada, para descartar carregamentos obsoletos. */
+  let geracaoSessao = 0;
 
-    const dimensoesIniciais = medirEscala();
+  // ---------------------------------------------------------------- Telas
 
-    const suportaPopover = typeof balaoHabitante.showPopover === 'function';
-    let temporizadorBalao: number | null = null;
-    let falaHabitantePendente: ConteudoHabitante | null = null;
+  const mostrarTela = (nome: NomeTela) => {
+    for (const [chave, tela] of telas) {
+      tela.hidden = chave !== nome;
+    }
+    if (nome !== 'jogo') {
+      document.title = TEXTOS.documento.titulo;
+      const alvo = telas.get(nome)?.querySelector<HTMLElement>('button:not([disabled])');
+      alvo?.focus();
+    }
+  };
 
-    const algumModalAberto = () =>
-      dialogConclusao.open || dialogProva.open || dialogPausa.open || dialogMenu.open;
+  const renderizarSelecao = () => {
+    const concluidas = progresso.fasesConcluidas();
+    const itens = catalogo.map((entrada, indice) => {
+      const liberada = faseDesbloqueada(catalogo, indice, concluidas);
+      const concluida = concluidas.has(entrada.id);
+      const resgatado = progresso.habitanteResgatado(entrada.id);
 
-    const limparTemporizadorBalao = () => {
-      if (temporizadorBalao !== null) {
-        window.clearTimeout(temporizadorBalao);
-        temporizadorBalao = null;
-      }
-    };
+      const li = document.createElement('li');
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'cartao-fase';
+      botao.dataset.indice = String(indice);
+      botao.dataset.estado = !liberada ? 'bloqueada' : concluida ? 'concluida' : 'nova';
+      botao.disabled = !liberada;
 
-    const fecharBalaoHabitante = () => {
-      limparTemporizadorBalao();
-      if (suportaPopover) {
-        if (balaoHabitante.matches(':popover-open')) {
-          balaoHabitante.hidePopover();
-        }
+      const nome = document.createElement('span');
+      nome.className = 'cartao-fase-nome';
+      nome.textContent = entrada.nome;
+
+      const subtitulo = document.createElement('span');
+      subtitulo.className = 'cartao-fase-subtitulo';
+      subtitulo.textContent = entrada.subtitulo;
+
+      const status = document.createElement('span');
+      status.className = 'cartao-fase-status';
+      status.textContent = !liberada
+        ? TEXTOS.selecao.bloqueada
+        : concluida
+          ? TEXTOS.selecao.concluida
+          : TEXTOS.selecao.naoConcluida;
+
+      const detalhe = document.createElement('span');
+      detalhe.className = 'cartao-fase-habitante';
+      if (liberada) {
+        detalhe.dataset.resgatado = String(resgatado);
+        detalhe.textContent = resgatado
+          ? TEXTOS.selecao.habitanteResgatado
+          : TEXTOS.selecao.habitanteNaoResgatado;
       } else {
-        balaoHabitante.classList.remove('visivel');
+        detalhe.textContent = TEXTOS.selecao.bloqueadaDica;
       }
-    };
 
-    const agendarFechamentoBalao = () => {
-      limparTemporizadorBalao();
-      temporizadorBalao = window.setTimeout(() => {
-        if (balaoHabitante.contains(document.activeElement)) {
-          return;
-        }
-        fecharBalaoHabitante();
-      }, DURACAO_BALAO_HABITANTE_MS);
-    };
+      botao.append(nome, subtitulo, status, detalhe);
+      li.append(botao);
+      return li;
+    });
+    listaFases.replaceChildren(...itens);
+  };
 
-    const exibirBalaoHabitante = (habitante: ConteudoHabitante) => {
-      if (algumModalAberto()) {
-        falaHabitantePendente = habitante;
+  const irParaSelecao = () => {
+    encerrarSessao();
+    renderizarSelecao();
+    mostrarTela('selecao');
+  };
+
+  // ------------------------------------------------- Balão do Habitante
+
+  const suportaPopover = typeof balaoHabitante.showPopover === 'function';
+  let temporizadorBalao: number | null = null;
+  let falaHabitantePendente: ConteudoHabitante | null = null;
+
+  const algumModalAberto = () => dialogConclusao.open || dialogProva.open || dialogPausa.open;
+
+  const limparTemporizadorBalao = () => {
+    if (temporizadorBalao !== null) {
+      window.clearTimeout(temporizadorBalao);
+      temporizadorBalao = null;
+    }
+  };
+
+  const fecharBalaoHabitante = () => {
+    limparTemporizadorBalao();
+    if (suportaPopover) {
+      if (balaoHabitante.matches(':popover-open')) {
+        balaoHabitante.hidePopover();
+      }
+    } else {
+      balaoHabitante.classList.remove('visivel');
+    }
+  };
+
+  const agendarFechamentoBalao = () => {
+    limparTemporizadorBalao();
+    temporizadorBalao = window.setTimeout(() => {
+      if (balaoHabitante.contains(document.activeElement)) {
         return;
       }
-
-      balaoRetrato.src = resolverUrlAsset(habitante.retrato);
-      balaoRetrato.alt = `Retrato de ${habitante.nome}`;
-      balaoNome.textContent = habitante.nome;
-      balaoFala.textContent = `“${habitante.fala}”`;
-
-      if (suportaPopover) {
-        if (!balaoHabitante.matches(':popover-open')) {
-          balaoHabitante.showPopover();
-        }
-      } else {
-        balaoHabitante.classList.add('visivel');
-      }
-
-      anunciarParaLeitorDeTela(
-        `${habitante.nome} resgatado: ${habitante.fala}`,
-        anuncioHabitante,
-      );
-      agendarFechamentoBalao();
-    };
-
-    const tentarExibirFalaPendente = () => {
-      if (falaHabitantePendente && !algumModalAberto()) {
-        const pendente = falaHabitantePendente;
-        falaHabitantePendente = null;
-        exibirBalaoHabitante(pendente);
-      }
-    };
-
-    balaoHabitante.addEventListener('focusin', limparTemporizadorBalao);
-    balaoHabitante.addEventListener('focusout', (evento) => {
-      const proximo = evento.relatedTarget as Node | null;
-      if (!proximo || !balaoHabitante.contains(proximo)) {
-        agendarFechamentoBalao();
-      }
-    });
-    botaoFecharBalao.addEventListener('click', () => {
       fecharBalaoHabitante();
-    });
+    }, DURACAO_BALAO_HABITANTE_MS);
+  };
 
-    const cena = new FaseScene(fase, {
-      aoAtualizarDeslizes: (deslizes) => {
-        hudDeslizes.textContent = `Deslizes: ${deslizes}`;
-      },
-      aoAtualizarMortes: (mortes) => {
-        hudMortes.textContent = `Mortes: ${mortes}`;
-      },
-      aoAtualizarProvas: (coletadas, total) => {
-        hudProvas.textContent = `Provas ${coletadas}/${total}`;
-        hudProvas.dataset.completo = String(coletadas >= total);
-      },
-      aoAtualizarHabitante: (resgatado, temHabitante) => {
-        hudHabitante.hidden = !temHabitante;
-        hudHabitante.dataset.resgatado = String(resgatado);
-        const descricao = resgatado
-          ? 'Habitante: resgatado'
-          : 'Habitante: ainda não resgatado';
-        hudHabitante.setAttribute('aria-label', descricao);
-        hudHabitante.title = descricao;
-      },
-      aoColetarProva: (prova) => {
-        salvarProvaColetada(FASE_ID_ATUAL, prova.numero);
-      },
-      aoResgatarHabitante: () => {
-        salvarHabitanteResgatado(FASE_ID_ATUAL);
-        if (conteudoHabitante) {
-          exibirBalaoHabitante(conteudoHabitante);
-        }
-      },
-      aoAbrirProva: (prova) => {
-        fecharBalaoHabitante();
-        const conteudo = conteudoProvas[prova.numero];
-        preencherOverlayProva(conteudo, {
-          imagem: provaImagem,
-          tipo: provaTipo,
-          titulo: provaTitulo,
-          texto: provaTexto,
-        });
-        dialogProva.scrollTop = 0;
-        if (!dialogProva.open) {
-          dialogProva.showModal();
-        }
-      },
-      aoConcluir: ({ deslizes, mortes, habitanteResgatado, temHabitante }) => {
-        fecharBalaoHabitante();
-        const trechoHabitante = temHabitante
-          ? ` · Habitante ${habitanteResgatado ? '✔' : '✘'}`
-          : '';
-        textoResumo.textContent = `Provas ${TOTAL_PROVAS_FASE}/${TOTAL_PROVAS_FASE}${trechoHabitante} · ${deslizes} deslizes · ${formatarContagemMortes(mortes)}.`;
-        if (!dialogConclusao.open) {
-          dialogConclusao.showModal();
-        }
-      },
-    });
+  const exibirBalaoHabitante = (habitante: ConteudoHabitante) => {
+    if (algumModalAberto()) {
+      falaHabitantePendente = habitante;
+      return;
+    }
 
-    const jogo = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: palco,
-      width: dimensoesIniciais.larguraLogica,
-      height: dimensoesIniciais.alturaLogica,
-      backgroundColor: '#0d1512',
-      pixelArt: true,
-      roundPixels: true,
-      antialias: false,
-      scale: {
-        mode: Phaser.Scale.NONE,
-      },
-      scene: [cena],
-    });
+    balaoRetrato.src = resolverUrlAsset(habitante.retrato);
+    balaoRetrato.alt = formatarTexto(TEXTOS.habitante.retrato, { nome: habitante.nome });
+    balaoNome.textContent = habitante.nome;
+    balaoFala.textContent = `“${habitante.fala}”`;
 
-    const aplicarEscalaNoCanvas = () => {
-      const d = medirEscala();
-      jogo.scale.resize(d.larguraLogica, d.alturaLogica);
-      cena.atualizarTamanhoViewport(d.larguraLogica, d.alturaLogica);
-      const canvas = jogo.canvas;
-      if (canvas) {
-        canvas.style.width = `${d.larguraCss}px`;
-        canvas.style.height = `${d.alturaCss}px`;
+    if (suportaPopover) {
+      if (!balaoHabitante.matches(':popover-open')) {
+        balaoHabitante.showPopover();
       }
-    };
+    } else {
+      balaoHabitante.classList.add('visivel');
+    }
 
-    aplicarEscalaNoCanvas();
-    window.addEventListener('resize', aplicarEscalaNoCanvas);
-    window.addEventListener('orientationchange', aplicarEscalaNoCanvas);
-
-    const reiniciarFase = () => {
-      falaHabitantePendente = null;
-      fecharBalaoHabitante();
-      if (dialogProva.open) {
-        dialogProva.close('ignorar');
-      }
-      if (dialogPausa.open) {
-        dialogPausa.close('ignorar');
-      }
-      if (dialogMenu.open) {
-        dialogMenu.close('ignorar');
-      }
-      if (dialogConclusao.open) {
-        dialogConclusao.close();
-      }
-      cena.reiniciar();
-    };
-
-    const abrirPausa = () => {
-      if (algumModalAberto()) return;
-      fecharBalaoHabitante();
-      cena.pausar();
-      dialogPausa.showModal();
-    };
-
-    botaoPausa.addEventListener('click', abrirPausa);
-
-    dialogPausa.addEventListener('close', () => {
-      const acao = dialogPausa.returnValue;
-      dialogPausa.returnValue = '';
-
-      switch (acao) {
-        case 'ignorar':
-          break;
-        case 'totem':
-          cena.voltarAoTotem();
-          tentarExibirFalaPendente();
-          break;
-        case 'reiniciar':
-          falaHabitantePendente = null;
-          fecharBalaoHabitante();
-          cena.reiniciar();
-          break;
-        case 'sair':
-          if (!dialogMenu.open) {
-            dialogMenu.showModal();
-          }
-          break;
-        case 'continuar':
-        case '':
-        default:
-          cena.retomar();
-          tentarExibirFalaPendente();
-          break;
-      }
-    });
-
-    dialogMenu.addEventListener('close', () => {
-      const acao = dialogMenu.returnValue;
-      dialogMenu.returnValue = '';
-
-      if (acao === 'ignorar') return;
-      if (acao === 'jogar') {
-        falaHabitantePendente = null;
-        fecharBalaoHabitante();
-        cena.reiniciar();
-      } else {
-        cena.retomar();
-        tentarExibirFalaPendente();
-      }
-    });
-
-    dialogProva.addEventListener('close', () => {
-      const acao = dialogProva.returnValue;
-      dialogProva.returnValue = '';
-      if (acao !== 'ignorar') {
-        cena.fecharProva();
-        tentarExibirFalaPendente();
-      }
-    });
-
-    dialogConclusao.addEventListener('close', () => {
-      const acao = dialogConclusao.returnValue;
-      dialogConclusao.returnValue = '';
-      if (acao === 'reiniciar') {
-        falaHabitantePendente = null;
-        fecharBalaoHabitante();
-        cena.reiniciar();
-      }
-    });
-
-    registrarControles(
-      palco,
-      (direcao) => cena.receberDirecao(direcao),
-      reiniciarFase,
-      algumModalAberto,
-      abrirPausa,
+    anunciarParaLeitorDeTela(
+      formatarTexto(TEXTOS.habitante.anuncio, { nome: habitante.nome, fala: habitante.fala }),
+      anuncioHabitante,
     );
-  } catch (erro) {
-    mensagemErro.hidden = false;
-    mensagemErro.textContent =
-      erro instanceof Error ? erro.message : 'Erro inesperado ao iniciar o jogo.';
+    agendarFechamentoBalao();
+  };
+
+  const tentarExibirFalaPendente = () => {
+    if (falaHabitantePendente && !algumModalAberto()) {
+      const pendente = falaHabitantePendente;
+      falaHabitantePendente = null;
+      exibirBalaoHabitante(pendente);
+    }
+  };
+
+  const descartarFalaPendente = () => {
+    falaHabitantePendente = null;
+    fecharBalaoHabitante();
+  };
+
+  balaoHabitante.addEventListener('focusin', limparTemporizadorBalao);
+  balaoHabitante.addEventListener('focusout', (evento) => {
+    const proximo = evento.relatedTarget as Node | null;
+    if (!proximo || !balaoHabitante.contains(proximo)) {
+      agendarFechamentoBalao();
+    }
+  });
+  botaoFecharBalao.addEventListener('click', fecharBalaoHabitante);
+
+  // ------------------------------------------------------ Sessão de Fase
+
+  const medirEscala = (fase: { largura: number; altura: number }) => {
+    const rect = palco.getBoundingClientRect();
+    return calcularEscalaInteira(
+      rect.width || window.innerWidth,
+      rect.height || window.innerHeight,
+      window.devicePixelRatio || 1,
+      fase.largura * CONFIG.tamanhoTilePx,
+      fase.altura * CONFIG.tamanhoTilePx,
+    );
+  };
+
+  let dimensoesFaseAtual: { largura: number; altura: number } | null = null;
+
+  const aplicarEscalaNoCanvas = () => {
+    if (!sessao || !dimensoesFaseAtual) return;
+    const d = medirEscala(dimensoesFaseAtual);
+    sessao.jogo.scale.resize(d.larguraLogica, d.alturaLogica);
+    sessao.cena.atualizarTamanhoViewport(d.larguraLogica, d.alturaLogica);
+    const canvas = sessao.jogo.canvas;
+    if (canvas) {
+      canvas.style.width = `${d.larguraCss}px`;
+      canvas.style.height = `${d.alturaCss}px`;
+    }
+  };
+
+  window.addEventListener('resize', aplicarEscalaNoCanvas);
+  window.addEventListener('orientationchange', aplicarEscalaNoCanvas);
+
+  const fecharDialogosDaFase = () => {
+    for (const dialogo of [dialogProva, dialogPausa, dialogConclusao]) {
+      if (dialogo.open) {
+        dialogo.close('ignorar');
+      }
+    }
+  };
+
+  function encerrarSessao(): void {
+    geracaoSessao += 1;
+    descartarFalaPendente();
+    fecharDialogosDaFase();
+    if (sessao) {
+      sessao.jogo.destroy(true);
+      sessao = null;
+    }
+    dimensoesFaseAtual = null;
   }
+
+  const atualizarHudHabitante = (resgatado: boolean, temHabitante: boolean) => {
+    hudHabitante.hidden = !temHabitante;
+    hudHabitante.dataset.resgatado = String(resgatado);
+    const descricao = resgatado
+      ? TEXTOS.hud.habitanteResgatado
+      : TEXTOS.hud.habitanteNaoResgatado;
+    hudHabitante.setAttribute('aria-label', descricao);
+    hudHabitante.title = descricao;
+  };
+
+  const mostrarFimDeFase = (indice: number, resumo: ResumoConclusaoFase) => {
+    const entrada = catalogo[indice];
+    progresso.registrarConclusao(entrada.id);
+    descartarFalaPendente();
+
+    tituloConclusao.textContent = formatarTexto(TEXTOS.fimFase.titulo, { fase: entrada.nome });
+    const linhas = [
+      formatarTexto(TEXTOS.fimFase.provas, {
+        coletadas: TOTAL_PROVAS_FASE,
+        total: TOTAL_PROVAS_FASE,
+      }),
+      ...(resumo.temHabitante
+        ? [resumo.habitanteResgatado ? TEXTOS.fimFase.habitanteSim : TEXTOS.fimFase.habitanteNao]
+        : []),
+      formatarContagemMortes(resumo.mortes),
+      formatarTexto(TEXTOS.fimFase.tempo, { tempo: formatarTempo(resumo.tempoSegundos) }),
+    ];
+    resumoConclusao.replaceChildren(
+      ...linhas.map((linha) => {
+        const li = document.createElement('li');
+        li.textContent = linha;
+        return li;
+      }),
+    );
+    botaoProxima.textContent =
+      proximaFase(catalogo, indice) === null ? TEXTOS.fimFase.ultima : TEXTOS.fimFase.proxima;
+
+    if (!dialogConclusao.open) {
+      dialogConclusao.showModal();
+    }
+  };
+
+  const mostrarErroDeFase = (erro: unknown) => {
+    mensagemErroTexto.textContent =
+      erro instanceof Error ? erro.message : TEXTOS.erros.inesperado;
+    mensagemErro.hidden = false;
+    botaoErroVoltar.focus();
+  };
+
+  async function iniciarFase(indice: number): Promise<void> {
+    const entrada = catalogo[indice];
+    if (!entrada || !faseDesbloqueada(catalogo, indice, progresso.fasesConcluidas())) {
+      irParaSelecao();
+      return;
+    }
+
+    encerrarSessao();
+    const geracao = geracaoSessao;
+
+    mensagemErro.hidden = true;
+    hudNomeFase.textContent = entrada.nome;
+    hudProvas.textContent = formatarTexto(TEXTOS.hud.provas, {
+      coletadas: 0,
+      total: TOTAL_PROVAS_FASE,
+    });
+    hudProvas.dataset.completo = 'false';
+    hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: 0 });
+    hudMortes.textContent = formatarTexto(TEXTOS.hud.mortes, { n: 0 });
+    atualizarHudHabitante(false, false);
+    document.title = `${entrada.nome} · ${TEXTOS.documento.titulo}`;
+    mostrarTela('jogo');
+
+    try {
+      const textoFase = await carregarFaseDeTexto(entrada.mapa);
+      if (geracao !== geracaoSessao) return; // o jogador saiu durante o carregamento
+
+      const fase = parseFase(textoFase);
+      const conteudoProvas = carregarConteudoProvasDaFase(entrada.conteudo);
+      const conteudoHabitante = carregarConteudoHabitanteDaFase(entrada.conteudo);
+
+      const cena = new FaseScene(fase, {
+        aoAtualizarDeslizes: (deslizes) => {
+          hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: deslizes });
+        },
+        aoAtualizarMortes: (mortes) => {
+          hudMortes.textContent = formatarTexto(TEXTOS.hud.mortes, { n: mortes });
+        },
+        aoAtualizarProvas: (coletadas, total) => {
+          hudProvas.textContent = formatarTexto(TEXTOS.hud.provas, { coletadas, total });
+          hudProvas.dataset.completo = String(coletadas >= total);
+        },
+        aoAtualizarHabitante: atualizarHudHabitante,
+        aoColetarProva: (prova) => {
+          progresso.registrarProva(entrada.id, prova.numero);
+        },
+        aoResgatarHabitante: () => {
+          progresso.registrarHabitante(entrada.id);
+          if (conteudoHabitante) {
+            exibirBalaoHabitante(conteudoHabitante);
+          }
+        },
+        aoAbrirProva: (prova) => {
+          fecharBalaoHabitante();
+          preencherOverlayProva(conteudoProvas[prova.numero], {
+            imagem: provaImagem,
+            tipo: provaTipo,
+            titulo: provaTitulo,
+            texto: provaTexto,
+          });
+          dialogProva.scrollTop = 0;
+          if (!dialogProva.open) {
+            dialogProva.showModal();
+          }
+        },
+        aoConcluir: (resumo) => mostrarFimDeFase(indice, resumo),
+      });
+
+      dimensoesFaseAtual = { largura: fase.largura, altura: fase.altura };
+      const dimensoesIniciais = medirEscala(dimensoesFaseAtual);
+
+      const jogo = new Phaser.Game({
+        type: Phaser.AUTO,
+        parent: palco,
+        width: dimensoesIniciais.larguraLogica,
+        height: dimensoesIniciais.alturaLogica,
+        backgroundColor: '#0d1512',
+        pixelArt: true,
+        roundPixels: true,
+        antialias: false,
+        scale: {
+          mode: Phaser.Scale.NONE,
+        },
+        scene: [cena],
+      });
+
+      sessao = { indice, entrada, cena, jogo, conteudoProvas, conteudoHabitante };
+      aplicarEscalaNoCanvas();
+    } catch (erro) {
+      if (geracao !== geracaoSessao) return;
+      mostrarErroDeFase(erro);
+    }
+  }
+
+  const reiniciarFase = () => {
+    if (!sessao) return;
+    descartarFalaPendente();
+    fecharDialogosDaFase();
+    sessao.cena.reiniciar();
+  };
+
+  const abrirPausa = () => {
+    if (!sessao || algumModalAberto()) return;
+    fecharBalaoHabitante();
+    sessao.cena.pausar();
+    dialogPausa.showModal();
+  };
+
+  // ------------------------------------------------------------ Eventos
+
+  botaoComecar.addEventListener('click', () => {
+    // Gesto do jogador: ponto em que o áudio será destravado no celular (issue de áudio).
+    mostrarTela('menu');
+  });
+
+  document.addEventListener('click', (evento) => {
+    const alvo = (evento.target as HTMLElement | null)?.closest<HTMLElement>('[data-ir-para]');
+    if (!alvo) return;
+    const destino = alvo.dataset.irPara as NomeTela | undefined;
+    if (destino === 'selecao') {
+      irParaSelecao();
+    } else if (destino && telas.has(destino)) {
+      mostrarTela(destino);
+    }
+  });
+
+  listaFases.addEventListener('click', (evento) => {
+    const cartao = (evento.target as HTMLElement | null)?.closest<HTMLButtonElement>(
+      '.cartao-fase',
+    );
+    if (!cartao || cartao.disabled) return;
+    void iniciarFase(Number(cartao.dataset.indice));
+  });
+
+  botaoErroVoltar.addEventListener('click', irParaSelecao);
+  botaoPausa.addEventListener('click', abrirPausa);
+
+  dialogPausa.addEventListener('close', () => {
+    const acao = dialogPausa.returnValue;
+    dialogPausa.returnValue = '';
+    if (!sessao) return;
+
+    switch (acao) {
+      case 'ignorar':
+        break;
+      case 'totem':
+        sessao.cena.voltarAoTotem();
+        tentarExibirFalaPendente();
+        break;
+      case 'reiniciar':
+        descartarFalaPendente();
+        sessao.cena.reiniciar();
+        break;
+      case 'sair':
+        irParaSelecao();
+        break;
+      case 'continuar':
+      case '':
+      default:
+        sessao.cena.retomar();
+        tentarExibirFalaPendente();
+        break;
+    }
+  });
+
+  dialogProva.addEventListener('close', () => {
+    const acao = dialogProva.returnValue;
+    dialogProva.returnValue = '';
+    if (acao !== 'ignorar' && sessao) {
+      sessao.cena.fecharProva();
+      tentarExibirFalaPendente();
+    }
+  });
+
+  // A Fase já terminou: Esc não pode fechar o resumo e deixar o jogador numa cena parada.
+  dialogConclusao.addEventListener('cancel', (evento) => {
+    evento.preventDefault();
+  });
+
+  dialogConclusao.addEventListener('close', () => {
+    const acao = dialogConclusao.returnValue;
+    dialogConclusao.returnValue = '';
+    if (!sessao || acao === 'ignorar') return;
+
+    switch (acao) {
+      case 'proxima': {
+        const proxima = proximaFase(catalogo, sessao.indice);
+        if (proxima === null) {
+          encerrarSessao();
+          mostrarTela('fim-prototipo');
+        } else {
+          void iniciarFase(proxima);
+        }
+        break;
+      }
+      case 'repetir':
+        descartarFalaPendente();
+        sessao.cena.reiniciar();
+        break;
+      case '':
+        // Fechado sem escolha (o Chrome deixa um segundo Esc ignorar o preventDefault):
+        // a Fase já acabou, então o resumo volta a aparecer.
+        dialogConclusao.showModal();
+        break;
+      case 'selecao':
+      default:
+        irParaSelecao();
+        break;
+    }
+  });
+
+  registrarControles(
+    palco,
+    (direcao) => sessao?.cena.receberDirecao(direcao),
+    reiniciarFase,
+    () => !sessao || telaJogo.hidden || algumModalAberto(),
+    abrirPausa,
+  );
+
+  mostrarTela('capa');
 }
 
-void iniciar();
+try {
+  iniciar();
+} catch (erro) {
+  // Falha de montagem (DOM ou conteúdo inválido): mostra a mensagem na própria página.
+  const aviso = document.createElement('p');
+  aviso.className = 'erro';
+  aviso.setAttribute('role', 'alert');
+  aviso.textContent = erro instanceof Error ? erro.message : String(erro);
+  document.body.prepend(aviso);
+  throw erro;
+}

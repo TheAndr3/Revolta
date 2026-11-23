@@ -1,0 +1,33 @@
+{
+  "_nota": "Ordem de jogo do protótipo. Enquanto as Fases desenhadas (#31/#32) e as Provas (#22) não chegam, as 4 entradas usam o mapa e o conteúdo da fase-00 como placeholder: troque 'mapa' e 'conteudo' quando os arquivos reais existirem.",
+  "fases": [
+    {
+      "id": "fase-01",
+      "nome": "Fase 1",
+      "subtitulo": "Paredes e espinhos",
+      "mapa": "fases/fase-00-teste.txt",
+      "conteudo": "fase-00"
+    },
+    {
+      "id": "fase-02",
+      "nome": "Fase 2",
+      "subtitulo": "A Gosma Tóxica",
+      "mapa": "fases/fase-00-teste.txt",
+      "conteudo": "fase-00"
+    },
+    {
+      "id": "fase-03",
+      "nome": "Fase 3",
+      "subtitulo": "Drones e Guardas",
+      "mapa": "fases/fase-00-teste.txt",
+      "conteudo": "fase-00"
+    },
+    {
+      "id": "fase-04",
+      "nome": "Fase 4",
+      "subtitulo": "Tudo junto",
+      "mapa": "fases/fase-00-teste.txt",
+      "conteudo": "fase-00"
+    }
+  ]
+}

@@ -81,7 +81,7 @@ Por que estes caracteres: não há `I`, `l`, `O`, `0`, `S`, `5`, `Z`, `B`, `8` n
 | Drone Desmatador | `D` | somente `vai-e-volta` | exatamente 2, na mesma linha ou na mesma coluna (linha reta) | 10 tiles/s | não |
 | Guarda Florestal | `R` | `loop` ou `vai-e-volta` | 2 ou mais | 5 tiles/s (valor a confirmar) | sim, em vértices marcados |
 
-A velocidade é **sempre declarada** em cada Ameaça. O parser aceita qualquer número positivo; o validador emite *aviso* (não erro) se o valor diferir da referência do tipo.
+A velocidade é declarada em cada Ameaça ou, com `-`, herdada da referência do tipo (definida em `src/core/config.ts`, `velocidadeReferenciaAmeacaTilesPorSegundo`). O parser aceita qualquer número positivo; o validador emite *aviso* (não erro) se o valor diferir da referência do tipo.
 
 ### 2.3 Notação no papel quadriculado
 
@@ -124,7 +124,7 @@ ID | ciclo | vel | rota | pausas
 |---|---|---|
 | `ID` | `[GDR][1-9][0-9]*` | `G1`, `D1`, `R2`… Letra = tipo; número pela ordem de leitura do símbolo no grid |
 | `ciclo` | `loop` ou `vai-e-volta` | |
-| `vel` | número `>0`, ponto decimal (`3`, `2.5`) | tiles por segundo |
+| `vel` | número `>0`, ponto decimal (`3`, `2.5`), ou `-` | tiles por segundo; `-` usa a velocidade de referência do tipo (config) |
 | `rota` | vértices `c,r` separados por **um espaço**, em ordem de percurso | mínimo 2 |
 | `pausas` | `-` (nenhuma) ou lista `c,r=seg` separada por espaço (`13,3=2 7,1=0.5`) | `c,r` deve ser um vértice da rota; `seg > 0` |
 

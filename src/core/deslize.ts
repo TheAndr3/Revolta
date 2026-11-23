@@ -8,11 +8,22 @@ import {
 } from './ameacas';
 import { CONFIG } from './config';
 import {
+  algumEspinhoEmCiclo,
+  avancarEspinhos,
+  criarEspinhos,
+  espinhoLetal,
+  pisarEspinho,
+  protagonistaSobreEspinho,
+  reiniciarEspinhos,
+  type EstadoEspinho,
+} from './espinhos';
+import {
   TOTAL_PROVAS_FASE,
   type Coordenada,
   type Fase,
   type NumeroProva,
   type ProvaNaFase,
+  type TipoAmeaca,
   ehParede,
 } from './fase';
 
@@ -49,13 +60,17 @@ export type EventoDeslize =
     }
   | { readonly tipo: 'retornou_ao_totem'; readonly destinoRetorno: Coordenada }
   | { readonly tipo: 'ciclos_reiniciados' }
+  | { readonly tipo: 'espinho_acionado'; readonly celula: Coordenada }
   | { readonly tipo: 'fase_concluida'; readonly celula: Coordenada };
 
 export interface EstadoFase {
   readonly fase: Fase;
   readonly velocidadeTilesPorSegundo: number;
+  /** Células que matam sempre, sem ciclo (usado em testes; a Fase real usa `espinhos`). */
   readonly perigosProvisorios: readonly Coordenada[];
   readonly simularAmeacas: boolean;
+  /** Espinhos temporários da Fase, com a etapa atual de cada um. */
+  readonly espinhos: EstadoEspinho[];
   readonly ciclosAmeacas: readonly CicloAmeaca[];
   posicao: PosicaoContinua;
   celulaAtual: Coordenada;
@@ -67,6 +82,8 @@ export interface EstadoFase {
   mortes: number;
   versaoCiclos: number;
   tempoCicloSegundos: number;
+  /** Tempo jogado na tentativa atual, sem contar pausas e overlays (não zera ao morrer). */
+  tempoJogadoSegundos: number;
   totemAtivo: Coordenada | null;
   habitanteResgatado: boolean;
   provasColetadas: NumeroProva[];
@@ -84,6 +101,8 @@ export interface OpcoesEstadoFase {
   habitanteJaResgatado?: boolean;
   perigosProvisorios?: readonly Coordenada[];
   simularAmeacas?: boolean;
+  /** Liga o ciclo dos espinhos temporários da Fase (padrão: ligado). */
+  simularEspinhos?: boolean;
 }
 
 export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: number }> = {
@@ -106,6 +125,27 @@ export function posicoesAmeacasAtuais(estado: EstadoFase): EstadoAmeacaNoInstant
   return calcularPosicoesAmeacas(estado.ciclosAmeacas, estado.tempoCicloSegundos);
 }
 
+/**
+ * Distância em tiles do Protagonista até a Ameaça mais próxima do tipo pedido,
+ * ou `null` se a Fase não tiver nenhuma. Usada, por exemplo, para o volume do
+ * motor do Drone.
+ */
+export function distanciaAteAmeacaMaisProxima(
+  estado: EstadoFase,
+  tipo: TipoAmeaca,
+): number | null {
+  let menor: number | null = null;
+  for (const ciclo of estado.ciclosAmeacas) {
+    if (ciclo.ameaca.tipo !== tipo) continue;
+    const { posicao } = avaliarAmeacaNoTempo(ciclo, estado.tempoCicloSegundos);
+    const distancia = Math.hypot(posicao.x - estado.posicao.x, posicao.y - estado.posicao.y);
+    if (menor === null || distancia < menor) {
+      menor = distancia;
+    }
+  }
+  return menor;
+}
+
 function estaCongelado(estado: EstadoFase): boolean {
   return estado.concluida || estado.pausado || estado.provaEmExibicao !== null;
 }
@@ -126,6 +166,7 @@ export function criarEstadoFase(
       lin: p.lin,
     })),
     simularAmeacas: opcoes.simularAmeacas ?? true,
+    espinhos: (opcoes.simularEspinhos ?? true) ? criarEspinhos(fase.espinhos) : [],
     ciclosAmeacas: fase.ameacas.map((ameaca) => compilarCicloAmeaca(ameaca)),
     posicao: { x: inicio.col, y: inicio.lin },
     celulaAtual: inicio,
@@ -137,6 +178,7 @@ export function criarEstadoFase(
     mortes: 0,
     versaoCiclos: 0,
     tempoCicloSegundos: 0,
+    tempoJogadoSegundos: 0,
     totemAtivo: null,
     habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
     provasColetadas,
@@ -180,6 +222,7 @@ function reposicionarNoRetorno(
   estado.conclusaoPendente = false;
   estado.tempoCicloSegundos = 0;
   estado.versaoCiclos += 1;
+  reiniciarEspinhos(estado.espinhos);
 
   if (contarMorte) {
     eventos.push({
@@ -357,6 +400,12 @@ type EncontroNoPasso =
       readonly prioridade: number;
       readonly tipo: 'perigo';
       readonly celula: Coordenada;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
+      readonly tipo: 'espinho';
+      readonly espinho: EstadoEspinho;
     };
 
 function coletarEncontrosNoPasso(
@@ -422,6 +471,18 @@ function coletarEncontrosNoPasso(
     const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, perigo, alcancePasso);
     if (dist !== null) {
       encontros.push({ dist, prioridade: 4, tipo: 'perigo', celula: perigo });
+    }
+  }
+
+  for (const espinho of estado.espinhos) {
+    const dist = distanciaAteAlvoNoTrajeto(
+      estado.posicao,
+      direcao,
+      espinho.celula,
+      alcancePasso,
+    );
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 5, tipo: 'espinho', espinho });
     }
   }
 
@@ -516,6 +577,21 @@ function avancarDeslize(
           reposicionarNoRetorno(estado, true, encontro.celula, eventos);
           interrompido = true;
           break;
+
+        case 'espinho': {
+          const { espinho } = encontro;
+          if (espinhoLetal(espinho)) {
+            // Atravessar espinhos já levantados mata (o perigo de "voltar logo").
+            reposicionarNoRetorno(estado, true, espinho.celula, eventos);
+            interrompido = true;
+          } else if (pisarEspinho(espinho)) {
+            eventos.push({
+              tipo: 'espinho_acionado',
+              celula: { col: espinho.celula.col, lin: espinho.celula.lin },
+            });
+          }
+          break;
+        }
       }
 
       if (interrompido) break;
@@ -582,10 +658,13 @@ export function atualizarDeslize(
     return [];
   }
 
+  estado.tempoJogadoSegundos += deltaSegundos;
+
   const eventos: EventoDeslize[] = [];
   const temAmeacasAtivas = estado.simularAmeacas && estado.ciclosAmeacas.length > 0;
+  const temEspinhosEmCiclo = algumEspinhoEmCiclo(estado.espinhos);
 
-  if (!temAmeacasAtivas) {
+  if (!temAmeacasAtivas && !temEspinhosEmCiclo) {
     if (!estado.deslizando) {
       return [];
     }
@@ -605,6 +684,7 @@ export function atualizarDeslize(
 
     const versaoAntes = estado.versaoCiclos;
     estado.tempoCicloSegundos += dt;
+    avancarEspinhos(estado.espinhos, dt);
 
     if (estado.deslizando) {
       avancarDeslize(estado, dt, eventos);
@@ -614,7 +694,16 @@ export function atualizarDeslize(
       break;
     }
 
-    const emContato = encontrarAmeacaEmContato(estado);
+    // Parado (ou passando) sobre espinhos que acabaram de subir.
+    const espinhoSobPes = estado.espinhos.find(
+      (espinho) => espinhoLetal(espinho) && protagonistaSobreEspinho(estado.posicao, espinho),
+    );
+    if (espinhoSobPes) {
+      reposicionarNoRetorno(estado, true, espinhoSobPes.celula, eventos);
+      break;
+    }
+
+    const emContato = temAmeacasAtivas ? encontrarAmeacaEmContato(estado) : null;
     if (emContato) {
       reposicionarNoRetorno(estado, true, emContato.celula, eventos);
       break;

@@ -1,0 +1,90 @@
+{
+  "_nota": "Todos os textos de tela do jogo (PT-BR). Trechos entre chaves, como {n}, são preenchidos pelo código.",
+  "documento": {
+    "titulo": "Re(volta)"
+  },
+  "capa": {
+    "titulo": "Re(volta)",
+    "subtitulo": "A floresta ainda resiste.",
+    "botao": "Toque para começar"
+  },
+  "menu": {
+    "titulo": "Re(volta)",
+    "jogar": "Jogar",
+    "arquivo": "Arquivo da Resistência",
+    "sobre": "Sobre o projeto"
+  },
+  "arquivo": {
+    "titulo": "Arquivo da Resistência",
+    "texto": "Aqui ficarão as Provas coletadas e as fichas do Povo resgatado. Em construção.",
+    "voltar": "Voltar ao menu"
+  },
+  "sobre": {
+    "titulo": "Sobre o projeto",
+    "texto": "Re(volta) é um jogo sobre educação ambiental crítica. O contexto do projeto e as fontes reais que inspiraram as Provas entram aqui em breve.",
+    "voltar": "Voltar ao menu"
+  },
+  "selecao": {
+    "titulo": "Escolha a Fase",
+    "voltar": "Voltar ao menu",
+    "bloqueada": "Bloqueada",
+    "bloqueadaDica": "Conclua a Fase anterior para liberar",
+    "concluida": "Concluída",
+    "naoConcluida": "Nova",
+    "habitanteResgatado": "Habitante resgatado",
+    "habitanteNaoResgatado": "Habitante não resgatado"
+  },
+  "hud": {
+    "titulo": "Re(volta)",
+    "provas": "Provas {coletadas}/{total}",
+    "habitante": "Habitante",
+    "habitanteResgatado": "Habitante: resgatado",
+    "habitanteNaoResgatado": "Habitante: ainda não resgatado",
+    "deslizes": "Deslizes: {n}",
+    "mortes": "Mortes: {n}",
+    "pausa": "Pausa",
+    "areaJogo": "Área jogável do labirinto",
+    "rodape": "Setas ou WASD no PC · Deslize o dedo na tela no celular · Esc/P para pausar · R para reiniciar"
+  },
+  "habitante": {
+    "regiao": "Falas dos Habitantes",
+    "anuncios": "Anúncios de resgate",
+    "fechar": "Fechar fala do Habitante",
+    "retrato": "Retrato de {nome}",
+    "anuncio": "{nome} resgatado: {fala}"
+  },
+  "pausa": {
+    "titulo": "Pausa",
+    "continuar": "Continuar",
+    "totem": "Voltar ao Totem",
+    "reiniciar": "Reiniciar Fase",
+    "sair": "Sair"
+  },
+  "prova": {
+    "continuar": "Continuar",
+    "ilustracao": "Ilustração da Prova: {titulo}"
+  },
+  "fimFase": {
+    "titulo": "{fase} concluída",
+    "provas": "Provas {coletadas}/{total}",
+    "habitanteSim": "Habitante ✔",
+    "habitanteNao": "Habitante ✘",
+    "morteUma": "1 morte",
+    "mortesVarias": "{n} mortes",
+    "tempo": "Tempo {tempo}",
+    "proxima": "Próxima",
+    "ultima": "Concluir",
+    "repetir": "Repetir",
+    "selecao": "Escolher Fase"
+  },
+  "fimPrototipo": {
+    "titulo": "Fim do protótipo",
+    "texto": "Você atravessou a Floresta Contaminada. Obrigado por jogar esta primeira versão de Re(volta)!",
+    "botao": "Voltar ao menu"
+  },
+  "erros": {
+    "carregarFase": "Não foi possível carregar a Fase ({status}): {url}",
+    "inesperado": "Erro inesperado ao iniciar o jogo.",
+    "voltar": "Voltar à seleção de Fases"
+  }
+}
