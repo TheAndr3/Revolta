@@ -13,6 +13,7 @@ import {
 } from './core/progresso';
 import type { ConteudoProva } from './core/provas';
 import { criarRepositorioProgresso } from './game/armazenamentoProgresso';
+import { criarArquivo } from './game/arquivo';
 import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
 import {
   carregarConteudoProvasDaFase,
@@ -518,6 +519,23 @@ function iniciar(): void {
 
   // ------------------------------------------------------------ Eventos
 
+  // Arquivo da Resistência: abrir uma Prova coletada mostra o mesmo overlay do jogo.
+  const arquivo = criarArquivo({
+    catalogo,
+    progresso,
+    resolverUrlAsset,
+    abrirProva: (prova) => {
+      preencherOverlayProva(prova, {
+        imagem: provaImagem,
+        tipo: provaTipo,
+        titulo: provaTitulo,
+        texto: provaTexto,
+      });
+      dialogProva.scrollTop = 0;
+      dialogProva.showModal();
+    },
+  });
+
   botaoComecar.addEventListener('click', () => {
     // Gesto do jogador: ponto em que o áudio será destravado no celular (issue de áudio).
     mostrarTela('menu');
@@ -529,6 +547,9 @@ function iniciar(): void {
     const destino = alvo.dataset.irPara as NomeTela | undefined;
     if (destino === 'selecao') {
       irParaSelecao();
+    } else if (destino === 'arquivo') {
+      arquivo.renderizar();
+      mostrarTela('arquivo');
     } else if (destino && telas.has(destino)) {
       mostrarTela(destino);
     }

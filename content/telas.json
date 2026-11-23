@@ -16,7 +16,18 @@
   },
   "arquivo": {
     "titulo": "Arquivo da Resistência",
-    "texto": "Aqui ficarão as Provas coletadas e as fichas do Povo resgatado. Em construção.",
+    "abas": "Seções do Arquivo",
+    "abaProvas": "Provas",
+    "abaPovo": "Povo",
+    "resumoProvas": "{coletadas} de {total} Provas coletadas",
+    "resumoPovo": "{resgatados} de {total} Habitantes resgatados",
+    "provaBloqueada": "Ainda não coletada",
+    "abrirProva": "Ler a Prova {tipo}: {titulo}",
+    "desconhecido": "???",
+    "habitanteNaoResgatado": "Ainda não resgatado",
+    "retrato": "Retrato de {nome}",
+    "silhueta": "Silhueta de um Habitante ainda não resgatado",
+    "conteudoIndisponivel": "O conteúdo desta Fase ainda não está disponível.",
     "voltar": "Voltar ao menu"
   },
   "sobre": {

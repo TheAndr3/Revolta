@@ -617,3 +617,171 @@ dialog::backdrop {
 .acoes-conclusao button {
   inline-size: 100%;
 }
+
+/* ------------------------------------------------ Arquivo da Resistência */
+
+.tela-longa {
+  align-items: start;
+}
+
+.abas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  inline-size: 100%;
+  border-block-end: 1px solid var(--cor-borda);
+}
+
+.aba {
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  border-block-end: 3px solid transparent;
+  background: none;
+  color: var(--cor-texto-suave);
+  font-weight: 700;
+}
+
+.aba[aria-selected='true'] {
+  border-block-end-color: var(--cor-destaque);
+  color: var(--cor-texto);
+}
+
+.aba:focus-visible {
+  outline: 2px solid var(--cor-destaque);
+  outline-offset: -2px;
+}
+
+.painel-arquivo {
+  display: grid;
+  gap: 1.25rem;
+  inline-size: 100%;
+  text-align: start;
+}
+
+.arquivo-resumo {
+  color: var(--cor-texto-suave);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.arquivo-fase {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.arquivo-fase-titulo {
+  font-size: 1.05rem;
+}
+
+.arquivo-fase-subtitulo {
+  color: var(--cor-texto-suave);
+  font-weight: 400;
+}
+
+.arquivo-provas,
+.arquivo-povo {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao-prova {
+  display: grid;
+  gap: 0.15rem;
+  inline-size: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgb(251 191 36 / 0.4);
+  border-radius: 10px;
+  background-color: rgb(251 191 36 / 0.08);
+  color: var(--cor-texto);
+  text-align: start;
+}
+
+.cartao-prova:not(:disabled):hover {
+  background-color: rgb(251 191 36 / 0.16);
+}
+
+.cartao-prova:focus-visible {
+  outline: 2px solid var(--cor-prova);
+  outline-offset: 2px;
+}
+
+.cartao-prova:disabled {
+  cursor: not-allowed;
+  border-color: var(--cor-borda);
+  background-color: var(--cor-superficie);
+  opacity: 0.6;
+}
+
+.cartao-prova-tipo {
+  color: var(--cor-prova);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cartao-prova:disabled .cartao-prova-tipo {
+  color: var(--cor-texto-suave);
+}
+
+.cartao-prova-titulo {
+  font-weight: 700;
+}
+
+.cartao-prova-formato {
+  color: var(--cor-texto-suave);
+  font-size: 0.85rem;
+}
+
+.ficha-habitante {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  background-color: var(--cor-superficie);
+}
+
+.ficha-habitante[data-resgatado='true'] {
+  border-color: rgb(192 132 252 / 0.5);
+}
+
+.ficha-retrato {
+  inline-size: 4.5rem;
+  block-size: 4.5rem;
+  border-radius: 8px;
+  background-color: #0d1512;
+  object-fit: cover;
+}
+
+/* Não resgatado: o retrato vira silhueta. */
+.ficha-habitante[data-resgatado='false'] .ficha-retrato {
+  filter: brightness(0);
+  opacity: 0.45;
+}
+
+.ficha-corpo {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.ficha-fase {
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ficha-nome {
+  font-size: 1rem;
+}
+
+.ficha-frase {
+  color: #dce8e1;
+  font-size: 0.9rem;
+}

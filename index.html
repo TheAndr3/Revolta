@@ -38,10 +38,22 @@
       </div>
     </section>
 
-    <section id="tela-arquivo" class="tela" aria-labelledby="titulo-arquivo" hidden>
-      <div class="tela-conteudo">
+    <section id="tela-arquivo" class="tela tela-longa" aria-labelledby="titulo-arquivo" hidden>
+      <div class="tela-conteudo tela-conteudo-larga">
         <h1 id="titulo-arquivo" data-texto="arquivo.titulo">Arquivo da Resistência</h1>
-        <p class="texto-suave" data-texto="arquivo.texto"></p>
+
+        <div class="abas" role="tablist" data-texto-aria="arquivo.abas">
+          <button id="aba-provas" type="button" role="tab" class="aba" aria-controls="painel-provas" aria-selected="true" data-texto="arquivo.abaProvas">
+            Provas
+          </button>
+          <button id="aba-povo" type="button" role="tab" class="aba" aria-controls="painel-povo" aria-selected="false" tabindex="-1" data-texto="arquivo.abaPovo">
+            Povo
+          </button>
+        </div>
+
+        <div id="painel-provas" class="painel-arquivo" role="tabpanel" aria-labelledby="aba-provas"></div>
+        <div id="painel-povo" class="painel-arquivo" role="tabpanel" aria-labelledby="aba-povo" hidden></div>
+
         <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="arquivo.voltar">
           Voltar ao menu
         </button>

@@ -22,6 +22,7 @@ Abra o endereço exibido no terminal (normalmente `http://localhost:5173`).
 - `npm test` — executa os testes automatizados do núcleo puro (Vitest)
 - `npm run build` — valida tipos TypeScript (`tsc --noEmit`) e gera o build de produção em `dist/`
 - `npm run preview` — pré-visualiza localmente o build de produção
+- `npm run check-content` — valida os arquivos de `content/` (cabeçalho completo, Provas com até 100 palavras, ilustrações e retratos existentes); roda também no deploy
 
 ### Controles
 
