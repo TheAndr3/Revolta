@@ -4,8 +4,41 @@ import { describe, expect, it } from 'vitest';
 import {
   ErroParseProva,
   parseProvaMarkdown,
+  resumirTexto,
   ROTULO_TIPO_PROVA,
 } from './provas';
+
+describe('resumo da Prova (aviso ao coletar)', () => {
+  it('usa a primeira frase do texto', () => {
+    expect(resumirTexto('O rio corria limpo. Depois veio a estrada.')).toBe('O rio corria limpo.');
+  });
+
+  it('corta frases longas com reticências', () => {
+    const longa = Array.from({ length: 30 }, (_, i) => `palavra${i}`).join(' ') + '.';
+    const resumo = resumirTexto(longa, 5);
+    expect(resumo).toBe('palavra0 palavra1 palavra2 palavra3 palavra4…');
+  });
+
+  it('prefere o campo "resumo" do cabeçalho quando existe', () => {
+    const markdown = [
+      '---',
+      'tipo: passado',
+      'formato: Diário',
+      'titulo: Margem limpa',
+      'ilustracao: a.svg',
+      'tema: Memória',
+      'resumo: Um diário do tempo em que o rio era limpo.',
+      'fontes:',
+      '  - Relato',
+      '---',
+      '',
+      'Texto longo da Prova.',
+    ].join('\n');
+    expect(parseProvaMarkdown(markdown, 1).resumo).toBe(
+      'Um diário do tempo em que o rio era limpo.',
+    );
+  });
+});
 
 describe('parser de conteúdo de Provas', () => {
   it('lê cabeçalho completo e parágrafos do corpo em Markdown', () => {
@@ -42,6 +75,7 @@ describe('parser de conteúdo de Provas', () => {
         'Primeiro parágrafo da história.',
         'Segundo parágrafo da história.',
       ],
+      resumo: 'Primeiro parágrafo da história.',
     });
   });
 

@@ -894,3 +894,40 @@ describe('tempo jogado', () => {
     expect(estado.tempoJogadoSegundos).toBeCloseTo(0.75);
   });
 });
+
+describe('Prova sem interromper o deslize', () => {
+  const fase = parseFase(
+    [
+      'REVOLTA-FASE v1',
+      'LARGURA 15',
+      'ALTURA 4',
+      '[GRID]',
+      '###############',
+      '#@.1.2.3....X.#',
+      '#.............#',
+      '###############',
+      '[FIM]',
+    ].join('\n'),
+  );
+
+  it('coleta e salva a Prova sem abrir overlay nem pausar, e conclui ao passar pela Saída', () => {
+    const estado = criarEstadoFase(fase, { abrirProvaAoColetar: false });
+    solicitarDirecao(estado, 'direita');
+    const eventos = [];
+    for (let i = 0; i < 120 && estado.deslizando; i++) eventos.push(...atualizarDeslize(estado, 1 / 60));
+
+    expect(eventos.filter((e) => e.tipo === 'prova_coletada')).toHaveLength(3);
+    expect(eventos.some((e) => e.tipo === 'abrir_prova')).toBe(false);
+    expect(estado.provaEmExibicao).toBeNull();
+    expect(estado.provasColetadas).toEqual([1, 2, 3]);
+    expect(estado.concluida).toBe(true); // passou pela Saída já acesa, sem esperar overlay
+  });
+
+  it('com a opção padrão, continua abrindo o overlay ao parar', () => {
+    const estado = criarEstadoFase(fase);
+    solicitarDirecao(estado, 'direita');
+    for (let i = 0; i < 120 && estado.deslizando; i++) atualizarDeslize(estado, 1 / 60);
+    expect(estado.provaEmExibicao).not.toBeNull();
+    expect(estado.concluida).toBe(false);
+  });
+});

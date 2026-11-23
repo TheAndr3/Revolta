@@ -33,6 +33,8 @@ import { aplicarTextosEstaticos, formatarTexto, TEXTOS } from './game/textos';
 import './style.css';
 
 const DURACAO_BALAO_HABITANTE_MS = 5000;
+/** Tempo que o aviso de Prova coletada fica na tela (some sozinho; não pausa o jogo). */
+const DURACAO_AVISO_PROVA_MS = 7000;
 
 type NomeTela =
   | 'capa'
@@ -159,6 +161,11 @@ function iniciar(): void {
   const balaoFala = elemento('balao-fala');
   const botaoFecharBalao = elemento('btn-fechar-balao');
   const anuncioHabitante = elemento('anuncio-habitante');
+  const avisoProva = elemento<HTMLButtonElement>('aviso-prova');
+  const avisoProvaTipo = elemento('aviso-prova-tipo');
+  const avisoProvaTitulo = elemento('aviso-prova-titulo');
+  const avisoProvaResumo = elemento('aviso-prova-resumo');
+  const anuncioProva = elemento('anuncio-prova');
   const dialogPausa = elemento<HTMLDialogElement>('modal-pausa');
   const dialogProva = elemento<HTMLDialogElement>('modal-prova');
   const provaImagem = elemento<HTMLImageElement>('prova-imagem');
@@ -326,6 +333,88 @@ function iniciar(): void {
     }
   };
 
+  // ------------------------------------------------- Aviso de Prova coletada
+  // Coletar uma Prova não interrompe o deslize: um aviso com o resumo aparece no
+  // topo e some sozinho. Clicar, tocar ou apertar Enter abre a história (e só
+  // então o jogo pausa).
+
+  let temporizadorAvisoProva: number | null = null;
+  let provaDoAviso: ConteudoProva | null = null;
+  /** O modal da Prova foi aberto pelo aviso (o jogo foi pausado pela interface). */
+  let provaAbertaPeloAviso = false;
+  const suportaPopoverAviso = typeof avisoProva.showPopover === 'function';
+  const avisoProvaVisivel = () =>
+    suportaPopoverAviso ? avisoProva.matches(':popover-open') : avisoProva.classList.contains('visivel');
+
+  const esconderAvisoProva = () => {
+    if (temporizadorAvisoProva !== null) {
+      window.clearTimeout(temporizadorAvisoProva);
+      temporizadorAvisoProva = null;
+    }
+    if (!avisoProvaVisivel()) return;
+    if (suportaPopoverAviso) avisoProva.hidePopover();
+    else avisoProva.classList.remove('visivel');
+  };
+
+  const agendarFimDoAviso = () => {
+    if (temporizadorAvisoProva !== null) window.clearTimeout(temporizadorAvisoProva);
+    temporizadorAvisoProva = window.setTimeout(() => {
+      // Não some enquanto o jogador está com o foco ou o mouse em cima.
+      if (avisoProva.matches(':hover, :focus')) {
+        agendarFimDoAviso();
+        return;
+      }
+      esconderAvisoProva();
+    }, DURACAO_AVISO_PROVA_MS);
+  };
+
+  const mostrarAvisoProva = (prova: ConteudoProva) => {
+    provaDoAviso = prova;
+    avisoProvaTipo.textContent = prova.rotuloTipo;
+    avisoProvaTitulo.textContent = prova.titulo;
+    avisoProvaResumo.textContent = prova.resumo;
+    avisoProva.setAttribute(
+      'aria-label',
+      formatarTexto(TEXTOS.avisoProva.rotulo, { tipo: prova.rotuloTipo, titulo: prova.titulo }),
+    );
+    if (suportaPopoverAviso) {
+      if (!avisoProva.matches(':popover-open')) avisoProva.showPopover();
+    } else {
+      avisoProva.classList.add('visivel');
+    }
+    anunciarParaLeitorDeTela(
+      formatarTexto(TEXTOS.avisoProva.anuncio, { titulo: prova.titulo, resumo: prova.resumo }),
+      anuncioProva,
+    );
+    agendarFimDoAviso();
+  };
+
+  const abrirProvaDoAviso = () => {
+    if (!sessao || !provaDoAviso || dialogProva.open || dialogPausa.open || dialogConclusao.open) {
+      return;
+    }
+    esconderAvisoProva();
+    fecharBalaoHabitante();
+    sessao.cena.pausar();
+    provaAbertaPeloAviso = true;
+    preencherOverlayProva(provaDoAviso, {
+      imagem: provaImagem,
+      tipo: provaTipo,
+      titulo: provaTitulo,
+      texto: provaTexto,
+    });
+    dialogProva.scrollTop = 0;
+    dialogProva.showModal();
+  };
+
+  avisoProva.addEventListener('click', abrirProvaDoAviso);
+  window.addEventListener('keydown', (evento) => {
+    if (evento.key !== 'Enter' || !avisoProvaVisivel() || telaJogo.hidden) return;
+    if (document.activeElement === avisoProva) return; // o clique do botão já trata
+    evento.preventDefault();
+    abrirProvaDoAviso();
+  });
+
   const descartarFalaPendente = () => {
     falaHabitantePendente = null;
     fecharBalaoHabitante();
@@ -391,6 +480,8 @@ function iniciar(): void {
 
   function encerrarSessao(): void {
     geracaoSessao += 1;
+    esconderAvisoProva();
+    provaDoAviso = null;
     descartarFalaPendente();
     fecharDialogosDaFase();
     if (quadroAudioAmeacas !== null) {
@@ -540,6 +631,7 @@ function iniciar(): void {
         },
         aoColetarProva: (prova) => {
           progresso.registrarProva(entrada.id, prova.numero);
+          mostrarAvisoProva(conteudoProvas[prova.numero]);
         },
         aoResgatarHabitante: () => {
           progresso.registrarHabitante(entrada.id);
@@ -601,6 +693,7 @@ function iniciar(): void {
 
   const reiniciarFase = () => {
     if (!sessao) return;
+    esconderAvisoProva();
     descartarFalaPendente();
     fecharDialogosDaFase();
     sessao.cena.reiniciar();
@@ -733,10 +826,18 @@ function iniciar(): void {
   dialogProva.addEventListener('close', () => {
     const acao = dialogProva.returnValue;
     dialogProva.returnValue = '';
-    if (acao !== 'ignorar' && sessao) {
-      sessao.cena.fecharProva();
-      tentarExibirFalaPendente();
+    if (acao === 'ignorar' || !sessao) {
+      provaAbertaPeloAviso = false;
+      return;
     }
+    if (provaAbertaPeloAviso) {
+      // Aberta pelo aviso: o jogo tinha sido pausado pela interface.
+      provaAbertaPeloAviso = false;
+      sessao.cena.retomar();
+    } else {
+      sessao.cena.fecharProva();
+    }
+    tentarExibirFalaPendente();
   });
 
   // A Fase já terminou: Esc não pode fechar o resumo e deixar o jogador numa cena parada.

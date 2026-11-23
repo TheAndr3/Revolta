@@ -164,6 +164,17 @@
       </footer>
     </div>
 
+    <div class="regiao-provas" role="region" data-texto-aria="avisoProva.regiao">
+      <div id="anuncio-prova" class="sr-only" aria-live="polite"></div>
+      <!-- Aviso ao coletar uma Prova: não pausa o jogo; clicar ou tocar abre a história. -->
+      <button id="aviso-prova" type="button" class="aviso-prova" popover="manual" aria-haspopup="dialog">
+        <span id="aviso-prova-tipo" class="aviso-prova-tipo"></span>
+        <strong id="aviso-prova-titulo" class="aviso-prova-titulo"></strong>
+        <span id="aviso-prova-resumo" class="aviso-prova-resumo"></span>
+        <span class="aviso-prova-dica" data-texto="avisoProva.dica">Toque ou clique para ler</span>
+      </button>
+    </div>
+
     <div class="regiao-falas" role="region" data-texto-aria="habitante.regiao">
       <p class="sr-only" data-texto="habitante.anuncios">Anúncios de resgate</p>
       <div id="anuncio-habitante" class="sr-only" aria-live="polite"></div>
