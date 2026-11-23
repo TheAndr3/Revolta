@@ -251,6 +251,12 @@ export class FaseScene extends Phaser.Scene {
     );
   }
 
+  public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
+    if (!this.cameras?.main) return;
+    this.cameras.main.setViewport(0, 0, larguraLogica, alturaLogica);
+    this.centralizarCameraImediatamente();
+  }
+
   /**
    * Estado atual de cada Ameaça: posição, direção e se está parada numa pausa.
    * A arte final usa a direção para escolher a animação (Guarda em 4 direções,
@@ -259,12 +265,6 @@ export class FaseScene extends Phaser.Scene {
   public estadosAmeacas(): EstadoAmeacaNoInstante[] {
     if (!this.estado) return [];
     return posicoesAmeacasAtuais(this.estado);
-  }
-
-  public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
-    if (!this.cameras?.main) return;
-    this.cameras.main.setViewport(0, 0, larguraLogica, alturaLogica);
-    this.centralizarCameraImediatamente();
   }
 
   override update(_time: number, deltaMs: number): void {
