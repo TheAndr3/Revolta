@@ -1,5 +1,7 @@
+import { CONFIG } from '../core/config';
+
 export interface DimensoesEscala {
-  /** Largura lógica do canvas Phaser (sempre 15 * 16 = 240 px). */
+  /** Largura lógica do canvas Phaser (cerca de 9 colunas, ADR 0006). */
   readonly larguraLogica: number;
   /** Altura lógica do canvas Phaser (limitada à altura do mundo). */
   readonly alturaLogica: number;
@@ -7,55 +9,54 @@ export interface DimensoesEscala {
   readonly larguraCss: number;
   /** Altura exibida em CSS px. */
   readonly alturaCss: number;
-  /** Fator inteiro aplicado sobre os pixels lógicos. */
+  /** Fator inteiro aplicado sobre os pixels lógicos, em pixels físicos da tela. */
   readonly escalaInteira: number;
 }
 
-const ALTURA_LOGICA_MINIMA_VISIVEL = 240; // 15 tiles (7 acima + protagonista + 7 abaixo)
+export interface OpcoesEscala {
+  readonly colunasVisiveis: number;
+  readonly linhasMinimas: number;
+}
 
+const OPCOES_PADRAO: OpcoesEscala = {
+  colunasVisiveis: CONFIG.camera.colunasVisiveis,
+  linhasMinimas: CONFIG.camera.linhasMinimasVisiveis,
+};
+
+/**
+ * Escolhe a maior escala inteira (em pixels físicos, para a pixel art ficar nítida
+ * em qualquer DPR) que mostre `colunasVisiveis` colunas e pelo menos `linhasMinimas`
+ * linhas. A largura visível fica fixa em ~9 colunas em qualquer tela (no PC, o jogo
+ * vira uma coluna em pé, como no celular); a altura usa o espaço que sobra.
+ */
 export function calcularEscalaInteira(
   larguraViewportCss: number,
   alturaViewportCss: number,
   dpr: number,
   larguraMundoPx: number,
   alturaMundoPx: number,
+  opcoes: OpcoesEscala = OPCOES_PADRAO,
 ): DimensoesEscala {
-  const larguraSegura = Math.max(larguraMundoPx, Math.floor(larguraViewportCss));
-  const alturaSegura = Math.max(160, Math.floor(alturaViewportCss));
+  const tile = CONFIG.tamanhoTilePx;
   const dprSeguro = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+  const larguraFisica = Math.max(1, Math.floor(Math.max(1, larguraViewportCss) * dprSeguro));
+  const alturaFisica = Math.max(1, Math.floor(Math.max(1, alturaViewportCss) * dprSeguro));
 
-  // Telas largas (PC/tablet): escala inteira em CSS px (×1..×4)
-  if (larguraSegura >= 720) {
-    const maxPorLargura = Math.floor(larguraSegura / larguraMundoPx);
-    const maxPorAltura = Math.floor(alturaSegura / ALTURA_LOGICA_MINIMA_VISIVEL);
-    const escala = Math.max(1, Math.min(4, maxPorLargura, Math.max(1, maxPorAltura)));
-    const alturaLogica = Math.min(alturaMundoPx, Math.max(1, Math.floor(alturaSegura / escala)));
-
-    return {
-      larguraLogica: larguraMundoPx,
-      alturaLogica,
-      larguraCss: larguraMundoPx * escala,
-      alturaCss: alturaLogica * escala,
-      escalaInteira: escala,
-    };
-  }
-
-  // Celulares/telas estreitas: escala inteira em pixels físicos (crisp em DPR 2/3)
-  const larguraFisica = Math.floor(larguraSegura * dprSeguro);
-  const alturaFisica = Math.floor(alturaSegura * dprSeguro);
-  const maxPorLargura = Math.floor(larguraFisica / larguraMundoPx);
-  const maxPorAltura = Math.floor(alturaFisica / ALTURA_LOGICA_MINIMA_VISIVEL);
-  const escalaFisica = Math.max(1, Math.min(6, maxPorLargura, Math.max(1, maxPorAltura)));
-  const alturaLogica = Math.min(
-    alturaMundoPx,
-    Math.max(1, Math.floor(alturaFisica / escalaFisica)),
+  const larguraAlvo = Math.min(larguraMundoPx, opcoes.colunasVisiveis * tile);
+  const alturaMinima = Math.min(alturaMundoPx, opcoes.linhasMinimas * tile);
+  const escala = Math.max(
+    1,
+    Math.min(Math.floor(larguraFisica / larguraAlvo), Math.floor(alturaFisica / alturaMinima)),
   );
 
+  const larguraLogica = Math.min(larguraAlvo, Math.floor(larguraFisica / escala));
+  const alturaLogica = Math.min(alturaMundoPx, Math.floor(alturaFisica / escala));
+
   return {
-    larguraLogica: larguraMundoPx,
+    larguraLogica,
     alturaLogica,
-    larguraCss: Math.round((larguraMundoPx * escalaFisica) / dprSeguro),
-    alturaCss: Math.round((alturaLogica * escalaFisica) / dprSeguro),
-    escalaInteira: escalaFisica,
+    larguraCss: Math.round((larguraLogica * escala) / dprSeguro),
+    alturaCss: Math.round((alturaLogica * escala) / dprSeguro),
+    escalaInteira: escala,
   };
 }

@@ -53,6 +53,8 @@ export interface Fase {
   readonly provas: readonly ProvaNaFase[];
   readonly habitante: Coordenada | null;
   readonly espinhos: readonly Coordenada[];
+  /** Almas da floresta (colecionável opcional, símbolo `o`), na ordem de leitura do grid. */
+  readonly almas: readonly Coordenada[];
   readonly ameacas: readonly AmeacaNaFase[];
 }
 

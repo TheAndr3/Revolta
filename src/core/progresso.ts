@@ -85,6 +85,35 @@ export function proximaFase(
   return proximo < catalogo.length ? proximo : null;
 }
 
+/** As três Marcas de uma Fase (glossário): concluir, reunir todas as Almas, resgatar o Habitante. */
+export interface MarcasDaFase {
+  readonly concluida: boolean;
+  readonly todasAsAlmas: boolean;
+  readonly habitante: boolean;
+}
+
+export const TOTAL_MARCAS = 3;
+
+export function calcularMarcas(dados: {
+  readonly concluida: boolean;
+  /** Melhor número de Almas já reunidas numa mesma partida da Fase. */
+  readonly melhorAlmas: number;
+  readonly totalAlmas: number;
+  readonly habitanteResgatado: boolean;
+}): MarcasDaFase {
+  return {
+    concluida: dados.concluida,
+    // Uma Fase sem Almas não tem o que reunir: a Marca vem junto com a conclusão.
+    todasAsAlmas:
+      dados.totalAlmas === 0 ? dados.concluida : dados.melhorAlmas >= dados.totalAlmas,
+    habitante: dados.habitanteResgatado,
+  };
+}
+
+export function contarMarcas(marcas: MarcasDaFase): number {
+  return [marcas.concluida, marcas.todasAsAlmas, marcas.habitante].filter(Boolean).length;
+}
+
 /** Formata segundos como `m:ss` (ou `h:mm:ss` acima de uma hora). */
 export function formatarTempo(segundos: number): string {
   const total = Math.max(0, Math.floor(Number.isFinite(segundos) ? segundos : 0));

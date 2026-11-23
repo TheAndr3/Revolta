@@ -144,6 +144,7 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
     resgate: () => [587.33, 880].forEach((f, i) => tom(f, 0.22, { tipo: 'triangle', volume: 0.22, atraso: i * 0.12 })),
     conclusao: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tom(f, 0.45, { tipo: 'triangle', volume: 0.2, atraso: i * 0.12 })),
     interface: () => tom(880, 0.04, { volume: 0.08 }),
+    alma: () => tom(1318.5, 0.09, { tipo: 'sine', freqFinal: 1760, volume: 0.1 }),
   };
 
   // --------------------------------------------------------------- loops
