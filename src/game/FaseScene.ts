@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
 import {
+  OBJETOS_GRANDES,
+  decorarBeiras,
+  decorarParedes,
+  mascaraTrilha,
+  variacaoGrama,
+} from './cenarioFloresta';
+import {
   atualizarDeslize,
   contarAlmasColetadas,
   criarEstadoFase,
@@ -66,8 +73,16 @@ const CORES = {
   saidaBrilho: 0x9ef7c2,
   saidaHalo: 0x52e596,
   almaNucleo: 0xeef4f0,
-  almaBrilho: 0x52e596,
-  almaContorno: 0x163325,
+  almaBrilho: 0x7dd3fc,
+  almaContorno: 0x2f6f73,
+  // Floresta à noite
+  cogumeloChapeu: 0x7dd3fc,
+  cogumeloBrilho: 0x7cc6b8,
+  cogumeloPe: 0x8a9a90,
+  florPetala: 0x8a6a7a,
+  florMiolo: 0xf4d35e,
+  vagalumeLima: 0xb5d96a,
+  vagalumeCiano: 0x7dd3fc,
   protagonista: 0xf4d35e,
   protagonistaBorda: 0xfff3b0,
   bufferIndicador: 0x7ae582,
@@ -185,6 +200,8 @@ export class FaseScene extends Phaser.Scene {
   /** Halo suave atrás de cada Alma (o brilho de um espírito), na mesma ordem. */
   private readonly halosAlma: Phaser.GameObjects.Image[] = [];
   private emissorAlmas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  /** Vinheta da noite: fixa na tela, acompanha o tamanho da câmera. */
+  private vinheta: Phaser.GameObjects.Image | null = null;
 
   // Efeitos por código (#20). Valores em CONFIG.feel.
   private reduzirMovimento = false;
@@ -207,6 +224,17 @@ export class FaseScene extends Phaser.Scene {
       'protagonista',
       `${import.meta.env.BASE_URL}assets/protagonista.png`,
     );
+    // Experimento com assets CC0 (ver public/assets/cc0/CREDITOS.md).
+    const tamanho = { frameWidth: CONFIG.tamanhoTilePx, frameHeight: CONFIG.tamanhoTilePx };
+    // Cenário da floresta: trilha (autotile), grama e objetos (ver cenarioFloresta.ts).
+    const cc0 = `${import.meta.env.BASE_URL}assets/cc0`;
+    this.load.spritesheet('trilha', `${cc0}/trilha.png`, tamanho);
+    this.load.spritesheet('grama', `${cc0}/grama.png`, tamanho);
+    this.load.spritesheet('cenario-pequeno', `${cc0}/cenario-pequeno.png`, tamanho);
+    for (const objeto of OBJETOS_GRANDES) {
+      this.load.image(`cenario-${objeto.chave}`, `${cc0}/cenario/${objeto.chave}.png`);
+    }
+    this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
   }
 
   create(): void {
@@ -222,6 +250,7 @@ export class FaseScene extends Phaser.Scene {
     this.criarProtagonista();
     this.criarEfeitos();
     this.criarAlmas();
+    this.criarNoite();
     this.reiniciar();
   }
 
@@ -327,6 +356,7 @@ export class FaseScene extends Phaser.Scene {
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
     if (!this.cameras?.main) return;
+    this.vinheta?.setDisplaySize(larguraLogica, alturaLogica);
     this.cameras.main.setViewport(0, 0, larguraLogica, alturaLogica);
     this.centralizarCameraImediatamente();
   }
@@ -443,7 +473,15 @@ export class FaseScene extends Phaser.Scene {
 
   private desenharGrade(): void {
     const tile = CONFIG.tamanhoTilePx;
-    const g = this.add.graphics();
+    // Marcas por cima dos tiles (início etc.).
+    const g = this.add.graphics().setDepth(1);
+    // Floresta nas paredes: árvores, ruínas, troncos, arbustos e pedras sobre a grama.
+    for (const { chave, col, lin } of decorarParedes(this.fase.grade)) {
+      const imagem = chave.startsWith('pequeno:')
+        ? this.add.image(col * tile, lin * tile, 'cenario-pequeno', Number(chave.slice(8)))
+        : this.add.image(col * tile, lin * tile, `cenario-${chave}`);
+      imagem.setOrigin(0, 0).setDepth(0.5);
+    }
 
     for (let lin = 0; lin < this.fase.altura; lin++) {
       for (let col = 0; col < this.fase.largura; col++) {
@@ -451,21 +489,15 @@ export class FaseScene extends Phaser.Scene {
         const x = col * tile;
         const y = lin * tile;
 
+        // Grama sob a floresta; trilha de terra com bordas de grama nos corredores.
         if (tipo === 'parede') {
-          g.fillStyle(CORES.parede, 1);
-          g.fillRect(x, y, tile, tile);
-          g.fillStyle(CORES.paredeBorda, 1);
-          g.fillRect(x, y, tile, 2);
-          g.fillStyle(CORES.paredeSombra, 1);
-          g.fillRect(x, y + tile - 2, tile, 2);
+          this.add.image(x, y, 'grama', variacaoGrama(col, lin)).setOrigin(0, 0).setDepth(0);
           continue;
         }
-
-        // Chão base
-        g.fillStyle(CORES.chao, 1);
-        g.fillRect(x, y, tile, tile);
-        g.lineStyle(1, CORES.gradeChao, 0.35);
-        g.strokeRect(x + 0.5, y + 0.5, tile - 1, tile - 1);
+        this.add
+          .image(x, y, 'trilha', mascaraTrilha(this.fase.grade, col, lin))
+          .setOrigin(0, 0)
+          .setDepth(0);
 
         if (tipo === 'inicio') {
           g.fillStyle(CORES.inicio, 1);
@@ -659,22 +691,10 @@ export class FaseScene extends Phaser.Scene {
         .setVisible(false);
 
       const inativo = this.add.graphics().setDepth(5);
-      this.desenharQuadradoMarcado(
-        inativo,
-        totem,
-        CORES.totemInativo,
-        CORES.totemInativoMarca,
-        'T',
-      );
+      this.desenharTotem(inativo, totem, false);
 
       const ativo = this.add.graphics().setDepth(5).setVisible(false);
-      this.desenharQuadradoMarcado(
-        ativo,
-        totem,
-        CORES.totemAtivo,
-        CORES.totemAtivoMarca,
-        'T',
-      );
+      this.desenharTotem(ativo, totem, true);
 
       this.marcadoresTotem.push({ coord: totem, halo, inativo, ativo });
     }
@@ -683,14 +703,16 @@ export class FaseScene extends Phaser.Scene {
     for (const prova of this.fase.provas) {
       const marcador = this.add.graphics();
       marcador.setDepth(6);
-      const glifo = String(prova.numero) as '1' | '2' | '3';
-      this.desenharQuadradoMarcado(
-        marcador,
-        prova.posicao,
-        CORES.prova,
-        CORES.provaMarca,
-        glifo,
-      );
+      this.desenharProva(marcador, prova.posicao, String(prova.numero) as '1' | '2' | '3');
+      // O papel flutua de leve, como algo que chama o jogador.
+      this.tweens.add({
+        targets: marcador,
+        y: -2,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
       this.marcadoresProva.set(prova.numero, marcador);
     }
 
@@ -724,13 +746,17 @@ export class FaseScene extends Phaser.Scene {
       const centroY = ameaca.posicaoInicial.lin * tile + tile / 2;
 
       if (ameaca.tipo === 'gosma') {
-        const aura = this.add.rectangle(0, 0, tile, tile, CORES.gosmaTrilho, 0.28);
-        const corpo = this.add.rectangle(0, 0, tile - 3, tile - 3, CORES.gosma, 1);
-        const brilhoA = this.add.rectangle(-2, -2, 4, 3, CORES.gosmaBrilho, 0.9);
-        const brilhoB = this.add.rectangle(2, 2, 3, 2, CORES.gosmaBrilho, 0.75);
-        const container = this.add
-          .container(centroX, centroY, [aura, corpo, brilhoA, brilhoB])
-          .setDepth(8);
+        if (!this.anims.exists('gosma-loop')) {
+          this.anims.create({
+            key: 'gosma-loop',
+            frames: this.anims.generateFrameNumbers('gosma', { start: 0, end: 3 }),
+            frameRate: 6,
+            repeat: -1,
+          });
+        }
+        const aura = this.add.rectangle(0, 0, tile, tile, CORES.gosmaTrilho, 0.18);
+        const corpo = this.add.sprite(0, 0, 'gosma').play('gosma-loop');
+        const container = this.add.container(centroX, centroY, [aura, corpo]).setDepth(8);
 
         this.tweens.add({
           targets: container,
@@ -1385,5 +1411,201 @@ export class FaseScene extends Phaser.Scene {
     const tile = CONFIG.tamanhoTilePx;
     const alma = this.fase.almas[indice];
     this.emissorAlmas?.explode(8, alma.col * tile + tile / 2, alma.lin * tile + tile / 2);
+  }
+
+  // ------------------------------------------------------------------
+  // Marcadores desenhados no estilo do cenário (cores da paleta do kit).
+
+  /** Totem: poste de madeira entalhado com uma pedra no topo, que acende quando ativo. */
+  private desenharTotem(g: Phaser.GameObjects.Graphics, coord: Coordenada, ativo: boolean): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const x = coord.col * tile;
+    const y = coord.lin * tile;
+    // sombra no chão
+    g.fillStyle(0x0d1512, 0.35);
+    g.fillEllipse(x + 8, y + 14.5, 10, 3);
+    // poste
+    g.fillStyle(0x3a2a20, 1);
+    g.fillRect(x + 5, y + 5, 6, 10);
+    g.fillStyle(0x6b4a32, 1);
+    g.fillRect(x + 6, y + 6, 4, 8);
+    g.fillStyle(0xa0703f, 1);
+    g.fillRect(x + 6, y + 8, 4, 1);
+    g.fillRect(x + 6, y + 11, 4, 1);
+    // pedra do topo
+    const pedra = ativo ? 0x7dd3fc : 0x8a9a90;
+    const contorno = ativo ? 0x2f6f73 : 0x3b4d45;
+    g.fillStyle(contorno, 1);
+    g.fillRect(x + 5, y + 1, 6, 5);
+    g.fillRect(x + 6, y + 0, 4, 7);
+    g.fillStyle(pedra, 1);
+    g.fillRect(x + 6, y + 1, 4, 5);
+    g.fillStyle(ativo ? 0xeef4f0 : 0xb5c2ba, 1);
+    g.fillRect(x + 7, y + 2, 1, 2);
+  }
+
+  /** Prova: papel com linhas de texto e o número, com borda de luz dourada. */
+  private desenharProva(
+    g: Phaser.GameObjects.Graphics,
+    coord: Coordenada,
+    numero: '1' | '2' | '3',
+  ): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const x = coord.col * tile;
+    const y = coord.lin * tile;
+    // brilho
+    g.fillStyle(CORES.prova, 0.28);
+    g.fillRect(x + 1, y + 1, 14, 14);
+    // papel
+    g.fillStyle(0x3a2a20, 1);
+    g.fillRect(x + 3, y + 2, 10, 12);
+    g.fillStyle(0xeef4f0, 1);
+    g.fillRect(x + 4, y + 3, 8, 10);
+    // canto dobrado
+    g.fillStyle(0xd9a066, 1);
+    g.fillRect(x + 10, y + 3, 2, 2);
+    // linhas de texto
+    g.fillStyle(0x8a9a90, 1);
+    g.fillRect(x + 5, y + 4, 4, 1);
+    g.fillRect(x + 5, y + 6, 6, 1);
+    // número da Prova (glifo 5×5) em tom de madeira
+    const padrao = GLIFOS_MARCADOR[numero];
+    g.fillStyle(0x6b4a32, 1);
+    padrao.forEach((linha, l) =>
+      [...linha].forEach((c, col) => {
+        if (c === '#') g.fillRect(x + 6 + col, y + 8 + l, 1, 1);
+      }),
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Floresta à noite: cogumelos que brilham, flores, vagalumes, halo e vinheta.
+
+  private gerarTexturasNoite(): void {
+    if (!this.textures.exists('cogumelo')) {
+      const g = this.make.graphics({}, false);
+      // três cogumelinhos de tamanhos diferentes, no pé da mata
+      const cogumelos: [number, number, number][] = [
+        [4, 12, 2],
+        [9, 13, 3],
+        [12, 11, 2],
+      ];
+      for (const [x, y, r] of cogumelos) {
+        g.fillStyle(CORES.cogumeloPe, 1);
+        g.fillRect(x, y, 1, 3);
+        g.fillStyle(CORES.cogumeloBrilho, 1);
+        g.fillRect(x - r, y - 1, r * 2 + 1, 2);
+        g.fillStyle(CORES.cogumeloChapeu, 1);
+        g.fillRect(x - r + 1, y - 2, r * 2 - 1, 1);
+        g.fillStyle(CORES.almaNucleo, 1);
+        g.fillRect(x - 1, y - 1, 1, 1);
+      }
+      g.generateTexture('cogumelo', 16, 16);
+      g.destroy();
+    }
+    if (!this.textures.exists('flor')) {
+      const g = this.make.graphics({}, false);
+      const flores: [number, number][] = [
+        [5, 12],
+        [11, 10],
+      ];
+      for (const [x, y] of flores) {
+        g.fillStyle(0x234836, 1);
+        g.fillRect(x, y + 1, 1, 3);
+        g.fillStyle(CORES.florPetala, 1);
+        g.fillRect(x - 1, y, 3, 1);
+        g.fillRect(x, y - 1, 1, 3);
+        g.fillStyle(CORES.florMiolo, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+      g.generateTexture('flor', 16, 16);
+      g.destroy();
+    }
+    if (!this.textures.exists('fx-vinheta')) {
+      const tamanho = 128;
+      const textura = this.textures.createCanvas('fx-vinheta', tamanho, tamanho);
+      if (textura) {
+        const ctx = textura.getContext();
+        const meio = tamanho / 2;
+        const gradiente = ctx.createRadialGradient(meio, meio, tamanho * 0.36, meio, meio, tamanho * 0.75);
+        gradiente.addColorStop(0, 'rgba(5,10,14,0)');
+        gradiente.addColorStop(1, 'rgba(5,10,14,0.65)');
+        ctx.fillStyle = gradiente;
+        ctx.fillRect(0, 0, tamanho, tamanho);
+        textura.refresh();
+        textura.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
+  }
+
+  private criarNoite(): void {
+    const tile = CONFIG.tamanhoTilePx;
+    this.gerarTexturasNoite();
+
+    // Cogumelos e flores na beira da mata; os cogumelos brilham e pulsam devagar.
+    decorarBeiras(this.fase.grade).forEach(({ tipo, col, lin }, i) => {
+      const x = col * tile;
+      const y = lin * tile;
+      if (tipo === 'cogumelo' && this.textures.exists('fx-brilho')) {
+        const brilho = this.add
+          .image(x + tile / 2, y + tile * 0.75, 'fx-brilho')
+          .setDisplaySize(tile * 1.8, tile * 1.8)
+          .setTint(CORES.cogumeloBrilho)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setAlpha(0.3)
+          .setDepth(0.8);
+        this.tweens.add({
+          targets: brilho,
+          alpha: { from: 0.18, to: 0.42 },
+          duration: 1600,
+          delay: (i * 233) % 1600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+      this.add.image(x, y, tipo).setOrigin(0, 0).setDepth(0.9);
+    });
+
+    // Vagalumes: pontinhos lima e ciano à deriva por toda a Fase.
+    const largura = this.fase.largura * tile;
+    const altura = this.fase.altura * tile;
+    if (this.textures.exists('fx-ponto')) {
+      this.add
+        .particles(0, 0, 'fx-ponto', {
+          emitZone: new Phaser.GameObjects.Particles.Zones.RandomZone({
+            getRandomPoint: (ponto) => {
+              ponto.x = Math.random() * largura;
+              ponto.y = Math.random() * altura;
+            },
+          }),
+          lifespan: { min: 3000, max: 6000 },
+          frequency: 45,
+          speedX: { min: -6, max: 6 },
+          speedY: { min: -8, max: 2 },
+          scale: { start: 1, end: 0.6 },
+          alpha: { values: [0, 0.9, 0.3, 0.9, 0] },
+          tint: [CORES.vagalumeLima, CORES.vagalumeCiano],
+          blendMode: Phaser.BlendModes.ADD,
+        })
+        .setDepth(9.5);
+
+      // Halo suave em volta do Protagonista: ele nunca some no escuro.
+      const halo = this.add
+        .image(0, 0, 'fx-brilho')
+        .setDisplaySize(tile * 3.6, tile * 3.6)
+        .setTint(0xeef4f0)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setAlpha(0.32);
+      this.protagonista.addAt(halo, 0);
+    }
+
+    // Vinheta: escurece as bordas da tela, como a noite fechando em volta.
+    this.vinheta = this.add
+      .image(0, 0, 'fx-vinheta')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(50)
+      .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
   }
 }
