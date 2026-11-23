@@ -4,13 +4,14 @@
  * - Música em loop (também no menu), que começa no "Toque para começar".
  * - Efeitos nos eventos do núcleo e na interface.
  * - Loops da Gosma e do Drone, com volume pela distância ao Protagonista.
- * - Tudo pausa junto com a pausa e com o overlay da Prova.
+ * - Com a Prova aberta ou em pausa, os sons do jogo param e a música segue mais
+ *   baixa (a trilha nunca é interrompida); os cliques de interface continuam.
  *
  * Cada som usa o arquivo de `ARQUIVOS_AUDIO` se existir; senão, uma versão
  * provisória sintetizada aqui mesmo. Sem botão de mudo: o volume geral fica
  * com o sistema e o navegador.
  */
-import { CONFIG_AUDIO, volumePorDistancia, type IdLoop, type IdSom } from '../core/audio';
+import { CONFIG_AUDIO, mixagem, volumePorDistancia, type IdLoop, type IdSom } from '../core/audio';
 import { ARQUIVOS_AUDIO } from './arquivosAudio';
 
 export interface MotorAudio {
@@ -46,6 +47,7 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
   let ctx: ContextoAudio | null = null;
   let saidaMusica: GainNode | null = null;
   let saidaEfeitos: GainNode | null = null;
+  let saidaInterface: GainNode | null = null;
   let ruido: AudioBuffer | null = null;
   const buffers = new Map<IdSom | IdLoop, AudioBuffer>();
   const loops: Partial<Record<IdLoop, LoopAtivo>> = {};
@@ -82,9 +84,17 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
   function tom(
     freq: number,
     duracao: number,
-    opcoes: { tipo?: OscillatorType; volume?: number; atraso?: number; freqFinal?: number; ataque?: number } = {},
+    opcoes: {
+      tipo?: OscillatorType;
+      volume?: number;
+      atraso?: number;
+      freqFinal?: number;
+      ataque?: number;
+      destino?: AudioNode | null;
+    } = {},
   ): void {
-    if (!ctx || !saidaEfeitos) return;
+    const destino = opcoes.destino ?? saidaEfeitos;
+    if (!ctx || !destino) return;
     const inicio = agora() + (opcoes.atraso ?? 0);
     const osc = ctx.createOscillator();
     osc.type = opcoes.tipo ?? 'sine';
@@ -92,7 +102,7 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
     if (opcoes.freqFinal) {
       osc.frequency.exponentialRampToValueAtTime(opcoes.freqFinal, inicio + duracao);
     }
-    osc.connect(envelope(ctx, saidaEfeitos, inicio, duracao, opcoes.volume ?? 0.3, opcoes.ataque));
+    osc.connect(envelope(ctx, destino, inicio, duracao, opcoes.volume ?? 0.3, opcoes.ataque));
     osc.start(inicio);
     osc.stop(inicio + duracao + 0.02);
   }
@@ -143,7 +153,7 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
     },
     resgate: () => [587.33, 880].forEach((f, i) => tom(f, 0.22, { tipo: 'triangle', volume: 0.22, atraso: i * 0.12 })),
     conclusao: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tom(f, 0.45, { tipo: 'triangle', volume: 0.2, atraso: i * 0.12 })),
-    interface: () => tom(880, 0.04, { volume: 0.08 }),
+    interface: () => tom(880, 0.04, { volume: 0.08, destino: saidaInterface }),
     alma: () => tom(1318.5, 0.09, { tipo: 'sine', freqFinal: 1760, volume: 0.1 }),
   };
 
@@ -292,6 +302,21 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
     }
   }
 
+  /** Ajusta o volume de cada saída para o estado atual (sem cortes bruscos). */
+  function aplicarMixagem(imediato = false): void {
+    if (!ctx || !saidaMusica || !saidaEfeitos || !saidaInterface) return;
+    const alvo = mixagem(pausadoPeloJogo);
+    const pares: [GainNode, number][] = [
+      [saidaMusica, alvo.musica],
+      [saidaEfeitos, alvo.efeitos],
+      [saidaInterface, alvo.interface],
+    ];
+    for (const [saida, volume] of pares) {
+      if (imediato) saida.gain.value = volume;
+      else saida.gain.setTargetAtTime(volume, agora(), 0.12);
+    }
+  }
+
   // ------------------------------------------------------------- API
 
   return {
@@ -305,19 +330,24 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
         saidaEfeitos = ctx.createGain();
         saidaEfeitos.gain.value = CONFIG_AUDIO.volumeEfeitos;
         saidaEfeitos.connect(ctx.destination);
+        saidaInterface = ctx.createGain();
+        saidaInterface.connect(ctx.destination);
+        aplicarMixagem(true);
         carregarArquivos(ctx);
       }
-      if (!pausadoPeloJogo) void ctx.resume();
+      void ctx.resume();
       iniciarMusica();
     },
 
     tocar: (id) => {
-      if (!ctx || !saidaEfeitos || ctx.state !== 'running') return;
+      if (!ctx || !saidaEfeitos || !saidaInterface || ctx.state !== 'running') return;
+      // Em pausa só os cliques de interface soam.
+      if (pausadoPeloJogo && id !== 'interface') return;
       const buffer = buffers.get(id);
       if (buffer) {
         const fonte = ctx.createBufferSource();
         fonte.buffer = buffer;
-        fonte.connect(saidaEfeitos);
+        fonte.connect(id === 'interface' ? saidaInterface : saidaEfeitos);
         fonte.start();
         return;
       }
@@ -359,12 +389,12 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
 
     pausar: () => {
       pausadoPeloJogo = true;
-      if (ctx && ctx.state === 'running') void ctx.suspend();
+      aplicarMixagem();
     },
 
     retomar: () => {
       pausadoPeloJogo = false;
-      if (ctx && ctx.state === 'suspended') void ctx.resume();
+      aplicarMixagem();
     },
   };
 }

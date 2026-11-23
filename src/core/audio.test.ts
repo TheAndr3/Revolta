@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IDS_SOM, sonsDoEvento, volumePorDistancia } from './audio';
+import { CONFIG_AUDIO, IDS_SOM, mixagem, sonsDoEvento, volumePorDistancia } from './audio';
 
 describe('áudio: eventos → sons', () => {
   it('liga cada evento do núcleo ao seu efeito', () => {
@@ -51,5 +51,22 @@ describe('áudio: volume pela distância', () => {
     expect(volumePorDistancia(null, 8, 1)).toBe(0);
     expect(volumePorDistancia(Number.NaN, 8, 1)).toBe(0);
     expect(volumePorDistancia(1, 0, 1)).toBe(0);
+  });
+});
+
+describe('áudio: mixagem com a Prova aberta ou em pausa', () => {
+  it('a música continua (mais baixa) e só os sons do jogo param', () => {
+    const jogando = mixagem(false);
+    const pausado = mixagem(true);
+    expect(jogando.musica).toBe(CONFIG_AUDIO.volumeMusica);
+    expect(pausado.musica).toBeGreaterThan(0);
+    expect(pausado.musica).toBeLessThan(jogando.musica);
+    expect(pausado.efeitos).toBe(0);
+    expect(jogando.efeitos).toBe(CONFIG_AUDIO.volumeEfeitos);
+  });
+
+  it('os cliques de interface tocam mesmo em pausa', () => {
+    expect(mixagem(true).interface).toBeGreaterThan(0);
+    expect(mixagem(true).interface).toBe(mixagem(false).interface);
   });
 });
