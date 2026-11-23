@@ -96,6 +96,31 @@ export function compilarCicloAmeaca(ameaca: AmeacaNaFase): CicloAmeaca {
     }
   }
 
+  // A pausa em v1 vale "no início de cada ciclo" (legenda, seção 2.5): em t = 0
+  // a Ameaça espera em v1 antes de partir. Como a sequência termina chegando a v1,
+  // essa pausa foi gerada por último; ela passa para o começo do ciclo.
+  const ultima = etapas[etapas.length - 1];
+  const v1 = ameaca.vertices[0];
+  if (
+    etapas.length > 1 &&
+    ultima.pausada &&
+    ultima.origem.col === v1.col &&
+    ultima.origem.lin === v1.lin
+  ) {
+    etapas.pop();
+    etapas.unshift(ultima);
+    let inicio = 0;
+    for (let i = 0; i < etapas.length; i++) {
+      const etapa = etapas[i];
+      etapas[i] = {
+        ...etapa,
+        inicioSegundos: inicio,
+        fimSegundos: inicio + etapa.duracaoSegundos,
+      };
+      inicio += etapa.duracaoSegundos;
+    }
+  }
+
   return {
     ameaca,
     etapas,

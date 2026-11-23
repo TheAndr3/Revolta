@@ -14,6 +14,7 @@ import {
   type EstadoFase,
   type EventoDeslize,
 } from '../core/deslize';
+import type { EstadoAmeacaNoInstante } from '../core/ameacas';
 import {
   TOTAL_PROVAS_FASE,
   type Coordenada,
@@ -77,6 +78,7 @@ const CORES = {
   droneMarca: 0x450a0a,
   guarda: 0x6366f1,
   guardaMarca: 0x1e1b4b,
+  guardaOlhar: 0xf8fafc,
   pausaMarca: 0xfef08a,
 } as const;
 
@@ -144,6 +146,8 @@ export class FaseScene extends Phaser.Scene {
   private haloTotemTween: Phaser.Tweens.Tween | null = null;
   private marcadorHabitante: Phaser.GameObjects.Graphics | null = null;
   private readonly spritesAmeaca = new Map<string, Phaser.GameObjects.Container>();
+  /** Marca provisória de "para onde o Guarda olha" (até a animação em 4 direções da arte final). */
+  private readonly olharGuarda = new Map<string, Phaser.GameObjects.Rectangle>();
   private readonly brilhosTrilhoGosma: CelulaBrilhoTrilho[] = [];
 
   private trancoOffset = { x: 0, y: 0 };
@@ -245,6 +249,16 @@ export class FaseScene extends Phaser.Scene {
       this.estado.habitanteResgatado,
       this.fase.habitante !== null,
     );
+  }
+
+  /**
+   * Estado atual de cada Ameaça: posição, direção e se está parada numa pausa.
+   * A arte final usa a direção para escolher a animação (Guarda em 4 direções,
+   * Drone rotacionado) e `pausada` para a pose parada.
+   */
+  public estadosAmeacas(): EstadoAmeacaNoInstante[] {
+    if (!this.estado) return [];
+    return posicoesAmeacasAtuais(this.estado);
   }
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {
@@ -567,6 +581,7 @@ export class FaseScene extends Phaser.Scene {
     }
 
     this.spritesAmeaca.clear();
+    this.olharGuarda.clear();
     for (const ameaca of this.fase.ameacas) {
       const estilo = ESTILO_AMEACA[ameaca.tipo];
       const centroX = ameaca.posicaoInicial.col * tile + tile / 2;
@@ -603,6 +618,11 @@ export class FaseScene extends Phaser.Scene {
           estilo.glifo,
         );
         const container = this.add.container(centroX, centroY, [grafico]).setDepth(8);
+        if (ameaca.tipo === 'guarda') {
+          const olhar = this.add.rectangle(0, 0, 4, 4, CORES.guardaOlhar, 1);
+          container.add(olhar);
+          this.olharGuarda.set(ameaca.id, olhar);
+        }
         this.spritesAmeaca.set(ameaca.id, container);
       }
     }
@@ -822,6 +842,13 @@ export class FaseScene extends Phaser.Scene {
         const ax = ameaca.posicao.x * tile + tile / 2;
         const ay = ameaca.posicao.y * tile + tile / 2;
         sprite.setPosition(Math.round(ax), Math.round(ay));
+      }
+      const olhar = this.olharGuarda.get(ameaca.id);
+      if (olhar) {
+        const { dc, dl } = VETOR_DIRECAO[ameaca.direcao];
+        olhar.setPosition(dc * 6, dl * 6);
+        // Parado no ponto de pausa: a marca fica amarela, como os pontos de pausa do trilho.
+        olhar.setFillStyle(ameaca.pausada ? CORES.pausaMarca : CORES.guardaOlhar, 1);
       }
       if (ameaca.tipo === 'gosma') {
         posicoesGosma.push(ameaca.posicao);
