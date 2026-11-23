@@ -6,13 +6,82 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Re(volta) — Fase de Teste</title>
+    <title>Re(volta)</title>
   </head>
   <body>
-    <div class="app">
+    <!-- Os textos visíveis vêm de content/telas.json (atributos data-texto*). -->
+
+    <section id="tela-capa" class="tela tela-capa" aria-labelledby="titulo-capa">
+      <div class="tela-conteudo">
+        <h1 id="titulo-capa" class="titulo-jogo" data-texto="capa.titulo">Re(volta)</h1>
+        <p class="texto-suave" data-texto="capa.subtitulo"></p>
+        <button id="btn-comecar" type="button" class="btn-primario btn-grande" data-texto="capa.botao">
+          Toque para começar
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-menu" class="tela" aria-labelledby="titulo-menu" hidden>
+      <div class="tela-conteudo">
+        <h1 id="titulo-menu" class="titulo-jogo" data-texto="menu.titulo">Re(volta)</h1>
+        <nav class="lista-acoes" aria-labelledby="titulo-menu">
+          <button type="button" class="btn-primario btn-grande" data-ir-para="selecao" data-texto="menu.jogar">
+            Jogar
+          </button>
+          <button type="button" class="btn-secundario btn-grande" data-ir-para="arquivo" data-texto="menu.arquivo">
+            Arquivo da Resistência
+          </button>
+          <button type="button" class="btn-secundario btn-grande" data-ir-para="sobre" data-texto="menu.sobre">
+            Sobre o projeto
+          </button>
+        </nav>
+      </div>
+    </section>
+
+    <section id="tela-arquivo" class="tela" aria-labelledby="titulo-arquivo" hidden>
+      <div class="tela-conteudo">
+        <h1 id="titulo-arquivo" data-texto="arquivo.titulo">Arquivo da Resistência</h1>
+        <p class="texto-suave" data-texto="arquivo.texto"></p>
+        <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="arquivo.voltar">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-sobre" class="tela" aria-labelledby="titulo-sobre" hidden>
+      <div class="tela-conteudo">
+        <h1 id="titulo-sobre" data-texto="sobre.titulo">Sobre o projeto</h1>
+        <p class="texto-suave" data-texto="sobre.texto"></p>
+        <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="sobre.voltar">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-selecao" class="tela" aria-labelledby="titulo-selecao" hidden>
+      <div class="tela-conteudo tela-conteudo-larga">
+        <h1 id="titulo-selecao" data-texto="selecao.titulo">Escolha a Fase</h1>
+        <ol id="lista-fases" class="lista-fases"></ol>
+        <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="selecao.voltar">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-fim-prototipo" class="tela" aria-labelledby="titulo-fim-prototipo" hidden>
+      <div class="tela-conteudo">
+        <h1 id="titulo-fim-prototipo" data-texto="fimPrototipo.titulo">Fim do protótipo</h1>
+        <p data-texto="fimPrototipo.texto"></p>
+        <button type="button" class="btn-primario" data-ir-para="menu" data-texto="fimPrototipo.botao">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <div id="tela-jogo" class="app" hidden>
       <header class="hud">
         <div class="hud-titulo">
-          <h1>Re(volta)</h1>
+          <h1 id="hud-nome-fase" data-texto="hud.titulo">Re(volta)</h1>
           <span
             id="contador-provas"
             class="hud-provas"
@@ -25,46 +94,45 @@
             id="status-habitante"
             class="hud-habitante"
             data-resgatado="false"
-            aria-label="Habitante: ainda não resgatado"
-            title="Habitante: ainda não resgatado"
+            data-texto-aria="hud.habitanteNaoResgatado"
+            data-texto-title="hud.habitanteNaoResgatado"
           >
             <svg class="icone-habitante" viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="10" cy="6.5" r="3.5" />
               <path d="M3.5 17.5c.6-3.7 3.2-5.8 6.5-5.8s5.9 2.1 6.5 5.8Z" />
             </svg>
-            <span class="hud-habitante-rotulo">Habitante</span>
+            <span class="hud-habitante-rotulo" data-texto="hud.habitante">Habitante</span>
           </span>
-          <span id="contador-deslizes" class="hud-meta" aria-live="polite">
-            Deslizes: 0
-          </span>
-          <span id="contador-mortes" class="hud-meta" aria-live="polite">
-            Mortes: 0
-          </span>
+          <span id="contador-deslizes" class="hud-meta" aria-live="polite"></span>
+          <span id="contador-mortes" class="hud-meta" aria-live="polite"></span>
         </div>
         <button
           id="btn-pausa"
           type="button"
           class="btn-secundario"
           aria-haspopup="dialog"
+          data-texto="hud.pausa"
         >
           Pausa
         </button>
       </header>
 
-      <main id="palco" class="palco" aria-label="Área jogável do labirinto">
-        <p id="mensagem-erro" class="erro" role="alert" hidden></p>
+      <main id="palco" class="palco" data-texto-aria="hud.areaJogo">
+        <div id="mensagem-erro" class="erro" role="alert" hidden>
+          <p id="mensagem-erro-texto"></p>
+          <button id="btn-erro-voltar" type="button" class="btn-secundario" data-texto="erros.voltar">
+            Voltar à seleção de Fases
+          </button>
+        </div>
       </main>
 
       <footer class="rodape">
-        <p>
-          Setas ou WASD no PC · Deslize o dedo na tela no celular · Esc/P para pausar · R para
-          reiniciar
-        </p>
+        <p data-texto="hud.rodape"></p>
       </footer>
     </div>
 
-    <div class="regiao-falas" role="region" aria-label="Falas dos Habitantes">
-      <p class="sr-only">Anúncios de resgate</p>
+    <div class="regiao-falas" role="region" data-texto-aria="habitante.regiao">
+      <p class="sr-only" data-texto="habitante.anuncios">Anúncios de resgate</p>
       <div id="anuncio-habitante" class="sr-only" aria-live="polite"></div>
 
       <div id="balao-habitante" class="balao-habitante" popover="manual">
@@ -79,7 +147,7 @@
           class="btn-fechar-balao"
           popovertarget="balao-habitante"
           popovertargetaction="hide"
-          aria-label="Fechar fala do Habitante"
+          data-texto-aria="habitante.fechar"
         >
           ×
         </button>
@@ -87,34 +155,19 @@
     </div>
 
     <dialog id="modal-pausa" class="modal-pausa" aria-labelledby="titulo-pausa">
-      <h2 id="titulo-pausa">Pausa</h2>
+      <h2 id="titulo-pausa" data-texto="pausa.titulo">Pausa</h2>
       <form method="dialog" class="acoes-pausa">
-        <button value="continuar" class="btn-primario" autofocus>
+        <button value="continuar" class="btn-primario" autofocus data-texto="pausa.continuar">
           Continuar
         </button>
-        <button value="totem" class="btn-secundario">
+        <button value="totem" class="btn-secundario" data-texto="pausa.totem">
           Voltar ao Totem
         </button>
-        <button value="reiniciar" class="btn-secundario">
+        <button value="reiniciar" class="btn-secundario" data-texto="pausa.reiniciar">
           Reiniciar Fase
         </button>
-        <button value="sair" class="btn-secundario btn-perigo">
+        <button value="sair" class="btn-secundario btn-perigo" data-texto="pausa.sair">
           Sair
-        </button>
-      </form>
-    </dialog>
-
-    <dialog id="modal-menu-provisorio" aria-labelledby="titulo-menu-provisorio">
-      <h2 id="titulo-menu-provisorio">Re(volta)</h2>
-      <p class="texto-suave">
-        Você saiu da Fase. O menu principal entra na próxima etapa do protótipo.
-      </p>
-      <form method="dialog" class="acoes-pausa">
-        <button value="jogar" class="btn-primario" autofocus>
-          Jogar Fase novamente
-        </button>
-        <button value="voltar" class="btn-secundario">
-          Voltar para onde estava
         </button>
       </form>
     </dialog>
@@ -132,18 +185,24 @@
       <div id="prova-texto" class="prova-texto"></div>
 
       <form method="dialog" class="acoes-modal acoes-prova">
-        <button value="fechar" class="btn-primario btn-continuar" autofocus>
+        <button value="fechar" class="btn-primario btn-continuar" autofocus data-texto="prova.continuar">
           Continuar
         </button>
       </form>
     </dialog>
 
-    <dialog id="modal-conclusao" aria-labelledby="titulo-conclusao">
+    <dialog id="modal-conclusao" class="modal-conclusao" aria-labelledby="titulo-conclusao">
       <h2 id="titulo-conclusao">Fase concluída</h2>
-      <p id="resumo-conclusao">Você alcançou a Saída.</p>
-      <form method="dialog" class="acoes-modal">
-        <button value="reiniciar" class="btn-primario" autofocus>
-          Jogar novamente
+      <ul id="resumo-conclusao" class="resumo-conclusao"></ul>
+      <form method="dialog" class="acoes-conclusao">
+        <button id="btn-proxima" value="proxima" class="btn-primario" autofocus data-texto="fimFase.proxima">
+          Próxima
+        </button>
+        <button value="repetir" class="btn-secundario" data-texto="fimFase.repetir">
+          Repetir
+        </button>
+        <button value="selecao" class="btn-secundario" data-texto="fimFase.selecao">
+          Escolher Fase
         </button>
       </form>
     </dialog>

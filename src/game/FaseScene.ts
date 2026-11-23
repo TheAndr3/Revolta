@@ -26,6 +26,8 @@ import {
 export interface ResumoConclusaoFase {
   readonly deslizes: number;
   readonly mortes: number;
+  /** Tempo jogado na tentativa, sem pausas nem overlays de Prova. */
+  readonly tempoSegundos: number;
   readonly habitanteResgatado: boolean;
   readonly temHabitante: boolean;
 }
@@ -726,6 +728,7 @@ export class FaseScene extends Phaser.Scene {
           this.callbacks.aoConcluir({
             deslizes: this.estado.deslizes,
             mortes: this.estado.mortes,
+            tempoSegundos: this.estado.tempoJogadoSegundos,
             habitanteResgatado: this.estado.habitanteResgatado,
             temHabitante: this.fase.habitante !== null,
           });

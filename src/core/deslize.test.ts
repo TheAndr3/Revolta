@@ -876,3 +876,21 @@ describe('núcleo de deslize', () => {
     expect(estado.celulaAtual).toEqual(fase.inicio);
   });
 });
+
+describe('tempo jogado', () => {
+  it('acumula só enquanto o jogo roda e não zera ao morrer', () => {
+    const estado = criarEstadoFase(FASE_SIMPLES);
+
+    atualizarDeslize(estado, 0.5);
+    expect(estado.tempoJogadoSegundos).toBeCloseTo(0.5);
+
+    pausarJogo(estado);
+    atualizarDeslize(estado, 2);
+    expect(estado.tempoJogadoSegundos).toBeCloseTo(0.5);
+
+    retomarJogo(estado);
+    atualizarDeslize(estado, 0.25);
+    matarProtagonista(estado);
+    expect(estado.tempoJogadoSegundos).toBeCloseTo(0.75);
+  });
+});
