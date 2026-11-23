@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   contarPalavras,
+  lerQuadrosIntro,
   LIMITE_PALAVRAS_PROVA,
   nomeArquivoProva,
   validarHabitante,
@@ -96,5 +97,28 @@ describe('check-content: Habitantes', () => {
       validarHabitante(habitante(['nome: Iara', 'retrato: r.png', 'papel: x'], ''), 'f', 'h.md')
         .erros[0],
     ).toMatch(/fala/);
+  });
+});
+
+describe('check-content: introdução', () => {
+  const quadro = { imagem: 'a.svg', descricao: 'Aldeia', texto: 'Era uma vez.' };
+
+  it('lê os 3 quadros', () => {
+    expect(lerQuadrosIntro({ quadros: [quadro, quadro, quadro] })).toHaveLength(3);
+  });
+
+  it('exige exatamente 3 quadros com imagem, descrição e texto', () => {
+    expect(() => lerQuadrosIntro({ quadros: [quadro, quadro] })).toThrow(/devem ser 3/);
+    expect(() => lerQuadrosIntro({ quadros: [quadro, quadro, { ...quadro, texto: '' }] })).toThrow(
+      /quadro 3 está sem o campo "texto"/,
+    );
+    expect(() => lerQuadrosIntro(null)).toThrow(/"quadros"/);
+  });
+
+  it('o content/intro.json do projeto é válido', () => {
+    const bruto: unknown = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'content/intro.json'), 'utf-8'),
+    );
+    expect(lerQuadrosIntro(bruto)).toHaveLength(3);
   });
 });

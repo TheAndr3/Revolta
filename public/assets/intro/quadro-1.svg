@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Ilustração provisória: aldeia vazia e árvores derrubadas">
+  <rect width="320" height="200" fill="#3b2f2a" />
+  <rect y="120" width="320" height="80" fill="#5b4636" />
+  <path d="M0 150 Q90 140 170 152 T320 146 L320 200 L0 200 Z" fill="#6b5a3e" />
+  <g fill="#2a211c">
+    <path d="M40 120 L70 96 L100 120 Z" /><rect x="48" y="120" width="44" height="24" />
+    <path d="M120 122 L146 100 L172 122 Z" /><rect x="128" y="122" width="36" height="20" />
+  </g>
+  <g fill="#7a5c3a">
+    <rect x="200" y="132" width="70" height="8" transform="rotate(-8 235 136)" />
+    <rect x="230" y="150" width="60" height="7" transform="rotate(6 260 153)" />
+  </g>
+  <circle cx="270" cy="44" r="20" fill="#c9a26b" opacity="0.6" />
+</svg>

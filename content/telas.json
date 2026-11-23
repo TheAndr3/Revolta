@@ -30,9 +30,15 @@
     "conteudoIndisponivel": "O conteúdo desta Fase ainda não está disponível.",
     "voltar": "Voltar ao menu"
   },
+  "intro": {
+    "regiao": "Introdução",
+    "pular": "Pular",
+    "proximo": "Próximo",
+    "comecar": "Começar",
+    "progresso": "Quadro {n} de {total}"
+  },
   "sobre": {
     "titulo": "Sobre o projeto",
-    "texto": "Re(volta) é um jogo sobre educação ambiental crítica. O contexto do projeto e as fontes reais que inspiraram as Provas entram aqui em breve.",
     "voltar": "Voltar ao menu"
   },
   "selecao": {

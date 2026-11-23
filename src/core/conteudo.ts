@@ -66,3 +66,40 @@ export function validarHabitante(
     return { erros: [`${rotulo}: ${(erro as Error).message}`], assets: [] };
   }
 }
+
+// ------------------------------------------------------------------ Intro e Sobre
+
+/** Número de quadros da introdução (decisões de design: "3 quadros ilustrados"). */
+export const TOTAL_QUADROS_INTRO = 3;
+
+export interface QuadroIntro {
+  /** Caminho da imagem dentro de `public/`. */
+  readonly imagem: string;
+  /** Descrição da imagem (texto alternativo e pedido para a issue de arte). */
+  readonly descricao: string;
+  readonly texto: string;
+}
+
+/** Valida e lê `content/intro.json`. Lança erro com mensagem clara se algo faltar. */
+export function lerQuadrosIntro(bruto: unknown): QuadroIntro[] {
+  const lista = (bruto as { quadros?: unknown } | null)?.quadros;
+  if (!Array.isArray(lista)) {
+    throw new Error('content/intro.json: esperado um objeto com a lista "quadros".');
+  }
+  if (lista.length !== TOTAL_QUADROS_INTRO) {
+    throw new Error(
+      `content/intro.json: a introdução tem ${lista.length} quadro(s); devem ser ${TOTAL_QUADROS_INTRO}.`,
+    );
+  }
+  return lista.map((item, i) => {
+    const quadro = (item ?? {}) as Record<string, unknown>;
+    const campo = (nome: string): string => {
+      const valor = quadro[nome];
+      if (typeof valor !== 'string' || valor.trim() === '') {
+        throw new Error(`content/intro.json: o quadro ${i + 1} está sem o campo "${nome}".`);
+      }
+      return valor.trim();
+    };
+    return { imagem: campo('imagem'), descricao: campo('descricao'), texto: campo('texto') };
+  });
+}

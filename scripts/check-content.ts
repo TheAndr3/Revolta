@@ -7,14 +7,18 @@
  * - as 3 Provas existem em `content/provas/<conteudo>/<N>-<tipo>.md`, com cabeçalho
  *   completo e texto de até LIMITE_PALAVRAS_PROVA palavras;
  * - o Habitante em `content/habitantes/<conteudo>.md` tem nome, retrato, papel e fala;
- * - as ilustrações e retratos citados existem em `public/`.
+ * - a introdução (`content/intro.json`) tem 3 quadros com imagem, descrição e texto;
+ * - o Sobre (`content/sobre.md`) tem título e a lista de fontes;
+ * - as ilustrações, retratos e quadros citados existem em `public/`.
  * Sai com código 1 se encontrar algum problema.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { lerCatalogoFases } from '../src/core/progresso';
+import { lerMarkdownSimples } from '../src/core/markdownSimples';
 import {
   LIMITE_PALAVRAS_PROVA,
+  lerQuadrosIntro,
   nomeArquivoProva,
   validarHabitante,
   validarProva,
@@ -59,6 +63,30 @@ for (const entrada of catalogo) {
     const resultado = validarHabitante(markdownHabitante, entrada.conteudo, caminhoHabitante);
     erros.push(...resultado.erros);
     resultado.assets.forEach((asset) => assets.set(asset, caminhoHabitante));
+  }
+}
+
+const introBruta = ler('content/intro.json');
+if (introBruta !== null) {
+  arquivosVerificados += 1;
+  try {
+    for (const quadro of lerQuadrosIntro(JSON.parse(introBruta))) {
+      assets.set(quadro.imagem, 'content/intro.json');
+    }
+  } catch (erro) {
+    erros.push((erro as Error).message);
+  }
+}
+
+const sobre = ler('content/sobre.md');
+if (sobre !== null) {
+  arquivosVerificados += 1;
+  const documento = lerMarkdownSimples(sobre);
+  if (!documento.cabecalho.get('titulo')) {
+    erros.push('content/sobre.md: campo "titulo" ausente no cabeçalho.');
+  }
+  if (!documento.blocos.some((bloco) => bloco.tipo === 'lista')) {
+    erros.push('content/sobre.md: falta a lista de fontes (linhas "- [Nome](https://...)").');
   }
 }
 

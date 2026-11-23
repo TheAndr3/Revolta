@@ -10,6 +10,7 @@ import {
 } from './armazenamentoProvas';
 
 const CHAVE_FASES_CONCLUIDAS = 'revolta:fases-concluidas:v1';
+const CHAVE_INTRO_VISTA = 'revolta:intro-vista:v1';
 
 function obterStoragePadrao(): StorageBasico | null {
   try {
@@ -53,6 +54,9 @@ export interface RepositorioProgresso {
   registrarConclusao(faseId: string): void;
   registrarProva(faseId: string, numero: NumeroProva): void;
   registrarHabitante(faseId: string): void;
+  /** A introdução já foi vista (ou pulada) neste navegador. */
+  introVista(): boolean;
+  registrarIntroVista(): void;
 }
 
 /**
@@ -68,6 +72,12 @@ export function criarRepositorioProgresso(
   const concluidas = new Set(lerListaDeTextos(storage, CHAVE_FASES_CONCLUIDAS));
   const provas = new Set(listarProvasSalvas(storage));
   const habitantes = new Set(listarHabitantesResgatados(storage));
+  let introVista = false;
+  try {
+    introVista = storage?.getItem(CHAVE_INTRO_VISTA) === '1';
+  } catch {
+    introVista = false;
+  }
 
   return {
     fasesConcluidas: () => concluidas,
@@ -85,6 +95,15 @@ export function criarRepositorioProgresso(
     registrarHabitante: (faseId) => {
       habitantes.add(faseId);
       salvarHabitanteResgatado(faseId, storage);
+    },
+    introVista: () => introVista,
+    registrarIntroVista: () => {
+      introVista = true;
+      try {
+        storage?.setItem(CHAVE_INTRO_VISTA, '1');
+      } catch {
+        // Sem armazenamento: a intro não volta nesta sessão, mas pode voltar ao recarregar.
+      }
     },
   };
 }

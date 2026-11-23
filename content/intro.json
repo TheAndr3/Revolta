@@ -1,0 +1,20 @@
+{
+  "_nota": "Introdução: 3 quadros mostrados na primeira vez que se clica em Jogar. Textos e imagens provisórios até as issues #23 (textos) e #28 (quadros ilustrados).",
+  "quadros": [
+    {
+      "imagem": "assets/intro/quadro-1.svg",
+      "descricao": "Aldeia na beira do rio, com casas vazias e árvores derrubadas",
+      "texto": "A aldeia acordou cercada de máquinas. Em poucos meses, o rio ficou turvo e as casas, vazias."
+    },
+    {
+      "imagem": "assets/intro/quadro-2.svg",
+      "descricao": "Floresta escura com uma luz verde pulsando entre as árvores",
+      "texto": "Mas a floresta não esqueceu. Entre os troncos caídos, ela chamou por quem ainda podia lutar."
+    },
+    {
+      "imagem": "assets/intro/quadro-3.svg",
+      "descricao": "Silhueta de uma pessoa envolta por folhas luminosas",
+      "texto": "O espírito da mata encontrou o último sobrevivente. Agora, os dois são um só, e a volta começa."
+    }
+  ]
+}

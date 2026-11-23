@@ -14,6 +14,8 @@ import {
 import type { ConteudoProva } from './core/provas';
 import { criarRepositorioProgresso } from './game/armazenamentoProgresso';
 import { criarArquivo } from './game/arquivo';
+import { criarIntro } from './game/intro';
+import { montarSobre } from './game/sobre';
 import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
 import {
   carregarConteudoProvasDaFase,
@@ -27,11 +29,20 @@ import './style.css';
 
 const DURACAO_BALAO_HABITANTE_MS = 5000;
 
-type NomeTela = 'capa' | 'menu' | 'arquivo' | 'sobre' | 'selecao' | 'fim-prototipo' | 'jogo';
+type NomeTela =
+  | 'capa'
+  | 'menu'
+  | 'intro'
+  | 'arquivo'
+  | 'sobre'
+  | 'selecao'
+  | 'fim-prototipo'
+  | 'jogo';
 
 const NOMES_TELA: readonly NomeTela[] = [
   'capa',
   'menu',
+  'intro',
   'arquivo',
   'sobre',
   'selecao',
@@ -536,6 +547,16 @@ function iniciar(): void {
     },
   });
 
+  const intro = criarIntro({
+    resolverUrlAsset,
+    aoTerminar: () => {
+      progresso.registrarIntroVista();
+      irParaSelecao();
+    },
+  });
+
+  montarSobre(elemento('titulo-sobre'), elemento('sobre-conteudo'));
+
   botaoComecar.addEventListener('click', () => {
     // Gesto do jogador: ponto em que o áudio será destravado no celular (issue de áudio).
     mostrarTela('menu');
@@ -544,8 +565,16 @@ function iniciar(): void {
   document.addEventListener('click', (evento) => {
     const alvo = (evento.target as HTMLElement | null)?.closest<HTMLElement>('[data-ir-para]');
     if (!alvo) return;
-    const destino = alvo.dataset.irPara as NomeTela | undefined;
-    if (destino === 'selecao') {
+    const destino = alvo.dataset.irPara as NomeTela | 'jogar' | undefined;
+    if (destino === 'jogar') {
+      // Na primeira vez que se clica em Jogar, a introdução vem antes da seleção de Fase.
+      if (progresso.introVista()) {
+        irParaSelecao();
+      } else {
+        mostrarTela('intro');
+        intro.iniciar();
+      }
+    } else if (destino === 'selecao') {
       irParaSelecao();
     } else if (destino === 'arquivo') {
       arquivo.renderizar();
