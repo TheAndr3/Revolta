@@ -41,6 +41,8 @@ export interface CallbacksFaseScene {
   aoColetarProva: (prova: ProvaNaFase) => void;
   aoAbrirProva: (prova: ProvaNaFase) => void;
   aoResgatarHabitante: () => void;
+  /** Todos os eventos do núcleo, na ordem em que acontecem (usado pelo áudio). */
+  aoEventos?: (eventos: readonly EventoDeslize[]) => void;
 }
 
 const CORES = {
@@ -209,6 +211,22 @@ export class FaseScene extends Phaser.Scene {
     }
     this.processarEventos(eventos);
     this.atualizarIndicadorBuffer();
+  }
+
+  /**
+   * Distância em tiles do Protagonista até a Ameaça mais próxima do tipo
+   * (`null` se a Fase não tiver nenhuma). O áudio usa para o volume dos loops.
+   */
+  public distanciaAteAmeaca(tipo: TipoAmeaca): number | null {
+    if (!this.estado) return null;
+    const { x, y } = this.estado.posicao;
+    let menor: number | null = null;
+    for (const ameaca of posicoesAmeacasAtuais(this.estado)) {
+      if (ameaca.tipo !== tipo) continue;
+      const distancia = Math.hypot(ameaca.posicao.x - x, ameaca.posicao.y - y);
+      if (menor === null || distancia < menor) menor = distancia;
+    }
+    return menor;
   }
 
   public fecharProva(): void {
@@ -669,6 +687,7 @@ export class FaseScene extends Phaser.Scene {
   }
 
   private processarEventos(eventos: readonly EventoDeslize[]): void {
+    if (eventos.length > 0) this.callbacks.aoEventos?.(eventos);
     for (const evento of eventos) {
       switch (evento.tipo) {
         case 'iniciou_deslize':

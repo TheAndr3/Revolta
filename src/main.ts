@@ -13,7 +13,9 @@ import {
 } from './core/progresso';
 import type { ConteudoProva } from './core/provas';
 import { criarRepositorioProgresso } from './game/armazenamentoProgresso';
+import { sonsDoEvento } from './core/audio';
 import { criarArquivo } from './game/arquivo';
+import { criarMotorAudio } from './game/audio';
 import { criarIntro } from './game/intro';
 import { montarSobre } from './game/sobre';
 import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
@@ -131,6 +133,7 @@ function iniciar(): void {
 
   const catalogo = lerCatalogoFases(catalogoFasesJson);
   const progresso = criarRepositorioProgresso();
+  const audio = criarMotorAudio(import.meta.env.BASE_URL);
 
   const telas = new Map<NomeTela, HTMLElement>(
     NOMES_TELA.map((nome) => [nome, elemento(`tela-${nome}`)]),
@@ -360,10 +363,26 @@ function iniciar(): void {
     }
   };
 
+  /** Laço que acompanha a distância das Ameaças para o volume dos loops. */
+  let quadroAudioAmeacas: number | null = null;
+  const acompanharAmeacasNoAudio = () => {
+    if (!sessao) return;
+    audio.atualizarDistancias(
+      sessao.cena.distanciaAteAmeaca('gosma'),
+      sessao.cena.distanciaAteAmeaca('drone'),
+    );
+    quadroAudioAmeacas = requestAnimationFrame(acompanharAmeacasNoAudio);
+  };
+
   function encerrarSessao(): void {
     geracaoSessao += 1;
     descartarFalaPendente();
     fecharDialogosDaFase();
+    if (quadroAudioAmeacas !== null) {
+      cancelAnimationFrame(quadroAudioAmeacas);
+      quadroAudioAmeacas = null;
+    }
+    audio.pararLoopsAmeacas();
     if (sessao) {
       sessao.jogo.destroy(true);
       sessao = null;
@@ -486,6 +505,11 @@ function iniciar(): void {
           }
         },
         aoConcluir: (resumo) => mostrarFimDeFase(indice, resumo),
+        aoEventos: (eventos) => {
+          for (const evento of eventos) {
+            sonsDoEvento(evento.tipo).forEach((som) => audio.tocar(som));
+          }
+        },
       });
 
       dimensoesFaseAtual = { largura: fase.largura, altura: fase.altura };
@@ -507,6 +531,11 @@ function iniciar(): void {
       });
 
       sessao = { indice, entrada, cena, jogo, conteudoProvas, conteudoHabitante };
+      audio.iniciarLoopsAmeacas({
+        gosma: fase.ameacas.some((a) => a.tipo === 'gosma'),
+        drone: fase.ameacas.some((a) => a.tipo === 'drone'),
+      });
+      acompanharAmeacasNoAudio();
       aplicarEscalaNoCanvas();
     } catch (erro) {
       if (geracao !== geracaoSessao) return;
@@ -558,9 +587,30 @@ function iniciar(): void {
   montarSobre(elemento('titulo-sobre'), elemento('sobre-conteudo'));
 
   botaoComecar.addEventListener('click', () => {
-    // Gesto do jogador: ponto em que o áudio será destravado no celular (issue de áudio).
+    // Gesto do jogador: destrava o áudio no celular e começa a música (também no menu).
+    audio.desbloquear();
     mostrarTela('menu');
   });
+
+  // Som de interface em qualquer botão.
+  document.addEventListener('click', (evento) => {
+    if ((evento.target as HTMLElement | null)?.closest('button')) {
+      audio.tocar('interface');
+    }
+  });
+
+  // O áudio pausa junto com a pausa e com o overlay da Prova durante uma Fase.
+  const sincronizarPausaDoAudio = () => {
+    if (sessao && (dialogPausa.open || dialogProva.open)) {
+      audio.pausar();
+    } else {
+      audio.retomar();
+    }
+  };
+  const observadorDialogos = new MutationObserver(sincronizarPausaDoAudio);
+  for (const dialogo of [dialogPausa, dialogProva]) {
+    observadorDialogos.observe(dialogo, { attributes: true, attributeFilter: ['open'] });
+  }
 
   document.addEventListener('click', (evento) => {
     const alvo = (evento.target as HTMLElement | null)?.closest<HTMLElement>('[data-ir-para]');
