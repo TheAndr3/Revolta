@@ -36,6 +36,9 @@ jobs:
       - name: Rodar testes do núcleo
         run: npm test
 
+      - name: Validar Fases (solver estático)
+        run: npm run validar-fase
+
       - name: Validar build TypeScript e Vite
         run: npm run build
 

@@ -7,10 +7,12 @@
     "check-content": "vite-node scripts/check-content.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "gerar-paleta": "vite-node scripts/gerar-paleta.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validar-fase": "vite-node scripts/validar-fase.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0"
