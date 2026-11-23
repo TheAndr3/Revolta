@@ -17,9 +17,9 @@
 
 ## 1. Legenda de Símbolos (Papel e ASCII)
 
-### 1.1 Tabela dos 13 elementos
+### 1.1 Tabela dos 14 elementos
 
-O alfabeto do `.txt` é **fechado**: apenas os 13 caracteres abaixo são válidos. Qualquer outro caractere é erro de parser.
+O alfabeto do `.txt` é **fechado**: apenas os 14 caracteres abaixo são válidos. Qualquer outro caractere é erro de parser.
 
 | # | Elemento | No papel quadriculado | ASCII |
 |---|---|---|---|
@@ -36,6 +36,7 @@ O alfabeto do `.txt` é **fechado**: apenas os 13 caracteres abaixo são válido
 | 11 | Gosma Tóxica (posição inicial) | `G` **dentro de um círculo** | `G` |
 | 12 | Drone Desmatador (posição inicial) | `D` **dentro de um círculo** | `D` |
 | 13 | Guarda Florestal (posição inicial) | `R` **dentro de um círculo** (R de *Ronda*; o `G` já é da Gosma) | `R` |
+| 14 | Alma da floresta (colecionável opcional, várias por Fase; pega ao deslizar por cima) | **Bolinha cheia** (pequeno círculo pintado), no centro da célula | `o` |
 
 Por que estes caracteres: não há `I`, `l`, `O`, `0`, `S`, `5`, `Z`, `B`, `8` nem `7` no alfabeto, então `1` e `2` não têm par ambíguo. As Ameaças ganham círculo no papel para a IA nunca confundi-las com elementos fixos (`G`/`6`, `D`/`0`, `R`/`P`).
 
