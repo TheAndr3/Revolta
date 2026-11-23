@@ -1,3 +1,4 @@
+import { CONFIG } from './config';
 import {
   TIPO_PROVA_POR_NUMERO,
   type AmeacaNaFase,
@@ -281,21 +282,26 @@ function parseLinhaAmeaca(
     );
   }
 
-  // 3. Velocidade
-  if (!REGEX_DECIMAL_POSITIVO.test(campoVel.texto)) {
-    throw new ErroParseFase(
-      `Velocidade inválida "${campoVel.texto}" para Ameaça "${id}" na linha ${linhaArquivo}, coluna ${campoVel.coluna}. Use um número positivo com ponto decimal.`,
-      linhaArquivo,
-      campoVel.coluna,
-    );
-  }
-  const velocidade = Number(campoVel.texto);
-  if (!Number.isFinite(velocidade) || velocidade <= 0) {
-    throw new ErroParseFase(
-      `Velocidade da Ameaça "${id}" deve ser maior que zero na linha ${linhaArquivo}, coluna ${campoVel.coluna}.`,
-      linhaArquivo,
-      campoVel.coluna,
-    );
+  // 3. Velocidade ("-" usa a velocidade de referência do tipo, definida na config)
+  let velocidade: number;
+  if (campoVel.texto === '-') {
+    velocidade = CONFIG.velocidadeReferenciaAmeacaTilesPorSegundo[tipo];
+  } else {
+    if (!REGEX_DECIMAL_POSITIVO.test(campoVel.texto)) {
+      throw new ErroParseFase(
+        `Velocidade inválida "${campoVel.texto}" para Ameaça "${id}" na linha ${linhaArquivo}, coluna ${campoVel.coluna}. Use um número positivo com ponto decimal, ou "-" para a velocidade de referência.`,
+        linhaArquivo,
+        campoVel.coluna,
+      );
+    }
+    velocidade = Number(campoVel.texto);
+    if (!Number.isFinite(velocidade) || velocidade <= 0) {
+      throw new ErroParseFase(
+        `Velocidade da Ameaça "${id}" deve ser maior que zero na linha ${linhaArquivo}, coluna ${campoVel.coluna}.`,
+        linhaArquivo,
+        campoVel.coluna,
+      );
+    }
   }
 
   // 4. Rota (vértices)
