@@ -13,6 +13,7 @@ import {
   type Fase,
   type NumeroProva,
   type ProvaNaFase,
+  type TipoAmeaca,
   ehParede,
 } from './fase';
 
@@ -106,6 +107,27 @@ export function pontoDeRetorno(estado: EstadoFase): Coordenada {
 
 export function posicoesAmeacasAtuais(estado: EstadoFase): EstadoAmeacaNoInstante[] {
   return calcularPosicoesAmeacas(estado.ciclosAmeacas, estado.tempoCicloSegundos);
+}
+
+/**
+ * Distância em tiles do Protagonista até a Ameaça mais próxima do tipo pedido,
+ * ou `null` se a Fase não tiver nenhuma. Usada, por exemplo, para o volume do
+ * motor do Drone.
+ */
+export function distanciaAteAmeacaMaisProxima(
+  estado: EstadoFase,
+  tipo: TipoAmeaca,
+): number | null {
+  let menor: number | null = null;
+  for (const ciclo of estado.ciclosAmeacas) {
+    if (ciclo.ameaca.tipo !== tipo) continue;
+    const { posicao } = avaliarAmeacaNoTempo(ciclo, estado.tempoCicloSegundos);
+    const distancia = Math.hypot(posicao.x - estado.posicao.x, posicao.y - estado.posicao.y);
+    if (menor === null || distancia < menor) {
+      menor = distancia;
+    }
+  }
+  return menor;
 }
 
 function estaCongelado(estado: EstadoFase): boolean {

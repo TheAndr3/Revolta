@@ -3,6 +3,7 @@ import { CONFIG } from '../core/config';
 import {
   atualizarDeslize,
   criarEstadoFase,
+  distanciaAteAmeacaMaisProxima,
   fecharProvaEmExibicao,
   pausarJogo,
   posicoesAmeacasAtuais,
@@ -247,6 +248,16 @@ export class FaseScene extends Phaser.Scene {
       this.estado.habitanteResgatado,
       this.fase.habitante !== null,
     );
+  }
+
+  /**
+   * Distância em tiles do Protagonista até o Drone Desmatador mais próximo
+   * (`null` sem Drone na Fase). A integração do áudio usa este valor para o
+   * volume do motor.
+   */
+  public distanciaDroneMaisProximo(): number | null {
+    if (!this.estado) return null;
+    return distanciaAteAmeacaMaisProxima(this.estado, 'drone');
   }
 
   public atualizarTamanhoViewport(larguraLogica: number, alturaLogica: number): void {

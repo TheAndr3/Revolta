@@ -11,4 +11,13 @@ export const CONFIG = {
   duracaoTrancoMs: 110,
   /** Alcance do look-ahead vertical da câmera em tiles. */
   lookAheadVerticalTiles: 2.5,
+  /**
+   * Velocidade de referência de cada Ameaça em tiles por segundo (legenda, seção 2.2).
+   * Usada quando a Fase escreve `-` no campo `vel`.
+   */
+  velocidadeReferenciaAmeacaTilesPorSegundo: {
+    gosma: 3,
+    drone: 10,
+    guarda: 5,
+  },
 } as const;
