@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
 import {
+  OBJETOS_GRANDES,
+  decorarParedes,
+  mascaraTrilha,
+  variacaoGrama,
+} from './cenarioFloresta';
+import {
   atualizarDeslize,
   contarAlmasColetadas,
   criarEstadoFase,
@@ -209,11 +215,14 @@ export class FaseScene extends Phaser.Scene {
     );
     // Experimento com assets CC0 (ver public/assets/cc0/CREDITOS.md).
     const tamanho = { frameWidth: CONFIG.tamanhoTilePx, frameHeight: CONFIG.tamanhoTilePx };
-    this.load.spritesheet(
-      'tiles-floresta',
-      `${import.meta.env.BASE_URL}assets/cc0/tiles-floresta.png`,
-      tamanho,
-    );
+    // Cenário da floresta: trilha (autotile), grama e objetos (ver cenarioFloresta.ts).
+    const cc0 = `${import.meta.env.BASE_URL}assets/cc0`;
+    this.load.spritesheet('trilha', `${cc0}/trilha.png`, tamanho);
+    this.load.spritesheet('grama', `${cc0}/grama.png`, tamanho);
+    this.load.spritesheet('cenario-pequeno', `${cc0}/cenario-pequeno.png`, tamanho);
+    for (const objeto of OBJETOS_GRANDES) {
+      this.load.image(`cenario-${objeto.chave}`, `${cc0}/cenario/${objeto.chave}.png`);
+    }
     this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
   }
 
@@ -452,8 +461,13 @@ export class FaseScene extends Phaser.Scene {
     const tile = CONFIG.tamanhoTilePx;
     // Marcas por cima dos tiles (início etc.).
     const g = this.add.graphics().setDepth(1);
-    // Variação estável entre os 2 tiles de cada tipo, sem padrão visível.
-    const variacao = (col: number, lin: number) => (col * 7 + lin * 13 + ((col * lin) % 3)) % 2;
+    // Floresta nas paredes: árvores, ruínas, troncos, arbustos e pedras sobre a grama.
+    for (const { chave, col, lin } of decorarParedes(this.fase.grade)) {
+      const imagem = chave.startsWith('pequeno:')
+        ? this.add.image(col * tile, lin * tile, 'cenario-pequeno', Number(chave.slice(8)))
+        : this.add.image(col * tile, lin * tile, `cenario-${chave}`);
+      imagem.setOrigin(0, 0).setDepth(0.5);
+    }
 
     for (let lin = 0; lin < this.fase.altura; lin++) {
       for (let col = 0; col < this.fase.largura; col++) {
@@ -461,15 +475,15 @@ export class FaseScene extends Phaser.Scene {
         const x = col * tile;
         const y = lin * tile;
 
-        // Chão de grama em toda célula; as paredes são arbustos por cima dele.
-        this.add.image(x, y, 'tiles-floresta', variacao(col, lin)).setOrigin(0, 0).setDepth(0);
+        // Grama sob a floresta; trilha de terra com bordas de grama nos corredores.
         if (tipo === 'parede') {
-          this.add
-            .image(x, y, 'tiles-floresta', 2 + variacao(lin, col))
-            .setOrigin(0, 0)
-            .setDepth(0.5);
+          this.add.image(x, y, 'grama', variacaoGrama(col, lin)).setOrigin(0, 0).setDepth(0);
           continue;
         }
+        this.add
+          .image(x, y, 'trilha', mascaraTrilha(this.fase.grade, col, lin))
+          .setOrigin(0, 0)
+          .setDepth(0);
 
         if (tipo === 'inicio') {
           g.fillStyle(CORES.inicio, 1);
@@ -663,22 +677,10 @@ export class FaseScene extends Phaser.Scene {
         .setVisible(false);
 
       const inativo = this.add.graphics().setDepth(5);
-      this.desenharQuadradoMarcado(
-        inativo,
-        totem,
-        CORES.totemInativo,
-        CORES.totemInativoMarca,
-        'T',
-      );
+      this.desenharTotem(inativo, totem, false);
 
       const ativo = this.add.graphics().setDepth(5).setVisible(false);
-      this.desenharQuadradoMarcado(
-        ativo,
-        totem,
-        CORES.totemAtivo,
-        CORES.totemAtivoMarca,
-        'T',
-      );
+      this.desenharTotem(ativo, totem, true);
 
       this.marcadoresTotem.push({ coord: totem, halo, inativo, ativo });
     }
@@ -687,14 +689,16 @@ export class FaseScene extends Phaser.Scene {
     for (const prova of this.fase.provas) {
       const marcador = this.add.graphics();
       marcador.setDepth(6);
-      const glifo = String(prova.numero) as '1' | '2' | '3';
-      this.desenharQuadradoMarcado(
-        marcador,
-        prova.posicao,
-        CORES.prova,
-        CORES.provaMarca,
-        glifo,
-      );
+      this.desenharProva(marcador, prova.posicao, String(prova.numero) as '1' | '2' | '3');
+      // O papel flutua de leve, como algo que chama o jogador.
+      this.tweens.add({
+        targets: marcador,
+        y: -2,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
       this.marcadoresProva.set(prova.numero, marcador);
     }
 
@@ -1393,5 +1397,70 @@ export class FaseScene extends Phaser.Scene {
     const tile = CONFIG.tamanhoTilePx;
     const alma = this.fase.almas[indice];
     this.emissorAlmas?.explode(8, alma.col * tile + tile / 2, alma.lin * tile + tile / 2);
+  }
+
+  // ------------------------------------------------------------------
+  // Marcadores desenhados no estilo do cenário (cores da paleta do kit).
+
+  /** Totem: poste de madeira entalhado com uma pedra no topo, que acende quando ativo. */
+  private desenharTotem(g: Phaser.GameObjects.Graphics, coord: Coordenada, ativo: boolean): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const x = coord.col * tile;
+    const y = coord.lin * tile;
+    // sombra no chão
+    g.fillStyle(0x0d1512, 0.35);
+    g.fillEllipse(x + 8, y + 14.5, 10, 3);
+    // poste
+    g.fillStyle(0x3a2a20, 1);
+    g.fillRect(x + 5, y + 5, 6, 10);
+    g.fillStyle(0x6b4a32, 1);
+    g.fillRect(x + 6, y + 6, 4, 8);
+    g.fillStyle(0xa0703f, 1);
+    g.fillRect(x + 6, y + 8, 4, 1);
+    g.fillRect(x + 6, y + 11, 4, 1);
+    // pedra do topo
+    const pedra = ativo ? 0x7dd3fc : 0x8a9a90;
+    const contorno = ativo ? 0x2f6f73 : 0x3b4d45;
+    g.fillStyle(contorno, 1);
+    g.fillRect(x + 5, y + 1, 6, 5);
+    g.fillRect(x + 6, y + 0, 4, 7);
+    g.fillStyle(pedra, 1);
+    g.fillRect(x + 6, y + 1, 4, 5);
+    g.fillStyle(ativo ? 0xeef4f0 : 0xb5c2ba, 1);
+    g.fillRect(x + 7, y + 2, 1, 2);
+  }
+
+  /** Prova: papel com linhas de texto e o número, com borda de luz dourada. */
+  private desenharProva(
+    g: Phaser.GameObjects.Graphics,
+    coord: Coordenada,
+    numero: '1' | '2' | '3',
+  ): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const x = coord.col * tile;
+    const y = coord.lin * tile;
+    // brilho
+    g.fillStyle(CORES.prova, 0.28);
+    g.fillRect(x + 1, y + 1, 14, 14);
+    // papel
+    g.fillStyle(0x3a2a20, 1);
+    g.fillRect(x + 3, y + 2, 10, 12);
+    g.fillStyle(0xeef4f0, 1);
+    g.fillRect(x + 4, y + 3, 8, 10);
+    // canto dobrado
+    g.fillStyle(0xd9a066, 1);
+    g.fillRect(x + 10, y + 3, 2, 2);
+    // linhas de texto
+    g.fillStyle(0x8a9a90, 1);
+    g.fillRect(x + 5, y + 4, 4, 1);
+    g.fillRect(x + 5, y + 6, 6, 1);
+    // número da Prova (glifo 5×5) em tom de madeira
+    const padrao = GLIFOS_MARCADOR[numero];
+    g.fillStyle(0x6b4a32, 1);
+    padrao.forEach((linha, l) =>
+      [...linha].forEach((c, col) => {
+        if (c === '#') g.fillRect(x + 6 + col, y + 8 + l, 1, 1);
+      }),
+    );
   }
 }

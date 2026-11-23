@@ -8,12 +8,21 @@
  *   16x16babies.png                                     (16x16 Animated Critters, HelplessIsland, CC0)
  *
  * Saída em public/assets/cc0/:
- *   tiles-floresta.png  quadros 16×16: [chão A, chão B, arbusto A, arbusto B]
+ *   trilha.png          16 quadros 16×16: trilha de terra por máscara de vizinhos (cenarioFloresta.ts)
+ *   grama.png           4 quadros 16×16: grama sob a floresta
+ *   cenario-pequeno.png quadros 16×16: arbustos, tocos e pedras
+ *   cenario/<chave>.png objetos grandes: árvores, ruínas e casas da aldeia abandonada
  *   gosma.png           4 quadros 16×16 do slime, recolorido para a rampa "floresta contaminada"
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { hexParaRgb, lerPaletaHex } from '../src/core/paleta';
+import {
+  GRAMA,
+  OBJETOS_GRANDES,
+  OBJETOS_PEQUENOS,
+  TRILHA_POR_MASCARA,
+} from '../src/game/cenarioFloresta';
 import { copiar, criarImagem, escreverPng, lerPng, type ImagemRgba } from './png';
 
 const TILE = 16;
@@ -106,19 +115,33 @@ function montarFolha(quadros: readonly ImagemRgba[]): ImagemRgba {
   return folha;
 }
 
-// --- Tiles da floresta: chão (grama) e arbustos como paredes ------------------
+// --- Cenário da floresta: trilha, grama e objetos -------------------------------
 const chao = abrir('tileset_floor.png');
 const vila = abrir('tileset_village_abandoned.png');
-const tiles = [
-  recortar(chao, 2, 11), // grama A
-  recortar(chao, 3, 11), // grama B
-  recortar(vila, 4, 5), // arbusto A
-  recortar(vila, 5, 5), // arbusto B
-];
-// Chão escuro (tons de sombra da mata) e arbustos claros: as paredes saltam do chão.
-tiles.slice(0, 2).forEach((t) => recolorirPorRampa(t, ['sombra da mata', 'verde profundo', 'verde copa']));
-tiles.slice(2).forEach((t) => remapearParaPaleta(t, ['floresta viva', 'terra e madeira', 'neutros']));
-writeFileSync(resolve(SAIDA, 'tiles-floresta.png'), escreverPng(montarFolha(tiles)));
+const GRUPOS_FLORESTA = ['floresta viva', 'terra e madeira', 'neutros'];
+
+const recortarArea = (origem: ImagemRgba, col: number, lin: number, w: number, h: number) => {
+  const img = criarImagem(w * TILE, h * TILE);
+  copiar(origem, col * TILE, lin * TILE, w * TILE, h * TILE, img, 0, 0);
+  remapearParaPaleta(img, GRUPOS_FLORESTA);
+  return img;
+};
+
+const trilha = TRILHA_POR_MASCARA.map(([c, l]) => recortarArea(chao, c, l, 1, 1));
+writeFileSync(resolve(SAIDA, 'trilha.png'), escreverPng(montarFolha(trilha)));
+
+const grama = GRAMA.map(([c, l]) => recortarArea(chao, c, l, 1, 1));
+writeFileSync(resolve(SAIDA, 'grama.png'), escreverPng(montarFolha(grama)));
+
+const pequenos = OBJETOS_PEQUENOS.map(({ origem: [c, l] }) => recortarArea(vila, c, l, 1, 1));
+writeFileSync(resolve(SAIDA, 'cenario-pequeno.png'), escreverPng(montarFolha(pequenos)));
+
+mkdirSync(resolve(SAIDA, 'cenario'), { recursive: true });
+for (const obj of OBJETOS_GRANDES) {
+  const [c, l] = obj.origem;
+  const img = recortarArea(vila, c, l, obj.largura, obj.altura);
+  writeFileSync(resolve(SAIDA, 'cenario', `${obj.chave}.png`), escreverPng(img));
+}
 
 // --- Gosma Tóxica: slime de frente, 4 quadros, recolorido ----------------------
 const criaturas = abrir('16x16babies.png');
@@ -131,4 +154,6 @@ const gosma = [0, 1, 2, 3].map((i) => {
 writeFileSync(resolve(SAIDA, 'gosma.png'), escreverPng(montarFolha(gosma)));
 
 
-console.log('Assets CC0 importados em public/assets/cc0/: tiles-floresta.png, gosma.png');
+console.log(
+  'Assets CC0 importados em public/assets/cc0/: trilha.png, grama.png, cenario-pequeno.png, cenario/*.png, gosma.png',
+);
