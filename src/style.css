@@ -470,6 +470,102 @@ dialog::backdrop {
     var(--cor-fundo);
 }
 
+/* ------------------------------------------------------------- Abertura (capa e menu) */
+
+/* A floresta animada fica fixa atrás das telas de abertura (ver capaAnimada.ts). */
+.abertura-fundo {
+  position: fixed;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  z-index: 0;
+  image-rendering: pixelated;
+  background-color: var(--cor-fundo);
+}
+
+.tela-abertura {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: transparent;
+}
+
+.abertura-topo {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding-block-start: clamp(0.5rem, 5dvh, 3rem);
+}
+
+.logo-revolta {
+  display: block;
+  max-inline-size: 100%;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 18px rgb(125 211 252 / 0.18));
+}
+
+.abertura-subtitulo {
+  color: #cfe3d8;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px #0d1512, 0 0 10px #0d1512;
+  animation: abertura-respira 4s ease-in-out infinite;
+}
+
+.abertura-base {
+  display: grid;
+  gap: 0.65rem;
+  inline-size: min(24rem, 100%);
+  padding-block-end: clamp(0.5rem, 3dvh, 2rem);
+}
+
+/* Botões legíveis sobre a cena: fundo sólido escuro nos secundários. */
+.tela-abertura .btn-secundario {
+  background-color: rgb(13 21 18 / 0.82);
+  border-color: #3f7a4f;
+  backdrop-filter: blur(2px);
+}
+
+.tela-abertura .btn-secundario:hover {
+  background-color: rgb(30 49 41 / 0.92);
+}
+
+.btn-abertura {
+  box-shadow: 0 0 0 1px #0d1512, 0 0 22px rgb(82 229 150 / 0.35);
+  animation: abertura-chama 2.6s ease-in-out infinite;
+}
+
+@keyframes abertura-respira {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes abertura-chama {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px #0d1512, 0 0 14px rgb(82 229 150 / 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 1px #0d1512, 0 0 28px rgb(82 229 150 / 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abertura-subtitulo,
+  .btn-abertura {
+    animation: none;
+  }
+}
+
 .tela-conteudo {
   display: grid;
   gap: 1.1rem;

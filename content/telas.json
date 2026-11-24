@@ -1,15 +1,15 @@
 {
   "_nota": "Todos os textos de tela do jogo (PT-BR). Trechos entre chaves, como {n}, são preenchidos pelo código.",
   "documento": {
-    "titulo": "Re(volta)"
+    "titulo": "Revolta"
   },
   "capa": {
-    "titulo": "Re(volta)",
+    "titulo": "Revolta",
     "subtitulo": "A floresta ainda resiste.",
     "botao": "Toque para começar"
   },
   "menu": {
-    "titulo": "Re(volta)",
+    "titulo": "Revolta",
     "jogar": "Jogar",
     "arquivo": "Arquivo da Resistência",
     "sobre": "Sobre o projeto"
@@ -53,7 +53,7 @@
     "marcas": "{n} de {total} Marcas"
   },
   "hud": {
-    "titulo": "Re(volta)",
+    "titulo": "Revolta",
     "provas": "Provas {coletadas}/{total}",
     "almas": "Almas {coletadas}/{total}",
     "habitante": "Habitante",
@@ -107,7 +107,7 @@
   },
   "fimPrototipo": {
     "titulo": "Fim do protótipo",
-    "texto": "Você atravessou a Floresta Contaminada. Obrigado por jogar esta primeira versão de Re(volta)!",
+    "texto": "Você atravessou a Floresta Contaminada. Obrigado por jogar esta primeira versão de Revolta!",
     "botao": "Voltar ao menu"
   },
   "erros": {
