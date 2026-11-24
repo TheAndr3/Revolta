@@ -1,32 +1,11 @@
 {
-  "_nota": "Ordem de jogo do protótipo. A Fase 1 usa a proposta de teste (fases/fase-01.txt); as demais seguem com o mapa da fase-00 como placeholder. Todas usam o conteúdo da fase-00 até as Provas reais (#22). Troque 'mapa' e 'conteudo' quando os arquivos reais existirem.",
+  "_nota": "Ordem de jogo do protótipo: uma Fase única (escopo reduzido em 23/11/2026; ver docs/design/fase-01.md). Usa o conteúdo da fase-00 até as Provas reais (#22). Troque 'conteudo' quando os arquivos reais existirem.",
   "fases": [
     {
       "id": "fase-01",
       "nome": "Fase 1",
-      "subtitulo": "Paredes e espinhos",
+      "subtitulo": "Floresta Contaminada",
       "mapa": "fases/fase-01.txt",
-      "conteudo": "fase-00"
-    },
-    {
-      "id": "fase-02",
-      "nome": "Fase 2",
-      "subtitulo": "A Gosma Tóxica",
-      "mapa": "fases/fase-00-teste.txt",
-      "conteudo": "fase-00"
-    },
-    {
-      "id": "fase-03",
-      "nome": "Fase 3",
-      "subtitulo": "Drones e Guardas",
-      "mapa": "fases/fase-00-teste.txt",
-      "conteudo": "fase-00"
-    },
-    {
-      "id": "fase-04",
-      "nome": "Fase 4",
-      "subtitulo": "Tudo junto",
-      "mapa": "fases/fase-00-teste.txt",
       "conteudo": "fase-00"
     }
   ]

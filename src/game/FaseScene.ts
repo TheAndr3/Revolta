@@ -1,13 +1,7 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
-import {
-  OBJETOS_GRANDES,
-  decorarBeiras,
-  decorarParedes,
-  mascaraTrilha,
-  variacaoGrama,
-} from './cenarioFloresta';
+import { LADO, copasDaMata, ehParede, ladosComParede } from './cenarioFloresta';
 import {
   atualizarDeslize,
   contarAlmasColetadas,
@@ -61,8 +55,14 @@ export interface CallbacksFaseScene {
 
 const CORES = {
   fundo: 0x0d1512,
-  chao: 0x1a2620,
-  gradeChao: 0x22312a,
+  // Cenário limpo: trilha clara e lisa, mata escura e lisa, borda clara entre as duas.
+  chao: 0x4a6152,
+  chaoSombra: 0x3a4e42,
+  bordaTrilha: 0xcde8d2,
+  mata: 0x0b1611,
+  mataAro: 0x1c3328,
+  copaEscura: 0x0f1d17,
+  copaClara: 0x13251c,
   parede: 0x3b4d45,
   paredeBorda: 0x526b5f,
   paredeSombra: 0x26332d,
@@ -76,11 +76,6 @@ const CORES = {
   almaBrilho: 0x7dd3fc,
   almaContorno: 0x2f6f73,
   // Floresta à noite
-  cogumeloChapeu: 0x7dd3fc,
-  cogumeloBrilho: 0x7cc6b8,
-  cogumeloPe: 0x8a9a90,
-  florPetala: 0x8a6a7a,
-  florMiolo: 0xf4d35e,
   vagalumeLima: 0xb5d96a,
   vagalumeCiano: 0x7dd3fc,
   protagonista: 0xf4d35e,
@@ -224,16 +219,7 @@ export class FaseScene extends Phaser.Scene {
       'protagonista',
       `${import.meta.env.BASE_URL}assets/protagonista.png`,
     );
-    // Experimento com assets CC0 (ver public/assets/cc0/CREDITOS.md).
     const tamanho = { frameWidth: CONFIG.tamanhoTilePx, frameHeight: CONFIG.tamanhoTilePx };
-    // Cenário da floresta: trilha (autotile), grama e objetos (ver cenarioFloresta.ts).
-    const cc0 = `${import.meta.env.BASE_URL}assets/cc0`;
-    this.load.spritesheet('trilha', `${cc0}/trilha.png`, tamanho);
-    this.load.spritesheet('grama', `${cc0}/grama.png`, tamanho);
-    this.load.spritesheet('cenario-pequeno', `${cc0}/cenario-pequeno.png`, tamanho);
-    for (const objeto of OBJETOS_GRANDES) {
-      this.load.image(`cenario-${objeto.chave}`, `${cc0}/cenario/${objeto.chave}.png`);
-    }
     this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
   }
 
@@ -473,31 +459,84 @@ export class FaseScene extends Phaser.Scene {
 
   private desenharGrade(): void {
     const tile = CONFIG.tamanhoTilePx;
-    // Marcas por cima dos tiles (início etc.).
-    const g = this.add.graphics().setDepth(1);
-    // Floresta nas paredes: árvores, ruínas, troncos, arbustos e pedras sobre a grama.
-    for (const { chave, col, lin } of decorarParedes(this.fase.grade)) {
-      const imagem = chave.startsWith('pequeno:')
-        ? this.add.image(col * tile, lin * tile, 'cenario-pequeno', Number(chave.slice(8)))
-        : this.add.image(col * tile, lin * tile, `cenario-${chave}`);
-      imagem.setOrigin(0, 0).setDepth(0.5);
+    const grade = this.fase.grade;
+    // Cenário limpo (ver cenarioFloresta.ts): mata escura e lisa, trilha clara e lisa,
+    // e uma linha clara exatamente onde a trilha acaba.
+    const chao = this.add.graphics().setDepth(0);
+    chao.fillStyle(CORES.mata, 1);
+    chao.fillRect(0, 0, this.fase.largura * tile, this.fase.altura * tile);
+
+    // Copas só no miolo da mata, em tons próximos do fundo.
+    for (const copa of copasDaMata(grade)) {
+      chao.fillStyle(copa.tom === 0 ? CORES.copaEscura : CORES.copaClara, 1);
+      chao.fillCircle(
+        (copa.col + 0.5 + copa.dx) * tile,
+        (copa.lin + 0.5 + copa.dy) * tile,
+        copa.raio * tile,
+      );
     }
 
+    // Trilha: preenchimento liso.
+    chao.fillStyle(CORES.chao, 1);
     for (let lin = 0; lin < this.fase.altura; lin++) {
       for (let col = 0; col < this.fase.largura; col++) {
-        const tipo = this.fase.grade[lin][col];
+        if (grade[lin][col] !== 'parede') chao.fillRect(col * tile, lin * tile, tile, tile);
+      }
+    }
+
+    // Bordas: sombra curta da mata sobre a trilha (vinda de cima e dos lados), aro claro
+    // na beira da mata e linha clara de 1 px no limite. Cantos externos também fecham.
+    const borda = this.add.graphics().setDepth(0.5);
+    for (let lin = 0; lin < this.fase.altura; lin++) {
+      for (let col = 0; col < this.fase.largura; col++) {
+        if (grade[lin][col] === 'parede') continue;
         const x = col * tile;
         const y = lin * tile;
+        const lados = ladosComParede(grade, col, lin);
 
-        // Grama sob a floresta; trilha de terra com bordas de grama nos corredores.
-        if (tipo === 'parede') {
-          this.add.image(x, y, 'grama', variacaoGrama(col, lin)).setOrigin(0, 0).setDepth(0);
-          continue;
+        borda.fillStyle(CORES.chaoSombra, 1);
+        if (lados & LADO.norte) borda.fillRect(x, y, tile, 3);
+        if (lados & LADO.oeste) borda.fillRect(x, y, 2, tile);
+        if (lados & LADO.leste) borda.fillRect(x + tile - 2, y, 2, tile);
+
+        borda.fillStyle(CORES.mataAro, 1);
+        if (lados & LADO.norte) borda.fillRect(x, y - 2, tile, 2);
+        if (lados & LADO.sul) borda.fillRect(x, y + tile, tile, 2);
+        if (lados & LADO.oeste) borda.fillRect(x - 2, y, 2, tile);
+        if (lados & LADO.leste) borda.fillRect(x + tile, y, 2, tile);
+
+        borda.fillStyle(CORES.bordaTrilha, 1);
+        if (lados & LADO.norte) borda.fillRect(x, y, tile, 1);
+        if (lados & LADO.sul) borda.fillRect(x, y + tile - 1, tile, 1);
+        if (lados & LADO.oeste) borda.fillRect(x, y, 1, tile);
+        if (lados & LADO.leste) borda.fillRect(x + tile - 1, y, 1, tile);
+
+        // Canto interno da curva: pixel de borda onde só a diagonal é mata.
+        for (const [dc, dl, px, py] of [
+          [-1, -1, 0, 0],
+          [1, -1, tile - 1, 0],
+          [-1, 1, 0, tile - 1],
+          [1, 1, tile - 1, tile - 1],
+        ] as const) {
+          if (
+            ehParede(grade, col + dc, lin + dl) &&
+            !ehParede(grade, col + dc, lin) &&
+            !ehParede(grade, col, lin + dl)
+          ) {
+            borda.fillRect(x + px, y + py, 1, 1);
+          }
         }
-        this.add
-          .image(x, y, 'trilha', mascaraTrilha(this.fase.grade, col, lin))
-          .setOrigin(0, 0)
-          .setDepth(0);
+      }
+    }
+
+    // Marcas por cima da trilha (início etc.).
+    const g = this.add.graphics().setDepth(1);
+    for (let lin = 0; lin < this.fase.altura; lin++) {
+      for (let col = 0; col < this.fase.largura; col++) {
+        const tipo = grade[lin][col];
+        if (tipo === 'parede') continue;
+        const x = col * tile;
+        const y = lin * tile;
 
         if (tipo === 'inicio') {
           g.fillStyle(CORES.inicio, 1);
@@ -1479,48 +1518,9 @@ export class FaseScene extends Phaser.Scene {
   }
 
   // ------------------------------------------------------------------
-  // Floresta à noite: cogumelos que brilham, flores, vagalumes, halo e vinheta.
+  // Floresta à noite: vagalumes, halo e vinheta.
 
   private gerarTexturasNoite(): void {
-    if (!this.textures.exists('cogumelo')) {
-      const g = this.make.graphics({}, false);
-      // três cogumelinhos de tamanhos diferentes, no pé da mata
-      const cogumelos: [number, number, number][] = [
-        [4, 12, 2],
-        [9, 13, 3],
-        [12, 11, 2],
-      ];
-      for (const [x, y, r] of cogumelos) {
-        g.fillStyle(CORES.cogumeloPe, 1);
-        g.fillRect(x, y, 1, 3);
-        g.fillStyle(CORES.cogumeloBrilho, 1);
-        g.fillRect(x - r, y - 1, r * 2 + 1, 2);
-        g.fillStyle(CORES.cogumeloChapeu, 1);
-        g.fillRect(x - r + 1, y - 2, r * 2 - 1, 1);
-        g.fillStyle(CORES.almaNucleo, 1);
-        g.fillRect(x - 1, y - 1, 1, 1);
-      }
-      g.generateTexture('cogumelo', 16, 16);
-      g.destroy();
-    }
-    if (!this.textures.exists('flor')) {
-      const g = this.make.graphics({}, false);
-      const flores: [number, number][] = [
-        [5, 12],
-        [11, 10],
-      ];
-      for (const [x, y] of flores) {
-        g.fillStyle(0x234836, 1);
-        g.fillRect(x, y + 1, 1, 3);
-        g.fillStyle(CORES.florPetala, 1);
-        g.fillRect(x - 1, y, 3, 1);
-        g.fillRect(x, y - 1, 1, 3);
-        g.fillStyle(CORES.florMiolo, 1);
-        g.fillRect(x, y, 1, 1);
-      }
-      g.generateTexture('flor', 16, 16);
-      g.destroy();
-    }
     if (!this.textures.exists('fx-vinheta')) {
       const tamanho = 128;
       const textura = this.textures.createCanvas('fx-vinheta', tamanho, tamanho);
@@ -1541,31 +1541,6 @@ export class FaseScene extends Phaser.Scene {
   private criarNoite(): void {
     const tile = CONFIG.tamanhoTilePx;
     this.gerarTexturasNoite();
-
-    // Cogumelos e flores na beira da mata; os cogumelos brilham e pulsam devagar.
-    decorarBeiras(this.fase.grade).forEach(({ tipo, col, lin }, i) => {
-      const x = col * tile;
-      const y = lin * tile;
-      if (tipo === 'cogumelo' && this.textures.exists('fx-brilho')) {
-        const brilho = this.add
-          .image(x + tile / 2, y + tile * 0.75, 'fx-brilho')
-          .setDisplaySize(tile * 1.8, tile * 1.8)
-          .setTint(CORES.cogumeloBrilho)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setAlpha(0.3)
-          .setDepth(0.8);
-        this.tweens.add({
-          targets: brilho,
-          alpha: { from: 0.18, to: 0.42 },
-          duration: 1600,
-          delay: (i * 233) % 1600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
-      this.add.image(x, y, tipo).setOrigin(0, 0).setDepth(0.9);
-    });
 
     // Vagalumes: pontinhos lima e ciano à deriva por toda a Fase.
     const largura = this.fase.largura * tile;

@@ -4,10 +4,6 @@ Todos os arquivos abaixo estão sob **CC0 1.0 (domínio público)**: podem ser u
 
 | Arquivo no jogo | Origem | Autor | O que foi feito |
 |---|---|---|---|
-| `assets/cc0/trilha.png` | `content/map/tileset_floor.png` do [Ninja Adventure Asset Pack](https://pixel-boy.itch.io/ninja-adventure-asset-pack) ([GitHub](https://github.com/pixel-boy/NinjaAdventure)) | Pixel-boy | 16 peças do autotile de trilha de terra com bordas de grama, remapeadas para a paleta |
-| `assets/cc0/grama.png` | `content/map/tileset_floor.png` do Ninja Adventure | Pixel-boy | 4 variações de grama, remapeadas para a paleta |
-| `assets/cc0/cenario-pequeno.png` | `content/map/tileset_village_abandoned.png` do Ninja Adventure | Pixel-boy | Arbustos, tocos e pedras recortados em 16×16, remapeados para a paleta |
-| `assets/cc0/cenario/*.png` | `content/map/tileset_village_abandoned.png` do Ninja Adventure | Pixel-boy | Árvores, troncos, ruína de pedra e casas da aldeia abandonada, remapeados para a paleta; espalhados pelo decorador `src/game/cenarioFloresta.ts` |
 | `assets/cc0/gosma.png` | [16x16 Animated Critters](https://opengameart.org/content/16x16-animated-critters) (`16x16babies.png`) | HelplessIsland | Slime de frente, 4 quadros, fundo removido, recolorido na rampa "floresta contaminada" |
 | `audio/floresta.ogg` | `audio/music/theme_swamp.ogg` do Ninja Adventure | Pixel-boy e AAA | Sem alteração |
 | `audio/sfx/deslize.ogg`, `batida.ogg`, `tranco.ogg`, `prova.ogg`, `espinho.ogg` | RPG sounds (`cloth1`, `dropLeather`, `footstep03`, `bookFlip2`, `metalLatch`) | [Kenney](https://kenney.nl) (via [iwenzhou/kenney](https://github.com/iwenzhou/kenney)) | Sem alteração |

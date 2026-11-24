@@ -57,7 +57,7 @@ Padrões comuns em jogos de labirinto com deslize, que se encaixam no Re(volta):
 ### Ritmo
 - **Curva de intensidade.** Trecho tenso → respiro (com Totem) → trecho tenso maior. Nunca dois trechos máximos seguidos sem respiro.
 - **Nem curta demais, nem repetitiva.** Uma Fase não deve exigir repetir o mesmo trecho difícil várias vezes para chegar ao próximo (Totens resolvem isso).
-- **Dificuldade sobe aos poucos** entre as 4 Fases (já previsto: 1 paredes + espinhos, 2 Gosma, 3 Drone + Guarda, 4 combinação).
+- **Dificuldade sobe aos poucos** dentro da Fase única (ADR 0007): espinhos → Gosma → Drone → combinação → Guarda.
 
 ## 4. Aplicando às nossas Fases
 

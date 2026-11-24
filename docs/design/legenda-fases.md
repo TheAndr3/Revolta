@@ -1,6 +1,6 @@
 # Re(volta) — Legenda e Regras de Desenho de Fases
 
-> **Documento oficial** do protótipo (Vertical Slice — Mapa 1: *Floresta Contaminada*, 4 Fases).
+> **Documento oficial** do protótipo (Vertical Slice — Mapa 1: *Floresta Contaminada*, Fase única desde 23/11/2026, ADR 0007).
 > Usado por duas pontas do pipeline: **(a)** a equipe, que desenha as Fases à mão em papel quadriculado; **(b)** a IA de visão, que transcreve a foto do papel para o `.txt` (ASCII) consumido pelo parser TypeScript e pelo *solver* estático.
 > Em caso de divergência com o conceito geral do jogo, **as regras do protótipo valem**: sem XP, sem facho de lanterna no Guarda, sem perseguição, sem inimigos dos Mapas 2 e 3.
 
