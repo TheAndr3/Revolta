@@ -725,11 +725,21 @@ function iniciar(): void {
     },
   });
 
+  // Com uma Fase só (ADR 0007), Jogar entra direto nela; a seleção continua acessível
+  // ao sair da Fase, para ver Marcas e Habitante.
+  const entrarNoJogo = () => {
+    if (catalogo.length === 1) {
+      void iniciarFase(0);
+    } else {
+      irParaSelecao();
+    }
+  };
+
   const intro = criarIntro({
     resolverUrlAsset,
     aoTerminar: () => {
       progresso.registrarIntroVista();
-      irParaSelecao();
+      entrarNoJogo();
     },
   });
 
@@ -767,9 +777,9 @@ function iniciar(): void {
     if (!alvo) return;
     const destino = alvo.dataset.irPara as NomeTela | 'jogar' | undefined;
     if (destino === 'jogar') {
-      // Na primeira vez que se clica em Jogar, a introdução vem antes da seleção de Fase.
+      // Na primeira vez que se clica em Jogar, a introdução vem antes da Fase.
       if (progresso.introVista()) {
-        irParaSelecao();
+        entrarNoJogo();
       } else {
         mostrarTela('intro');
         intro.iniciar();
