@@ -6,24 +6,33 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Re(volta)</title>
+    <title>Revolta</title>
   </head>
   <body>
     <!-- Os textos visíveis vêm de content/telas.json (atributos data-texto*). -->
 
-    <section id="tela-capa" class="tela tela-capa" aria-labelledby="titulo-capa">
-      <div class="tela-conteudo">
-        <h1 id="titulo-capa" class="titulo-jogo" data-texto="capa.titulo">Re(volta)</h1>
-        <p class="texto-suave" data-texto="capa.subtitulo"></p>
-        <button id="btn-comecar" type="button" class="btn-primario btn-grande" data-texto="capa.botao">
+    <!-- Abertura animada (floresta, Protagonista, Almas) atrás da capa e do menu. -->
+    <canvas id="abertura-fundo" class="abertura-fundo" aria-hidden="true" hidden></canvas>
+
+    <section id="tela-capa" class="tela tela-abertura" aria-labelledby="titulo-capa">
+      <div class="abertura-topo">
+        <h1 id="titulo-capa" class="sr-only" data-texto="capa.titulo">Revolta</h1>
+        <canvas class="logo-revolta" aria-hidden="true"></canvas>
+        <p class="abertura-subtitulo" data-texto="capa.subtitulo"></p>
+      </div>
+      <div class="abertura-base">
+        <button id="btn-comecar" type="button" class="btn-primario btn-grande btn-abertura" data-texto="capa.botao">
           Toque para começar
         </button>
       </div>
     </section>
 
-    <section id="tela-menu" class="tela" aria-labelledby="titulo-menu" hidden>
-      <div class="tela-conteudo">
-        <h1 id="titulo-menu" class="titulo-jogo" data-texto="menu.titulo">Re(volta)</h1>
+    <section id="tela-menu" class="tela tela-abertura" aria-labelledby="titulo-menu" hidden>
+      <div class="abertura-topo">
+        <h1 id="titulo-menu" class="sr-only" data-texto="menu.titulo">Revolta</h1>
+        <canvas class="logo-revolta" aria-hidden="true"></canvas>
+      </div>
+      <div class="abertura-base">
         <nav class="lista-acoes" aria-labelledby="titulo-menu">
           <button type="button" class="btn-primario btn-grande" data-ir-para="jogar" data-texto="menu.jogar">
             Jogar
@@ -113,7 +122,7 @@
     <div id="tela-jogo" class="app" hidden>
       <header class="hud">
         <div class="hud-titulo">
-          <h1 id="hud-nome-fase" data-texto="hud.titulo">Re(volta)</h1>
+          <h1 id="hud-nome-fase" data-texto="hud.titulo">Revolta</h1>
           <span
             id="contador-provas"
             class="hud-provas"

@@ -21,6 +21,7 @@ import { criarArquivo } from './game/arquivo';
 import { criarMotorAudio } from './game/audio';
 import { criarIntro } from './game/intro';
 import { montarSobre } from './game/sobre';
+import { criarAberturaAnimada } from './game/capaAnimada';
 import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
 import {
   carregarConteudoProvasDaFase,
@@ -186,10 +187,18 @@ function iniciar(): void {
 
   // ---------------------------------------------------------------- Telas
 
+  // Floresta animada atrás da capa e do menu (pausa nas outras telas).
+  const abertura = criarAberturaAnimada({
+    fundo: elemento<HTMLCanvasElement>('abertura-fundo'),
+    logos: [...document.querySelectorAll<HTMLCanvasElement>('.logo-revolta')],
+    resolverUrlAsset,
+  });
+
   const mostrarTela = (nome: NomeTela) => {
     for (const [chave, tela] of telas) {
       tela.hidden = chave !== nome;
     }
+    abertura.ativar(nome === 'capa' || nome === 'menu');
     if (nome !== 'jogo') {
       document.title = TEXTOS.documento.titulo;
       const alvo = telas.get(nome)?.querySelector<HTMLElement>('button:not([disabled])');
