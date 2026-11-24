@@ -109,14 +109,15 @@ Coordenadas como `(coluna, linha)`; a linha 0 é o topo.
  70 ###############
 ```
 
-## Visual: estilo limpo
+## Visual: floresta legível
 
-Decidido junto com a Fase (ADR 0007). O objetivo é ler o caminho num relance:
+Revisto em 24/11/2026 (ADR 0007). O estilo "limpo" (trilha lisa e mata lisa) deixava a Fase sem a ambientação da floresta, então os sprites voltaram: árvores, ruínas e casas da aldeia abandonada, arbustos, cogumelos azuis que brilham e vagalumes. Para o caminho continuar fácil de ler, vale esta regra:
 
-- **Trilha mínima:** chão liso e claro, de uma cor só, sem textura.
-- **Mata como massa escura e lisa:** sem casas, ruínas nem arbustos; só copas de árvore em tons próximos do fundo, e só no miolo da mata (nunca encostadas na trilha).
-- **Borda nítida:** linha clara de 1 px exatamente onde a trilha acaba, aro escuro do lado da mata e sombra curta para dentro da trilha. O fim de cada corredor fica óbvio.
+- **Beira da trilha** (parede com chão em alguma das 8 vizinhas): só **grama escura, arbustos e árvores**, mais os cogumelos e flores. Nada com o tom rosado da trilha encosta nela.
+- **Miolo da mata:** ruínas, casas, troncos, tocos e pedras, **escurecidos** (`TINTA_CONSTRUCAO`), para a trilha ser o chão mais claro da tela.
 - **Cor forte só no que importa:** Provas, Totens, Almas, espinhos e Ameaças. O trilho de cada Ameaça fica marcado de leve no chão.
+
+O problema que levou à regra: a equipe apontou peças de ruína, tocos e pedras, rosadas como a trilha, encostadas no caminho (por exemplo, na coluna estreita entre a trilha e o poço). Elas pareciam caminho onde não era.
 
 Referências (princípios, não visual copiado): faixa de brilho própria para o chão andável ([GamineAI](https://gamineai.com/blog/stylized-foliage-readability-top-down-games-color-script-rules-hold-up-motion-2026)); fundo calmo e contraste reservado para o que interage ([bugnet](https://bugnet.io/blog/how-to-make-pixel-art-that-reads-clearly)); bordas alinhadas com o chão ([PixelJoint](https://pixeljoint.com/forum/printer_friendly_posts.asp?TID=22310)); poucas escolhas por parada ([Blendo Games](https://blendogames.com/news/post/2026-06-xx-leveldesign_readability/)).
 
