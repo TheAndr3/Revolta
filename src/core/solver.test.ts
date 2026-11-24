@@ -6,6 +6,7 @@ import {
   criarEstadoFase,
   fecharProvaEmExibicao,
   solicitarDirecao,
+  type Direcao,
 } from './deslize';
 import { parseFase } from './parser';
 import { resolverFase } from './solver';
@@ -47,53 +48,61 @@ describe('solver estático', () => {
     expect(estado.provasColetadas.sort()).toEqual([1, 2, 3]);
   });
 
-  it('a proposta da Fase 1 é válida, sem avisos, e todo Deslize às cegas termina seguro', () => {
-    const fase = parseFase(
-      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
-    );
-    const resultado = resolverFase(fase);
+  const FASE_1 = parseFase(
+    readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
+  );
+
+  /** Desliza até parar (fechando Provas no caminho). */
+  const deslizarAtePararFase = (estado: ReturnType<typeof criarEstadoFase>, direcao: Direcao) => {
+    solicitarDirecao(estado, direcao);
+    for (let i = 0; i < 600 && (estado.deslizando || estado.provaEmExibicao); i++) {
+      if (estado.provaEmExibicao) fecharProvaEmExibicao(estado);
+      else atualizarDeslize(estado, 1 / 60);
+    }
+    atualizarDeslize(estado, 1 / 60); // um quadro de reação
+  };
+
+  it('a Fase 1 é válida, sem avisos, grande e com todos os perigos do protótipo', () => {
+    const resultado = resolverFase(FASE_1);
     expect(resultado.erros).toEqual([]);
     expect(resultado.avisos).toEqual([]);
-    expect(fase.altura).toBeGreaterThanOrEqual(60); // R14: 60–100 linhas
-    expect(fase.almas.length).toBeGreaterThan(0);
+    expect(FASE_1.altura).toBeGreaterThanOrEqual(70); // R14: 60–100 linhas
+    expect(FASE_1.espinhos.length).toBeGreaterThan(0);
+    expect(new Set(FASE_1.ameacas.map((a) => a.tipo))).toEqual(new Set(['gosma', 'drone', 'guarda']));
+    expect(FASE_1.totens.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('a Fase 1 é jogável de ponta a ponta com os espinhos ligados, reagindo sem demora', () => {
-    const fase = parseFase(
-      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
-    );
-    const rota = resolverFase(fase).rotaMinima ?? [];
-    const estado = criarEstadoFase(fase); // espinhos ligados, como no jogo
+  it('nenhuma Parada da rota fica sobre trilho de Ameaça ou espinho (R12)', () => {
+    const rota = resolverFase(FASE_1).rotaMinima ?? [];
+    const perigosas = new Set([
+      ...FASE_1.ameacas.flatMap((a) => a.trilho.map((c) => `${c.col},${c.lin}`)),
+      ...FASE_1.espinhos.map((c) => `${c.col},${c.lin}`),
+    ]);
+    const estado = criarEstadoFase(FASE_1, { simularAmeacas: false, simularEspinhos: false });
     for (const direcao of rota) {
-      solicitarDirecao(estado, direcao);
-      for (let i = 0; i < 600 && (estado.deslizando || estado.provaEmExibicao); i++) {
-        if (estado.provaEmExibicao) fecharProvaEmExibicao(estado);
-        else atualizarDeslize(estado, 1 / 60);
+      deslizarAtePararFase(estado, direcao);
+      expect(perigosas.has(`${estado.celulaAtual.col},${estado.celulaAtual.lin}`)).toBe(false);
+    }
+    expect(estado.concluida).toBe(true);
+  });
+
+  it('a Fase 1 é jogável de ponta a ponta com Ameaças e espinhos ligados, esperando a hora certa', () => {
+    const rota = resolverFase(FASE_1).rotaMinima ?? [];
+    let estado = criarEstadoFase(FASE_1); // como no jogo
+    for (const direcao of rota) {
+      // Espera parado de 0 a 8 s, de 1/30 em 1/30 s, até achar uma partida que não mata.
+      let seguro: typeof estado | null = null;
+      for (let espera = 0; espera <= 240 && !seguro; espera++) {
+        const tentativa = structuredClone(estado);
+        for (let i = 0; i < espera; i++) atualizarDeslize(tentativa, 1 / 30);
+        deslizarAtePararFase(tentativa, direcao);
+        if (tentativa.mortes === estado.mortes) seguro = tentativa;
       }
-      atualizarDeslize(estado, 1 / 60); // um quadro de reação antes do próximo comando
+      expect(seguro, `sem janela segura para "${direcao}" a partir de (${estado.celulaAtual.col},${estado.celulaAtual.lin})`).not.toBeNull();
+      estado = seguro!;
     }
     expect(estado.mortes).toBe(0);
     expect(estado.concluida).toBe(true);
-    expect(estado.almasColetadas.filter(Boolean).length).toBeGreaterThan(0);
-  });
-
-  it('na Fase 1, ficar parado sobre o espinho da lição mata', () => {
-    const fase = parseFase(
-      readFileSync(resolve(process.cwd(), 'public/fases/fase-01.txt'), 'utf-8'),
-    );
-    const rota = resolverFase(fase).rotaMinima ?? [];
-    const estado = criarEstadoFase(fase);
-    // Joga até a 12ª parada (o espinho do meio da Fase) e fica parado 1 s.
-    for (const direcao of rota.slice(0, 12)) {
-      solicitarDirecao(estado, direcao);
-      for (let i = 0; i < 600 && (estado.deslizando || estado.provaEmExibicao); i++) {
-        if (estado.provaEmExibicao) fecharProvaEmExibicao(estado);
-        else atualizarDeslize(estado, 1 / 60);
-      }
-    }
-    expect(fase.espinhos).toContainEqual(estado.celulaAtual);
-    for (let i = 0; i < 60; i++) atualizarDeslize(estado, 1 / 60);
-    expect(estado.mortes).toBe(1);
   });
 
   it('acha a rota mínima em número de deslizes', () => {

@@ -5,8 +5,8 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 ## Escopo e prazo
 - Vertical slice do Mapa 1, Floresta Contaminada (ADR 0001). O Enxuto é a fonte canônica do conceito.
 - **Prazo: uma semana**, duas pessoas, todo o conteúdo gerado por IA e revisado por humanos.
-- **4 Fases**: 1) paredes + espinhos; 2) Gosma; 3) Drone + Guarda; 4) combinação.
-- 3 Provas por Fase = **12 Provas**; 1 Habitante por Fase = **4 Habitantes**.
+- ~~4 Fases~~ → **1 Fase única, maior** (decidido em 23/11/2026, ADR 0007): espinhos → Gosma → Drone → combinação → Guarda, num mapa de 71 linhas ([`fase-01.md`](fase-01.md)).
+- 3 Provas na Fase = **3 Provas**; **1 Habitante**.
 
 ## Plataforma e tecnologia
 - Web, com teclado no PC e swipe no celular (ADR 0002).
@@ -69,7 +69,7 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 - **"Toque para começar"** (capa; destrava o áudio no celular).
 - **Menu principal:** Jogar · Arquivo da Resistência · Sobre o projeto. Sem opções e sem créditos.
 - **Introdução:** **3 quadros** ilustrados com texto curto, na primeira vez que se joga (dá para pular).
-- **Seleção de Fase:** lista linear das 4 Fases, desbloqueio em sequência, mostrando se o Habitante foi resgatado; dá para rejogar.
+- **Seleção de Fase:** lista linear das Fases (hoje só a Fase 1), desbloqueio em sequência, mostrando se o Habitante foi resgatado; dá para rejogar.
 - **HUD:** Provas x/3 · ícone do Habitante (cinza/colorido) · botão de pausa.
 - **Pausa:** Continuar · Voltar ao Totem · Reiniciar Fase · Sair.
 - **Overlay da Prova:** ilustração + tipo (O Passado / A Transformação / Os Responsáveis) + título + texto de **até ~100 palavras** + fechar.
