@@ -884,31 +884,73 @@ dialog::backdrop {
 
 /* ---------------------------------------------------------- Introdução */
 
+.tela-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  overflow: hidden;
+  padding-block: max(0.75rem, env(safe-area-inset-top, 0px))
+    max(0.85rem, env(safe-area-inset-bottom, 0px));
+  padding-inline: max(0.75rem, env(safe-area-inset-left, 0px))
+    max(0.75rem, env(safe-area-inset-right, 0px));
+}
+
 .intro {
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  inline-size: min(32rem, 100%);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.intro-topo {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  inline-size: 100%;
 }
 
 .intro-quadro {
+  position: relative;
+  z-index: 1;
   margin: 0;
+  flex: 1 1 0;
   inline-size: 100%;
-  aspect-ratio: 16 / 10;
+  min-block-size: 0;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  border-radius: 10px;
-  border: 1px solid var(--cor-borda);
-  background-color: #0d1512;
+  touch-action: pan-y;
+}
+
+#tela-intro:not([hidden]) .intro-quadro {
+  view-transition-name: intro-quadro;
 }
 
 .intro-quadro img {
   display: block;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-}
-
-.intro-texto {
-  min-block-size: 3lh;
-  font-size: 1.1rem;
-  line-height: 1.5;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  inline-size: auto;
+  block-size: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid var(--cor-borda);
+  background-color: #0d1512;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.5);
 }
 
 .intro-progresso {
@@ -916,7 +958,37 @@ dialog::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+.intro-indicadores {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.intro-ponto {
+  inline-size: 0.45rem;
+  block-size: 0.45rem;
+  border-radius: 999px;
+  background-color: var(--cor-borda);
+  transition: inline-size 180ms ease, background-color 180ms ease;
+}
+
+.intro-ponto[data-estado='visto'] {
+  background-color: rgb(46 196 116 / 0.5);
+}
+
+.intro-ponto[data-estado='atual'] {
+  inline-size: 1.4rem;
+  background-color: var(--cor-destaque);
+}
+
 .intro-acoes {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
   display: flex;
   gap: 0.75rem;
   justify-content: center;
@@ -925,7 +997,78 @@ dialog::backdrop {
 
 .intro-acoes button {
   flex: 1;
-  max-inline-size: 12rem;
+  max-inline-size: 13rem;
+}
+
+.intro-acoes button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.intro-acoes button:focus-visible,
+.intro-topo button:focus-visible {
+  outline: 2px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+@keyframes intro-sair-esquerda {
+  to {
+    opacity: 0;
+    transform: translateX(-18%);
+  }
+}
+
+@keyframes intro-entrar-direita {
+  from {
+    opacity: 0;
+    transform: translateX(18%);
+  }
+}
+
+@keyframes intro-sair-direita {
+  to {
+    opacity: 0;
+    transform: translateX(18%);
+  }
+}
+
+@keyframes intro-entrar-esquerda {
+  from {
+    opacity: 0;
+    transform: translateX(-18%);
+  }
+}
+
+::view-transition-group(intro-quadro) {
+  animation: 260ms ease-in-out both;
+}
+
+html:active-view-transition-type(forward)::view-transition-old(intro-quadro) {
+  animation: 240ms ease-in-out both intro-sair-esquerda;
+}
+
+html:active-view-transition-type(forward)::view-transition-new(intro-quadro) {
+  animation: 240ms ease-in-out both intro-entrar-direita;
+}
+
+html:active-view-transition-type(backward)::view-transition-old(intro-quadro) {
+  animation: 240ms ease-in-out both intro-sair-direita;
+}
+
+html:active-view-transition-type(backward)::view-transition-new(intro-quadro) {
+  animation: 240ms ease-in-out both intro-entrar-esquerda;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-ponto {
+    transition: none;
+  }
+
+  ::view-transition-group(intro-quadro),
+  ::view-transition-old(intro-quadro),
+  ::view-transition-new(intro-quadro) {
+    animation: none !important;
+  }
 }
 
 /* --------------------------------------------------------- Sobre o projeto */

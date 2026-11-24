@@ -80,17 +80,29 @@
       </div>
     </section>
 
-    <section id="tela-intro" class="tela" data-texto-aria="intro.regiao" hidden>
+    <section id="tela-intro" class="tela tela-intro" data-texto-aria="intro.regiao" hidden>
       <!-- Quadros e textos vêm de content/intro.json -->
-      <div class="tela-conteudo tela-conteudo-larga intro">
-        <figure class="intro-quadro">
-          <img id="intro-imagem" src="" alt="" />
-        </figure>
-        <p id="intro-texto" class="intro-texto" aria-live="polite"></p>
-        <p id="intro-progresso" class="texto-suave intro-progresso"></p>
-        <div class="intro-acoes">
+      <div class="intro">
+        <div class="intro-topo">
+          <p id="intro-progresso" class="texto-suave intro-progresso"></p>
           <button id="btn-intro-pular" type="button" class="btn-secundario" data-texto="intro.pular">
             Pular
+          </button>
+        </div>
+        <figure id="intro-quadro" class="intro-quadro">
+          <img id="intro-imagem" src="" alt="" fetchpriority="low" />
+          <figcaption id="intro-texto" class="sr-only" aria-live="polite"></figcaption>
+        </figure>
+        <div id="intro-indicadores" class="intro-indicadores" aria-hidden="true"></div>
+        <div class="intro-acoes">
+          <button
+            id="btn-intro-anterior"
+            type="button"
+            class="btn-secundario"
+            data-texto="intro.anterior"
+            disabled
+          >
+            Anterior
           </button>
           <button id="btn-intro-proximo" type="button" class="btn-primario" data-texto="intro.proximo">
             Próximo

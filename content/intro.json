@@ -1,20 +1,40 @@
 {
-  "_nota": "Introdução: 3 quadros mostrados na primeira vez que se clica em Jogar. Textos do rascunho da bíblia da história (docs/historia/biblia.md); imagens provisórias até a #28.",
+  "_nota": "Introdução: 7 quadros ilustrados mostrados na primeira vez que se clica em Jogar, contando a história do povo Rekanã e da floresta.",
   "quadros": [
     {
-      "imagem": "assets/intro/quadro-1.svg",
-      "descricao": "Aldeia na beira do rio, com casas vazias e árvores derrubadas",
-      "texto": "A mineradora chegou prometendo progresso. Na primeira cheia, o igarapé ficou turvo, o peixe sumiu e as casas foram ficando vazias."
+      "imagem": "assets/intro/quadro-01.jpg",
+      "descricao": "Aldeia do povo Rekanã na floresta viva, com moradores convivendo junto ao rio, crianças brincando na água e animais ao redor, enquanto caminhões surgem ao longe na estrada.",
+      "texto": "Por gerações, o povo Rekanã viveu em harmonia com a floresta, protegendo aquilo que também os protegia."
     },
     {
-      "imagem": "assets/intro/quadro-2.svg",
-      "descricao": "Floresta escura com uma luz verde pulsando entre as árvores",
-      "texto": "Mas a floresta não esqueceu. Entre os troncos caídos, ela chamou por quem ainda podia lutar."
+      "imagem": "assets/intro/quadro-02.jpg",
+      "descricao": "Representantes da Biovex Corp. fazem uma apresentação diante dos moradores da aldeia, enquanto máquinas, caminhões e funcionários observam da mata ao fundo.",
+      "texto": "Prometeram prosperidade. Mas seus verdadeiros interesses estavam escondidos."
     },
     {
-      "imagem": "assets/intro/quadro-3.svg",
-      "descricao": "Silhueta de uma pessoa envolta por folhas luminosas",
-      "texto": "O espírito da mata encontrou o último sobrevivente. Agora, os dois são um só, e a volta começa."
+      "imagem": "assets/intro/quadro-03.jpg",
+      "descricao": "Escavadeiras derrubam árvores diante da fábrica da Biovex Corp., enquanto um cano despeja rejeito roxo no rio com peixes mortos e uma árvore é marcada com um X vermelho.",
+      "texto": "A floresta, antes cheia de vida, começou a ser destruída em nome do progresso."
+    },
+    {
+      "imagem": "assets/intro/quadro-04.jpg",
+      "descricao": "Escondido na mata e ferido, o protagonista observa a aldeia em chamas enquanto seguranças armados da Biovex Corp. colocam moradores capturados dentro de um caminhão.",
+      "texto": "Aqueles que se recusaram a abandonar suas terras foram perseguidos, capturados ou mortos."
+    },
+    {
+      "imagem": "assets/intro/quadro-05.jpg",
+      "descricao": "Ferido no chão da mata, o protagonista estende a mão até as raízes de uma árvore ancestral iluminada por um feixe dourado de luz.",
+      "texto": "Quando tudo parecia perdido, a floresta ainda não havia desistido dele."
+    },
+    {
+      "imagem": "assets/intro/quadro-06.jpg",
+      "descricao": "Um espírito luminoso feito de folhas, flores e raízes douradas emerge da árvore ancestral e estende a mão ao protagonista ajoelhado.",
+      "texto": "A vida que habita a floresta ainda resiste em você."
+    },
+    {
+      "imagem": "assets/intro/quadro-07.jpg",
+      "descricao": "Com marcas douradas brilhando no corpo e o espírito da floresta ao seu lado, o protagonista apoia a mão perto de um broto luminoso enquanto olha para a área devastada e a fábrica da Biovex Corp. ao fundo.",
+      "texto": "Encontre as provas. Resgate os sobreviventes. Libere as almas daqueles que foram esquecidos. A floresta ainda pode renascer."
     }
   ]
 }

@@ -33,6 +33,7 @@
   "intro": {
     "regiao": "Introdução",
     "pular": "Pular",
+    "anterior": "Anterior",
     "proximo": "Próximo",
     "comecar": "Começar",
     "progresso": "Quadro {n} de {total}"

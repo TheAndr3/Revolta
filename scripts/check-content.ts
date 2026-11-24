@@ -7,7 +7,7 @@
  * - as 3 Provas existem em `content/provas/<conteudo>/<N>-<tipo>.md`, com cabeçalho
  *   completo e texto de até LIMITE_PALAVRAS_PROVA palavras;
  * - o Habitante em `content/habitantes/<conteudo>.md` tem nome, retrato, papel e fala;
- * - a introdução (`content/intro.json`) tem 3 quadros com imagem, descrição e texto;
+ * - a introdução (`content/intro.json`) tem 7 quadros com imagem, descrição e texto;
  * - o Sobre (`content/sobre.md`) tem título e a lista de fontes;
  * - as ilustrações, retratos e quadros citados existem em `public/`.
  * Sai com código 1 se encontrar algum problema.

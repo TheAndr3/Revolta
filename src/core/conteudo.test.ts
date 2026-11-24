@@ -101,17 +101,20 @@ describe('check-content: Habitantes', () => {
 });
 
 describe('check-content: introdução', () => {
-  const quadro = { imagem: 'a.svg', descricao: 'Aldeia', texto: 'Era uma vez.' };
+  const quadro = { imagem: 'a.jpg', descricao: 'Aldeia', texto: 'Era uma vez.' };
+  const seteQuadros = Array.from({ length: 7 }, () => quadro);
 
-  it('lê os 3 quadros', () => {
-    expect(lerQuadrosIntro({ quadros: [quadro, quadro, quadro] })).toHaveLength(3);
+  it('lê os 7 quadros', () => {
+    expect(lerQuadrosIntro({ quadros: seteQuadros })).toHaveLength(7);
   });
 
-  it('exige exatamente 3 quadros com imagem, descrição e texto', () => {
-    expect(() => lerQuadrosIntro({ quadros: [quadro, quadro] })).toThrow(/devem ser 3/);
-    expect(() => lerQuadrosIntro({ quadros: [quadro, quadro, { ...quadro, texto: '' }] })).toThrow(
-      /quadro 3 está sem o campo "texto"/,
-    );
+  it('exige exatamente 7 quadros com imagem, descrição e texto', () => {
+    expect(() => lerQuadrosIntro({ quadros: seteQuadros.slice(0, 6) })).toThrow(/devem ser 7/);
+    expect(() =>
+      lerQuadrosIntro({
+        quadros: [...seteQuadros.slice(0, 6), { ...quadro, texto: '' }],
+      }),
+    ).toThrow(/quadro 7 está sem o campo "texto"/);
     expect(() => lerQuadrosIntro(null)).toThrow(/"quadros"/);
   });
 
@@ -119,6 +122,6 @@ describe('check-content: introdução', () => {
     const bruto: unknown = JSON.parse(
       readFileSync(resolve(process.cwd(), 'content/intro.json'), 'utf-8'),
     );
-    expect(lerQuadrosIntro(bruto)).toHaveLength(3);
+    expect(lerQuadrosIntro(bruto)).toHaveLength(7);
   });
 });

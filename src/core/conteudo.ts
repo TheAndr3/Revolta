@@ -69,8 +69,8 @@ export function validarHabitante(
 
 // ------------------------------------------------------------------ Intro e Sobre
 
-/** Número de quadros da introdução (decisões de design: "3 quadros ilustrados"). */
-export const TOTAL_QUADROS_INTRO = 3;
+/** Número de quadros da introdução. */
+export const TOTAL_QUADROS_INTRO = 7;
 
 export interface QuadroIntro {
   /** Caminho da imagem dentro de `public/`. */

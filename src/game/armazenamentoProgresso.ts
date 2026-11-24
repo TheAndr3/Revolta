@@ -10,7 +10,7 @@ import {
 } from './armazenamentoProvas';
 
 const CHAVE_FASES_CONCLUIDAS = 'revolta:fases-concluidas:v1';
-const CHAVE_INTRO_VISTA = 'revolta:intro-vista:v1';
+const CHAVE_INTRO_VISTA = 'revolta:intro-vista:v2';
 const CHAVE_MELHOR_ALMAS = 'revolta:almas-melhor:v1';
 
 export interface RecordeAlmas {

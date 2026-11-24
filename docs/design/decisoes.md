@@ -68,7 +68,7 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 ## Fluxo de telas
 - **"Toque para começar"** (capa; destrava o áudio no celular).
 - **Menu principal:** Jogar · Arquivo da Resistência · Sobre o projeto. Sem opções e sem créditos.
-- **Introdução:** **3 quadros** ilustrados com texto curto, na primeira vez que se joga (dá para pular).
+- **Introdução:** ~~3 quadros~~ → **7 quadros** ilustrados em sequência (`01` a `07`), na primeira vez que se joga (dá para voltar, avançar ou pular; detalhes em [`intro.md`](intro.md)).
 - **Seleção de Fase:** lista linear das Fases (hoje só a Fase 1), desbloqueio em sequência, mostrando se o Habitante foi resgatado; dá para rejogar.
 - **HUD:** Provas x/3 · ícone do Habitante (cinza/colorido) · botão de pausa.
 - **Pausa:** Continuar · Voltar ao Totem · Reiniciar Fase · Sair.
@@ -92,7 +92,7 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
   - Espinhos: recolhido, aviso (2), ativo, recolhendo. Totem: inativo + ativo em loop. Saída: apagada + acesa.
   - Prova no mapa: papel flutuando (2–4). Habitantes: 1 sprite base com variações; escondido (2) + alívio (2–4).
   - Tileset da Floresta: ~40–60 tiles + 1 tile animado (água contaminada).
-- Ilustrações: 12 Provas, 4 retratos, 3 quadros de intro.
+- Ilustrações: 12 Provas, 4 retratos, 7 quadros de intro.
 - Primeira tarefa de arte: **teste de estilo** (Protagonista, bloco do tileset, Gosma e uma ilustração de Prova numa Fase de teste). Se falhar, o plano B é o gameplay geométrico.
 
 ## Representação
