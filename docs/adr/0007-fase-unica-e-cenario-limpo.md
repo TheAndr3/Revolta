@@ -13,5 +13,10 @@ Junto vem o **cenário limpo**: a trilha é lisa e clara, a mata é uma massa es
 
 - `content/fases.json` tem uma entrada; a tela de seleção continua (mostra Marcas e Habitante).
 - 3 Provas e 1 Habitante no total (antes: 12 e 4). As issues de conteúdo e arte encolhem junto.
-- O cenário é desenhado por código (`src/game/cenarioFloresta.ts`); a arte final, se vier, precisa manter a mesma hierarquia de brilho (trilha clara, mata escura, borda nítida).
+- ~~O cenário é desenhado por código~~ (revisto em 24/11, ver abaixo): a arte, atual ou final, mantém a hierarquia de brilho (trilha clara, nada com o tom dela na beira).
 - O mapa está em [`docs/design/fase-01.md`](../design/fase-01.md).
+
+## Revisão de 24/11/2026: a floresta volta, com regra de beira
+
+O cenário limpo resolveu a leitura, mas jogou fora a ambientação (árvores, ruínas, cogumelos que brilham), que a equipe considera parte essencial do jogo. Os sprites CC0 voltaram, com uma regra no decorador (`src/game/cenarioFloresta.ts`): a **beira da trilha** só recebe grama escura, arbustos e árvores; ruínas, casas, troncos, tocos e pedras, que têm o tom rosado da trilha, ficam no **miolo** da mata e são desenhados escurecidos. O que vale deste ADR é a Fase única; do cenário limpo fica o princípio (a trilha é o chão mais claro e nada com o tom dela encosta no caminho), não o visual liso.
+
