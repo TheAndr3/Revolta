@@ -148,6 +148,13 @@ const ANGULO_PES: Record<Direcao, number> = {
   direita: -90,
 };
 
+const QUADRO_ESPINHO: Record<EtapaEspinho, number> = {
+  recolhido: 0,
+  aviso: 1, // 1 e 2 alternam no pisca
+  ativo: 4,
+  recolhendo: 5,
+};
+
 interface MarcadorTotem {
   readonly coord: Coordenada;
   readonly halo: Phaser.GameObjects.Rectangle;
@@ -186,10 +193,14 @@ export class FaseScene extends Phaser.Scene {
   private readonly olharGuarda = new Map<string, Phaser.GameObjects.Rectangle>();
   private readonly brilhosTrilhoGosma: CelulaBrilhoTrilho[] = [];
   /** Um gráfico por espinho, redesenhado quando a etapa muda (e piscando no aviso). */
-  private readonly graficosEspinho: Array<{
-    readonly grafico: Phaser.GameObjects.Graphics;
-    desenho: string;
+  /** Um sprite por espinho; troca de quadro por etapa e anima nas transições. */
+  private readonly spritesEspinho: Array<{
+    readonly sprite: Phaser.GameObjects.Sprite;
+    etapa: EtapaEspinho | '';
+    quadro: number;
+    tween: Phaser.Tweens.Tween | null;
   }> = [];
+  private emissorEspinho: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
@@ -408,71 +419,56 @@ export class FaseScene extends Phaser.Scene {
       item.intensidade = 0;
       item.rect.setAlpha(0.18);
     }
+
+    for (const item of this.spritesEspinho) {
+      item.tween?.stop();
+      item.sprite.setScale(1);
+      item.etapa = '';
+      item.quadro = -1;
+    }
+
     if (this.estado) {
       this.sincronizarAmeacas(0);
       this.sincronizarEspinhos();
     }
   }
 
-  /** Desenho provisório das 4 etapas dos espinhos (a arte final troca por sprites). */
   private sincronizarEspinhos(): void {
-    this.estado.espinhos.forEach((espinho, i) => {
-      const item = this.graficosEspinho[i];
-      if (!item) return;
-      // No aviso, pisca 8 vezes por segundo para chamar atenção.
-      const piscando =
-        espinho.etapa === 'aviso' && Math.floor(espinho.tempoNaEtapa * 8) % 2 === 1;
-      const desenho = `${espinho.etapa}:${piscando ? 1 : 0}`;
-      if (desenho === item.desenho) return;
-      item.desenho = desenho;
-      this.desenharEspinho(item.grafico, espinho.etapa, piscando);
-    });
-  }
-
-  private desenharEspinho(
-    g: Phaser.GameObjects.Graphics,
-    etapa: EtapaEspinho,
-    piscando: boolean,
-  ): void {
-    const tile = CONFIG.tamanhoTilePx;
-    g.clear();
-
-    if (etapa === 'ativo') {
-      g.lineStyle(1, CORES.espinhosBorda, 1);
-      g.strokeRect(0.5, 0.5, tile - 1, tile - 1);
-      this.desenharQuadradoMarcadoLocal(g, 0, 0, CORES.espinhos, CORES.espinhosMarca, '^');
-      return;
+  const tile = CONFIG.tamanhoTilePx;
+  this.estado.espinhos.forEach((espinho, i) => {
+    const item = this.spritesEspinho[i];
+    if (!item) return;
+    const piscando =
+      espinho.etapa === 'aviso' && Math.floor(espinho.tempoNaEtapa * 12) % 2 === 1;
+    const quadro = QUADRO_ESPINHO[espinho.etapa] + (piscando ? 1 : 0);
+    if (quadro !== item.quadro) {
+      item.quadro = quadro;
+      item.sprite.setFrame(quadro);
     }
+    if (espinho.etapa === item.etapa) return;
+    item.etapa = espinho.etapa;
 
-    if (etapa === 'recolhendo') {
-      g.fillStyle(CORES.espinhos, 0.45);
-      g.fillRect(2, 2, tile - 4, tile - 4);
-      g.fillStyle(CORES.espinhosMarca, 0.5);
-      for (const x of [4, 8, 11]) g.fillRect(x, 8, 1, 3);
-      return;
-    }
-
-    // Recolhido e aviso: furos no chão; no aviso, borda laranja e pontas aparecendo.
-    const corBorda = etapa === 'aviso' ? CORES.espinhosAviso : CORES.espinhosBorda;
-    const alfaBorda = etapa === 'aviso' ? (piscando ? 0.35 : 1) : 0.35;
-    g.lineStyle(1, corBorda, alfaBorda);
-    g.strokeRect(0.5, 0.5, tile - 1, tile - 1);
-    g.fillStyle(CORES.espinhosFuro, 1);
-    for (const [x, y] of [
-      [4, 4],
-      [10, 4],
-      [7, 8],
-      [4, 11],
-      [10, 11],
-    ] as const) {
-      g.fillRect(x, y, 2, 2);
-      if (etapa === 'aviso') {
-        g.fillStyle(CORES.espinhosAviso, 1);
-        g.fillRect(x, y, 2, 1);
-        g.fillStyle(CORES.espinhosFuro, 1);
+    const { x, y } = item.sprite;
+    if (espinho.etapa === 'ativo') {
+      this.emissorEspinho?.explode(6, x, y + tile / 3);
+      if (!this.reduzirMovimento) {
+        item.tween?.stop();
+        item.sprite.setScale(1, 0.4);
+        item.tween = this.tweens.add({
+          targets: item.sprite,
+          scaleY: 1,
+          duration: 70,
+          ease: 'Back.easeOut',
+        });
       }
+    } else if (espinho.etapa === 'recolhendo') {
+      this.emissorEspinho?.explode(2, x, y + tile / 3);
+    } else {
+      item.tween?.stop();
+      item.sprite.setScale(1);
     }
-  }
+  });
+}
 
   private desenharGrade(): void {
     const tile = CONFIG.tamanhoTilePx;
@@ -736,13 +732,14 @@ export class FaseScene extends Phaser.Scene {
       this.marcadorHabitante = marcador;
     }
 
-    this.graficosEspinho.length = 0;
+    this.gerarTexturaEspinho();
+    for (const item of this.spritesEspinho) item.tween?.stop();
+    this.spritesEspinho.length = 0;
     for (const espinho of this.fase.espinhos) {
-      const grafico = this.add
-        .graphics()
-        .setPosition(espinho.col * tile, espinho.lin * tile)
+      const sprite = this.add
+        .sprite(espinho.col * tile + tile / 2, espinho.lin * tile + tile / 2, 'espinho', 0)
         .setDepth(5);
-      this.graficosEspinho.push({ grafico, desenho: '' });
+      this.spritesEspinho.push({ sprite, etapa: '', quadro: 0, tween: null });
     }
 
     this.spritesAmeaca.clear();
@@ -1222,6 +1219,19 @@ export class FaseScene extends Phaser.Scene {
         emitting: false,
       })
       .setDepth(9);
+
+    this.emissorEspinho = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: 320,
+        speed: { min: 20, max: 60 },
+        angle: { min: 200, max: 340 },
+        gravityY: 120,
+        scale: { start: 1.6, end: 0 },
+        alpha: { start: 1, end: 0 },
+        tint: [0xa0703f, 0x6b4a32, CORES.espinhosAviso],
+        emitting: false,
+      })
+      .setDepth(9);
   }
 
   private gerarTexturasEfeitos(): void {
@@ -1614,5 +1624,68 @@ export class FaseScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(50)
       .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+  }
+
+    /** Folha 6×16px: 0 recolhido, 1-2 aviso (pisca), 3 reserva, 4 ativo, 5 recolhendo. */
+  private gerarTexturaEspinho(): void {
+    if (this.textures.exists('espinho')) return;
+    const tile = CONFIG.tamanhoTilePx;
+    const g = this.make.graphics({}, false);
+    const furos = [[4, 4], [10, 4], [7, 8], [4, 11], [10, 11]]
+      .sort((a, b) => a[1] - b[1]); // fundo -> frente
+
+        // Espinho de planta/osso: base larga, ponta fina, luz à esquerda e sombra à direita.
+    const pico = (ox: number, x: number, base: number, h: number, ponta: number | null) => {
+      for (let r = 0; r < h; r++) {
+        const yy = base - h + 1 + r;
+        if (r === 0) {
+          g.fillStyle(ponta ?? 0xd9b27c, 1);
+          g.fillRect(ox + x + 1, yy, 1, 1);
+        } else if (r === 1 && h >= 5) {
+          g.fillStyle(0x9a6a3c, 1);
+          g.fillRect(ox + x + 1, yy, 1, 1);
+        } else {
+          g.fillStyle(0xd9b27c, 1); // luz
+          g.fillRect(ox + x, yy, 1, 1);
+          g.fillStyle(0x9a6a3c, 1); // meio
+          g.fillRect(ox + x + 1, yy, 1, 1);
+          g.fillStyle(0x4a2e1c, 1); // sombra
+          g.fillRect(ox + x + 2, yy, 1, 1);
+        }
+      }
+    };
+
+    const quadros = [
+      { borda: CORES.espinhosBorda, alfa: 0.3, h: 0, ponta: null },
+      { borda: CORES.espinhosAviso, alfa: 1, h: 1, ponta: CORES.espinhosAviso },
+      { borda: CORES.espinhosAviso, alfa: 0.35, h: 2, ponta: CORES.espinhosAviso },
+      { borda: CORES.espinhosBorda, alfa: 0.6, h: 3, ponta: CORES.espinhosBorda },
+      { borda: CORES.espinhosBorda, alfa: 1, h: 5, ponta: CORES.espinhos },
+      { borda: CORES.espinhosBorda, alfa: 0.4, h: 2, ponta: 0x6b4a32 },
+    ] as const;
+
+    quadros.forEach(({ borda, alfa, h, ponta }, i) => {
+      const ox = i * tile;
+      g.lineStyle(1, borda, alfa);
+      g.strokeRect(ox + 0.5, 0.5, tile - 1, tile - 1);
+      for (const [x, y] of furos) {
+        g.fillStyle(CORES.espinhosFuro, 1);
+        g.fillRect(ox + x, y, 2, 2);
+        g.fillStyle(0x0d1512, 0.8);
+        g.fillRect(ox + x, y + 1, 2, 1); // sombra do furo
+      }
+      if (h > 0) {
+        if (i === 4) { // brilho de perigo no chão
+          g.fillStyle(CORES.espinhos, 0.26);
+          g.fillRect(ox + 1, 1, tile - 2, tile - 2);
+        }
+        for (const [x, y] of furos) pico(ox, x, y + 1, h, ponta);
+      }
+    });
+
+    g.generateTexture('espinho', quadros.length * tile, tile);
+    g.destroy();
+    const textura = this.textures.get('espinho');
+    quadros.forEach((_, i) => textura.add(i, 0, i * tile, 0, tile, tile));
   }
 }
