@@ -1,10 +1,10 @@
 {
-  "_nota": "Introdução: 3 quadros mostrados na primeira vez que se clica em Jogar. Textos e imagens provisórios até as issues #23 (textos) e #28 (quadros ilustrados).",
+  "_nota": "Introdução: 3 quadros mostrados na primeira vez que se clica em Jogar. Textos do rascunho da bíblia da história (docs/historia/biblia.md); imagens provisórias até a #28.",
   "quadros": [
     {
       "imagem": "assets/intro/quadro-1.svg",
       "descricao": "Aldeia na beira do rio, com casas vazias e árvores derrubadas",
-      "texto": "A aldeia acordou cercada de máquinas. Em poucos meses, o rio ficou turvo e as casas, vazias."
+      "texto": "A mineradora chegou prometendo progresso. Na primeira cheia, o igarapé ficou turvo, o peixe sumiu e as casas foram ficando vazias."
     },
     {
       "imagem": "assets/intro/quadro-2.svg",

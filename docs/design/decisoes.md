@@ -102,7 +102,7 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 - Pendente com o revisor: como nomear o povo e os personagens.
 
 ## História e Provas (texto)
-- **Bíblia da história** (`docs/historia/biblia.md`) antes de qualquer Prova: a IA rascunha e a equipe revisa.
+- **Bíblia da história** (`docs/historia/biblia.md`) antes de qualquer Prova: a IA rascunha e a equipe revisa. **Rascunho feito em 23/11/2026** com a recomendação de cada pergunta da entrevista (mineradora fictícia, barragem de rejeitos que transborda na cheia); a entrevista e as revisões continuam pendentes (#4).
 - **As decisões de conteúdo** (setor da corporação, caso central, nomes, arco das 4 Fases) ficam para a issue da história, que começa com uma **entrevista de decisões** com a equipe.
 - Cada Fase conta uma micro-história (Passado → Transformação → Responsáveis), com formatos variados (diário, foto, carta, notícia, laudo, memorando, mensagem).
 - Ficção fundamentada em fatos reais; nenhuma empresa ou pessoa real é nomeada; fontes reais listadas em "Sobre o projeto".
