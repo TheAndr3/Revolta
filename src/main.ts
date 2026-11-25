@@ -9,12 +9,24 @@ import {
   contarMarcas,
   faseDesbloqueada,
   TOTAL_MARCAS,
-  formatarTempo,
   lerCatalogoFases,
   proximaFase,
   type EntradaCatalogoFase,
 } from './core/progresso';
 import type { ConteudoProva } from './core/provas';
+import {
+  faltaParaEntrar,
+  formatarDiferenca,
+  formatarTempoRanking,
+  inserirNoRanking,
+  letrasValidas,
+  normalizarLetras,
+  posicaoNoRanking,
+  segundosParaMs,
+  type EntradaRanking,
+} from './core/ranking';
+import { criarClienteRanking } from './game/ranking';
+import { renderizarListaRanking } from './game/rankingTela';
 import { criarRepositorioProgresso } from './game/armazenamentoProgresso';
 import { sonsDoEvento } from './core/audio';
 import { criarArquivo } from './game/arquivo';
@@ -44,6 +56,7 @@ type NomeTela =
   | 'intro'
   | 'arquivo'
   | 'sobre'
+  | 'ranking'
   | 'como-jogar'
   | 'selecao'
   | 'fim-prototipo'
@@ -55,6 +68,7 @@ const NOMES_TELA: readonly NomeTela[] = [
   'intro',
   'arquivo',
   'sobre',
+  'ranking',
   'como-jogar',
   'selecao',
   'fim-prototipo',
@@ -183,11 +197,28 @@ function iniciar(): void {
   const tituloConclusao = elemento('titulo-conclusao');
   const resumoConclusao = elemento<HTMLUListElement>('resumo-conclusao');
   const botaoProxima = elemento('btn-proxima');
+  const hudTempo = elemento('hud-tempo');
+  const botaoSpeedrun = elemento('btn-speedrun');
+  const formLetras = elemento<HTMLFormElement>('form-letras');
+  const campoLetras = elemento<HTMLInputElement>('campo-letras');
+  const listaRankingConclusao = elemento<HTMLOListElement>('lista-ranking-conclusao');
+  const notaRankingConclusao = elemento('ranking-conclusao-nota');
+  const listaRankingTela = elemento<HTMLOListElement>('lista-ranking-tela');
+  const notaRankingTela = elemento('ranking-tela-nota');
+  const subtituloRanking = elemento('ranking-subtitulo');
   const mensagemErro = elemento('mensagem-erro');
   const mensagemErroTexto = elemento('mensagem-erro-texto');
   const botaoErroVoltar = elemento('btn-erro-voltar');
 
   let sessao: SessaoFase | null = null;
+  /**
+   * Modo speedrun: só muda a tela (sem avisos de Prova, Habitante e Almas; tempo à
+   * direita). Sobrevive a "Reiniciar Fase" e acaba ao sair da Fase.
+   */
+  let modoSpeedrun = false;
+  const ranking = criarClienteRanking();
+  // O que ficou de sessões anteriores (offline, aba fechada) vai agora, em segundo plano.
+  void ranking.esvaziarCaixaDeSaida();
   /** Incrementado a cada Fase iniciada/encerrada, para descartar carregamentos obsoletos. */
   let geracaoSessao = 0;
 
@@ -516,6 +547,10 @@ function iniciar(): void {
       sessao.cena.distanciaAteAmeaca('gosma'),
       sessao.cena.distanciaAteAmeaca('drone'),
     );
+    if (modoSpeedrun) {
+      const texto = formatarTempoRanking(segundosParaMs(sessao.cena.tempoJogadoSegundos()));
+      if (hudTempo.textContent !== texto) hudTempo.textContent = texto;
+    }
     quadroAudioAmeacas = requestAnimationFrame(acompanharAmeacasNoAudio);
   };
 
@@ -555,6 +590,125 @@ function iniciar(): void {
       hudHabitante.classList.remove('visivel');
       temporizadorAvisoHabitante = window.setTimeout(() => (hudHabitante.hidden = true), 300);
     }, DURACAO_AVISO_HABITANTE_MS);
+  };
+
+  const aplicarModoSpeedrun = (ligado: boolean) => {
+    modoSpeedrun = ligado;
+    hudJogo.dataset.speedrun = String(ligado);
+    hudTempo.hidden = !ligado;
+    hudTempo.textContent = formatarTempoRanking(0);
+    botaoSpeedrun.textContent = ligado ? TEXTOS.pausa.speedrunSair : TEXTOS.pausa.speedrunEntrar;
+    if (ligado) {
+      esconderAvisoProva();
+      descartarFalaPendente();
+    }
+  };
+
+  // ------------------------------------------------------------ Ranking
+
+  /** Conclusão que está no modal agora (para descartar respostas atrasadas da rede). */
+  let conclusaoAtual: { faseId: string; tempoMs: number; gravou: boolean } | null = null;
+
+  const mostrarRankingDaConclusao = () => {
+    const atual = conclusaoAtual;
+    if (!atual || atual.gravou) return;
+    const top = ranking.topConhecido(atual.faseId);
+    const entra = posicaoNoRanking(top, atual.tempoMs) !== null;
+    renderizarListaRanking(listaRankingConclusao, top);
+    const estavaOculto = formLetras.hidden;
+    formLetras.hidden = !entra;
+    if (entra) {
+      notaRankingConclusao.textContent = '';
+      if (estavaOculto) {
+        campoLetras.value = ranking.ultimasLetras();
+        campoLetras.focus();
+        campoLetras.select();
+      }
+    } else {
+      const falta = faltaParaEntrar(top, atual.tempoMs);
+      notaRankingConclusao.textContent =
+        falta === null ? '' : formatarTexto(TEXTOS.ranking.faltou, { diferenca: formatarDiferenca(falta) });
+    }
+  };
+
+  const prepararRankingDaConclusao = (faseId: string, tempoMs: number) => {
+    const pedido = { faseId, tempoMs, gravou: false };
+    conclusaoAtual = pedido;
+    formLetras.hidden = true;
+    mostrarRankingDaConclusao();
+    // O top 10 foi pré-carregado ao entrar na Fase; esta busca só confirma.
+    void ranking.carregarTop(faseId).then((top) => {
+      if (top !== null && conclusaoAtual === pedido) mostrarRankingDaConclusao();
+    });
+  };
+
+  campoLetras.addEventListener('input', () => {
+    const limpo = normalizarLetras(campoLetras.value);
+    if (campoLetras.value !== limpo) campoLetras.value = limpo;
+  });
+
+  formLetras.addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    const atual = conclusaoAtual;
+    if (!atual || atual.gravou) return;
+    const letras = normalizarLetras(campoLetras.value);
+    if (!letrasValidas(letras)) {
+      notaRankingConclusao.textContent = TEXTOS.ranking.letrasInvalidas;
+      campoLetras.focus();
+      return;
+    }
+    atual.gravou = true;
+    formLetras.hidden = true;
+    botaoProxima.focus();
+
+    const posicaoDe = (top: readonly EntradaRanking[]) => {
+      const i = top.findIndex((e) => e.letras === letras && e.tempoMs === atual.tempoMs);
+      return i < 0 ? null : i + 1;
+    };
+    // Mostra na hora, antes de o servidor responder.
+    const otimista = inserirNoRanking(ranking.topConhecido(atual.faseId), {
+      letras,
+      tempoMs: atual.tempoMs,
+      gravadoEm: new Date().toISOString(),
+    });
+    renderizarListaRanking(listaRankingConclusao, otimista, posicaoDe(otimista));
+    notaRankingConclusao.textContent = TEXTOS.ranking.gravando;
+
+    void ranking.gravar(atual.faseId, letras, atual.tempoMs).then((resultado) => {
+      if (conclusaoAtual !== atual) return;
+      const posicao = posicaoDe(resultado.top);
+      renderizarListaRanking(listaRankingConclusao, resultado.top, posicao);
+      notaRankingConclusao.textContent = resultado.confirmado
+        ? posicao === null
+          ? ''
+          : formatarTexto(TEXTOS.ranking.gravado, { posicao })
+        : TEXTOS.ranking.pendente;
+    });
+  });
+
+  const mostrarTelaRanking = () => {
+    const entrada = catalogo[0];
+    subtituloRanking.textContent = formatarTexto(TEXTOS.ranking.subtitulo, { fase: entrada.nome });
+    const desenhar = () => {
+      const top = ranking.topConhecido(entrada.id);
+      renderizarListaRanking(listaRankingTela, top);
+      return top;
+    };
+    const conhecido = desenhar();
+    notaRankingTela.textContent = conhecido.length === 0 ? TEXTOS.ranking.carregando : '';
+    mostrarTela('ranking');
+    void ranking.carregarTop(entrada.id).then((top) => {
+      if (telas.get('ranking')?.hidden) return;
+      const atualizado = desenhar();
+      notaRankingTela.textContent =
+        top === null
+          ? atualizado.length === 0
+            ? TEXTOS.ranking.indisponivelVazio
+            : TEXTOS.ranking.indisponivel
+          : atualizado.length === 0
+            ? TEXTOS.ranking.vazio
+            : '';
+    });
   };
 
   /** Marcas da Fase pelo progresso salvo (concluir · todas as Almas · Habitante). */
@@ -615,7 +769,9 @@ function iniciar(): void {
         : []),
       formatarContagemMortes(resumo.mortes),
       formatarTexto(TEXTOS.fimFase.deslizes, { n: resumo.deslizes }),
-      formatarTexto(TEXTOS.fimFase.tempo, { tempo: formatarTempo(resumo.tempoSegundos) }),
+      formatarTexto(TEXTOS.fimFase.tempo, {
+        tempo: formatarTempoRanking(segundosParaMs(resumo.tempoSegundos)),
+      }),
     ];
     const linhaMarcas = document.createElement('li');
     linhaMarcas.className = 'resumo-marcas';
@@ -640,6 +796,7 @@ function iniciar(): void {
     if (!dialogConclusao.open) {
       dialogConclusao.showModal();
     }
+    prepararRankingDaConclusao(entrada.id, segundosParaMs(resumo.tempoSegundos));
   };
 
   const mostrarErroDeFase = (erro: unknown) => {
@@ -658,6 +815,9 @@ function iniciar(): void {
 
     encerrarSessao();
     const geracao = geracaoSessao;
+    aplicarModoSpeedrun(false);
+    // Pré-carrega o top 10: quando a Tentativa acabar, ele já chegou.
+    void ranking.carregarTop(entrada.id);
 
     mensagemErro.hidden = true;
     hudNomeFase.textContent = entrada.nome;
@@ -698,12 +858,13 @@ function iniciar(): void {
         },
         aoColetarProva: (prova) => {
           progresso.registrarProva(entrada.id, prova.numero);
-          mostrarAvisoProva(conteudoProvas[prova.numero]);
+          // No speedrun a Prova vai para o Arquivo sem aviso na tela.
+          if (!modoSpeedrun) mostrarAvisoProva(conteudoProvas[prova.numero]);
         },
         aoResgatarHabitante: (indice) => {
           progresso.registrarHabitante(entrada.id, indice + 1);
           const conteudo = conteudoHabitantes.find((c) => c.numero === indice + 1);
-          if (conteudo) {
+          if (conteudo && !modoSpeedrun) {
             exibirBalaoHabitante(conteudo);
           }
         },
@@ -858,6 +1019,8 @@ function iniciar(): void {
     } else if (destino === 'arquivo') {
       arquivo.renderizar();
       mostrarTela('arquivo');
+    } else if (destino === 'ranking') {
+      mostrarTelaRanking();
     } else if (destino && telas.has(destino)) {
       mostrarTela(destino);
     }
@@ -888,7 +1051,19 @@ function iniciar(): void {
         break;
       case 'reiniciar':
         descartarFalaPendente();
+        esconderAvisoProva();
         sessao.cena.reiniciar();
+        break;
+      case 'speedrun':
+        if (modoSpeedrun) {
+          // Sair do speedrun não reinicia: o tempo é medido igual nos dois modos.
+          aplicarModoSpeedrun(false);
+          sessao.cena.retomar();
+          tentarExibirFalaPendente();
+        } else {
+          aplicarModoSpeedrun(true);
+          sessao.cena.reiniciar();
+        }
         break;
       case 'sair':
         irParaSelecao();
@@ -927,6 +1102,7 @@ function iniciar(): void {
   dialogConclusao.addEventListener('close', () => {
     const acao = dialogConclusao.returnValue;
     dialogConclusao.returnValue = '';
+    if (acao !== '') conclusaoAtual = null;
     if (!sessao || acao === 'ignorar') return;
 
     switch (acao) {

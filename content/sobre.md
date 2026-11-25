@@ -4,7 +4,7 @@ titulo: Sobre o projeto
 
 Re(volta) é um jogo sobre educação ambiental crítica. Você atravessa uma floresta contaminada, resgata quem ficou para trás e reúne Provas do que aconteceu com o território: como ele era, como foi transformado e quem decidiu correr o risco.
 
-A Verdana Mineração, a aldeia do Igarapé Claro e seus moradores são fictícios. O caso do jogo, uma barragem de rejeitos que transborda na cheia e contamina o igarapé, é inspirado em casos reais da Amazônia. Nenhuma empresa ou pessoa real é nomeada no jogo.
+O povo Rekanã, a Biovex Corp. e os moradores do jogo são fictícios. O caso do jogo, uma fábrica que desmata e despeja no rio um rejeito com mercúrio, é inspirado em casos reais da Amazônia. Nenhuma empresa ou pessoa real é nomeada no jogo.
 
 A ideia não é vingança: é mostrar que a resistência é coletiva e que poluir é crime. As Provas formam um dossiê para denunciar.
 

@@ -71,3 +71,17 @@ _Avoid_: Inimigo, obstáculo (obstáculo é parede, e não fere)
 **Armadilha**:
 Elemento parado da Fase que é ativado pela passagem do Protagonista e, depois de um atraso, passa a matar.
 _Avoid_: Trap, Ameaça (Ameaça se move sozinha; Armadilha reage à passagem)
+
+## Tempo e Ranking
+
+**Tentativa**:
+Uma passagem por uma Fase, do início (ou do último reinício) até concluí-la ou sair. Morrer e voltar ao Totem não encerra a Tentativa.
+_Avoid_: Run, partida, vida
+
+**Ranking**:
+Lista dos dez menores tempos de conclusão de uma Fase, compartilhada entre todos os jogadores. Toda Tentativa concluída concorre, em qualquer modo.
+_Avoid_: Leaderboard, placar, recordes
+
+**Modo speedrun**:
+Forma de jogar uma Fase com a tela limpa e o tempo sempre à vista. Muda só o que aparece na tela; coleta, regras e o tempo medido são os mesmos do modo normal.
+_Avoid_: Modo contra o tempo, time attack, desafio

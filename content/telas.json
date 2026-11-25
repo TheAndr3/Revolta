@@ -12,8 +12,9 @@
     "titulo": "Revolta",
     "jogar": "Jogar",
     "arquivo": "Arquivo da Resistência",
-    "sobre": "Sobre o projeto",
-    "comoJogar": "Como jogar"
+    "sobre": "Sobre o projeto · fontes",
+    "comoJogar": "Como jogar",
+    "ranking": "Ranking"
   },
   "arquivo": {
     "titulo": "Arquivo da Resistência",
@@ -67,7 +68,8 @@
     "mortes": "Mortes: {n}",
     "pausa": "Pausa",
     "areaJogo": "Área jogável do labirinto",
-    "rodape": "Setas ou WASD no PC · Deslize o dedo na tela no celular · Esc/P para pausar · R para reiniciar"
+    "rodape": "Setas ou WASD no PC · Deslize o dedo na tela no celular · Esc/P para pausar · R para reiniciar",
+    "tempoRotulo": "Tempo da Tentativa"
   },
   "habitante": {
     "regiao": "Falas dos Habitantes",
@@ -81,7 +83,9 @@
     "continuar": "Continuar",
     "totem": "Voltar ao Totem",
     "reiniciar": "Reiniciar Fase",
-    "sair": "Sair"
+    "sair": "Sair",
+    "speedrunEntrar": "Reiniciar em speedrun",
+    "speedrunSair": "Sair do speedrun"
   },
   "prova": {
     "continuar": "Continuar",
@@ -110,6 +114,23 @@
     "ultima": "Concluir",
     "repetir": "Repetir",
     "selecao": "Escolher Fase"
+  },
+  "ranking": {
+    "titulo": "Ranking",
+    "subtitulo": "{fase} · os 10 menores tempos",
+    "suasLetras": "Entrou no top 10! Suas 3 letras",
+    "gravar": "Gravar",
+    "letrasInvalidas": "Use 3 letras de A a Z.",
+    "vazio": "Ninguém gravou um tempo ainda. Seja o primeiro!",
+    "faltou": "Faltaram {diferenca} para o 10º lugar.",
+    "gravando": "Gravando…",
+    "gravado": "Tempo gravado em {posicao}º lugar.",
+    "pendente": "Ranking indisponível agora: seu tempo será enviado depois.",
+    "carregando": "Carregando o Ranking…",
+    "indisponivel": "Ranking indisponível agora. Mostrando a última versão salva.",
+    "indisponivelVazio": "Ranking indisponível agora. Tente de novo mais tarde.",
+    "linhaAria": "{posicao}º lugar: {letras}, {tempo}",
+    "voltar": "Voltar ao menu"
   },
   "fimPrototipo": {
     "titulo": "Fim do protótipo",

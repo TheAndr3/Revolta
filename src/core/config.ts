@@ -91,4 +91,14 @@ export const CONFIG = {
     // 5 → 4 em 25/11/2026: no playtest o Guarda estava rápido demais.
     guarda: 4,
   },
+  /** Ranking de cada Fase em Google Sheets via Apps Script (ADR 0008). */
+  ranking: {
+    /**
+     * URL `.../exec` do Apps Script publicado como App da Web (`scripts/ranking-apps-script.gs`).
+     * Vazia, o jogo funciona sem Ranking (os tempos ficam na caixa de saída até haver URL).
+     */
+    url: 'https://script.google.com/macros/s/AKfycbwn9j9p6YDWjOqX85geQJRwnd2lWXSXlCWrvrzvU6Ttpis9mK2Oy5LsOY9rAOG9Uc-_xQ/exec',
+    /** Quanto esperar a resposta antes de desistir (o tempo segue na caixa de saída). */
+    limiteEsperaMs: 12_000,
+  },
 } as const;

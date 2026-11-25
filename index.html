@@ -46,10 +46,13 @@
           <button type="button" class="btn-secundario btn-grande" data-ir-para="arquivo" data-texto="menu.arquivo">
             Arquivo da Resistência
           </button>
-          <button type="button" class="btn-secundario btn-grande" data-ir-para="sobre" data-texto="menu.sobre">
-            Sobre o projeto
+          <button type="button" class="btn-secundario btn-grande" data-ir-para="ranking" data-texto="menu.ranking">
+            Ranking
           </button>
         </nav>
+        <button type="button" class="link-sobre" data-ir-para="sobre" data-texto="menu.sobre">
+          Sobre o projeto · fontes
+        </button>
       </div>
     </section>
 
@@ -81,6 +84,18 @@
         <!-- Preenchido por src/game/comoJogar.ts (textos em content/telas.json) -->
         <div id="como-jogar-conteudo" class="como-jogar"></div>
         <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="comoJogar.voltar">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-ranking" class="tela tela-longa" aria-labelledby="titulo-ranking" hidden>
+      <div class="tela-conteudo">
+        <h1 id="titulo-ranking" data-texto="ranking.titulo">Ranking</h1>
+        <p id="ranking-subtitulo" class="ranking-subtitulo"></p>
+        <ol id="lista-ranking-tela" class="lista-ranking"></ol>
+        <p id="ranking-tela-nota" class="ranking-nota" role="status"></p>
+        <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="ranking.voltar">
           Voltar ao menu
         </button>
       </div>
@@ -167,6 +182,7 @@
             </svg>
             <span id="contador-almas" aria-live="polite">0</span>
           </span>
+          <span id="hud-tempo" class="hud-tempo" data-texto-title="hud.tempoRotulo" hidden>0:00.00</span>
           <span id="status-habitante" class="hud-habitante" role="status" hidden>
             <svg class="icone-habitante" viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="10" cy="6.5" r="3.5" />
@@ -244,6 +260,9 @@
         <button value="reiniciar" class="btn-secundario" data-texto="pausa.reiniciar">
           Reiniciar Fase
         </button>
+        <button id="btn-speedrun" value="speedrun" class="btn-secundario" data-texto="pausa.speedrunEntrar">
+          Reiniciar em speedrun
+        </button>
         <button value="sair" class="btn-secundario btn-perigo" data-texto="pausa.sair">
           Sair
         </button>
@@ -272,6 +291,26 @@
     <dialog id="modal-conclusao" class="modal-conclusao" aria-labelledby="titulo-conclusao">
       <h2 id="titulo-conclusao">Fase concluída</h2>
       <ul id="resumo-conclusao" class="resumo-conclusao"></ul>
+      <section class="ranking-conclusao" aria-labelledby="titulo-ranking-conclusao">
+        <h3 id="titulo-ranking-conclusao" data-texto="ranking.titulo">Ranking</h3>
+        <form id="form-letras" class="form-letras" hidden>
+          <label for="campo-letras" id="rotulo-letras" data-texto="ranking.suasLetras">Suas 3 letras</label>
+          <div class="form-letras-linha">
+            <input
+              id="campo-letras"
+              name="letras"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+            />
+            <button type="submit" class="btn-primario" data-texto="ranking.gravar">Gravar</button>
+          </div>
+        </form>
+        <ol id="lista-ranking-conclusao" class="lista-ranking"></ol>
+        <p id="ranking-conclusao-nota" class="ranking-nota" role="status"></p>
+      </section>
       <form method="dialog" class="acoes-conclusao">
         <button id="btn-proxima" value="proxima" class="btn-primario" autofocus data-texto="fimFase.proxima">
           Próxima
