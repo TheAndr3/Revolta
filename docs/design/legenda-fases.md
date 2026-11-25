@@ -12,7 +12,7 @@
 | `RAIO_VISAO` | 7 linhas (câmera mostra pelo menos 7 linhas acima e 7 abaixo do Protagonista) | Regras R05, R06 e R13 |
 | `RAIO_VISAO_H` | 4 colunas (câmera mostra cerca de 9 colunas: 4 de cada lado do Protagonista; ADR 0006) | Regras R06 e R13 |
 | `DESLIZES_INICIAIS` | 3 | Regra R05 |
-| Velocidade de referência do Guarda | 5 tiles/s | Seção 2 |
+| Velocidade de referência do Guarda | 4 tiles/s (era 5; reduzida em 25/11/2026 no playtest) | Seção 2 |
 
 ---
 
@@ -32,7 +32,7 @@ O alfabeto do `.txt` é **fechado**: apenas os 14 caracteres abaixo são válido
 | 6 | Prova 1 — *O Passado* | Dígito `1` com base (traço embaixo) | `1` |
 | 7 | Prova 2 — *A Transformação* | Dígito `2` | `2` |
 | 8 | Prova 3 — *Os Responsáveis* | Dígito `3` | `3` |
-| 9 | Habitante (1 por Fase, opcional de coletar) | `H` maiúsculo | `H` |
+| 9 | Habitante (0 a 3 por Fase, opcional de coletar; numerados na ordem de leitura) | `H` maiúsculo | `H` |
 | 10 | Espinhos temporários / *Estacas da empresa* (sobem 0,5 s após a passagem, ativos por 1,5 s) | Triângulo pequeno `^` | `^` |
 | 11 | Gosma Tóxica (posição inicial) | `G` **dentro de um círculo** | `G` |
 | 12 | Drone Desmatador (posição inicial) | `D` **dentro de um círculo** | `D` |
@@ -80,7 +80,7 @@ Por que estes caracteres: não há `I`, `l`, `O`, `0`, `S`, `5`, `Z`, `B`, `8` n
 |---|---|---|---|---|---|
 | Gosma Tóxica | `G` | somente `loop` | 4 ou mais | 3 tiles/s | não |
 | Drone Desmatador | `D` | somente `vai-e-volta` | exatamente 2, na mesma linha ou na mesma coluna (linha reta) | 10 tiles/s | não |
-| Guarda Florestal | `R` | `loop` ou `vai-e-volta` | 2 ou mais | 5 tiles/s (valor a confirmar) | sim, em vértices marcados |
+| Guarda Florestal | `R` | `loop` ou `vai-e-volta` | 2 ou mais | 4 tiles/s | sim, em vértices marcados |
 
 A velocidade é declarada em cada Ameaça ou, com `-`, herdada da referência do tipo (definida em `src/core/config.ts`, `velocidadeReferenciaAmeacaTilesPorSegundo`). O parser aceita qualquer número positivo; o validador emite *aviso* (não erro) se o valor diferir da referência do tipo.
 
@@ -179,7 +179,7 @@ Checklist exigido do desenhista e do *solver* estático. Cada item é verificáv
 **Solução**
 
 - [ ] **R11 — Solução válida:** existe sequência de deslizes (o Protagonista só para ao bater em `#`; atravessa o resto coletando Provas, Habitante, Totens e Saída) que coleta `1`, `2` e `3` e depois atravessa `X`. Verificação estática: busca em largura sobre (célula de parada, Provas coletadas), **ignorando** o tempo das Ameaças.
-- [ ] **R12 — Solução segura no tempo:** para cada cruzamento de trilho existe uma janela de partida em que o Protagonista não colide com a Ameaça (o Protagonista pode esperar em qualquer célula de parada fora de trilhos). Nenhuma parada obrigatória sobre `^` nem sobre célula de trilho.
+- [ ] **R12 — Solução segura no tempo:** para cada cruzamento de trilho existe uma janela de partida em que o Protagonista não colide com a Ameaça (o Protagonista pode esperar em qualquer célula de parada fora de trilhos). Nenhuma parada obrigatória sobre `^` nem sobre célula de trilho. *Exceção (25/11/2026):* uma Fase de reflexo pode parar de propósito em espinho e em trilho; ela vale se der para terminar sem morrer com o tempo certo (é o que o teste da Fase 1 confere).
 
 **Recomendações (não bloqueiam)**
 

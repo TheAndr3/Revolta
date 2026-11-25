@@ -43,6 +43,9 @@ export interface AmeacaNaFase {
   readonly pausas: readonly PausaAmeaca[];
 }
 
+/** Uma Fase tem de 0 a 3 Habitantes (2–3 nas Fases do jogo, um por Desvio). */
+export const MAXIMO_HABITANTES_FASE = 3;
+
 export interface Fase {
   readonly largura: number;
   readonly altura: number;
@@ -51,7 +54,12 @@ export interface Fase {
   readonly saida: Coordenada;
   readonly totens: readonly Coordenada[];
   readonly provas: readonly ProvaNaFase[];
-  readonly habitante: Coordenada | null;
+  /**
+   * Habitantes a resgatar (símbolo `H`), de 0 a `MAXIMO_HABITANTES_FASE`, na ordem de
+   * leitura do grid. O número de cada um (1, 2, 3) liga ao conteúdo
+   * `content/habitantes/<conteudo>/<número>.md`.
+   */
+  readonly habitantes: readonly Coordenada[];
   readonly espinhos: readonly Coordenada[];
   /** Almas da floresta (colecionável opcional, símbolo `o`), na ordem de leitura do grid. */
   readonly almas: readonly Coordenada[];

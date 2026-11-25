@@ -26,10 +26,10 @@ describe('cenário da floresta', () => {
   });
 
   it('calcula a máscara de vizinhos de chão (N=1, L=2, S=4, O=8)', () => {
-    // Início (1,69): parede acima, chão à direita, parede abaixo e à esquerda.
-    expect(mascaraTrilha(FASE.grade, 1, 69)).toBe(2);
-    // Corredor vertical do poço final (13,20): chão acima e abaixo.
-    expect(mascaraTrilha(FASE.grade, 13, 20)).toBe(1 | 4);
+    // Início (2,69): parede acima, chão à direita, parede abaixo e à esquerda.
+    expect(mascaraTrilha(FASE.grade, 2, 69)).toBe(2);
+    // Corredor vertical do poço até a Saída (14,50): chão acima e abaixo.
+    expect(mascaraTrilha(FASE.grade, 14, 50)).toBe(1 | 4);
   });
 
   it('cobre cada célula de parede exatamente uma vez, sem invadir o chão', () => {

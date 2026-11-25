@@ -1,5 +1,5 @@
 {
-  "_nota": "Ordem de jogo do protótipo: uma Fase única (escopo reduzido em 23/11/2026; ver docs/design/fase-01.md). O conteúdo (Provas e Habitante) está em content/provas/fase-01 e content/habitantes/fase-01.md, rascunho da bíblia da história (docs/historia/biblia.md).",
+  "_nota": "Ordem de jogo do protótipo: uma Fase única (escopo reduzido em 23/11/2026; ver docs/design/fase-01.md). O conteúdo (Provas e Habitantes) está em content/provas/fase-01 e content/habitantes/fase-01/ (um arquivo por H do mapa, na ordem de leitura), rascunho da bíblia da história (docs/historia/biblia.md).",
   "fases": [
     {
       "id": "fase-01",

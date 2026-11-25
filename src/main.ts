@@ -22,7 +22,7 @@ import { criarMotorAudio } from './game/audio';
 import { criarIntro } from './game/intro';
 import { montarSobre } from './game/sobre';
 import { criarAberturaAnimada } from './game/capaAnimada';
-import { carregarConteudoHabitanteDaFase } from './game/carregarHabitante';
+import { carregarConteudoHabitantesDaFase } from './game/carregarHabitante';
 import {
   carregarConteudoProvasDaFase,
   type MapaConteudoProvas,
@@ -68,7 +68,7 @@ interface SessaoFase {
   readonly cena: FaseScene;
   readonly jogo: Phaser.Game;
   readonly conteudoProvas: MapaConteudoProvas;
-  readonly conteudoHabitante: ConteudoHabitante | null;
+  readonly conteudoHabitantes: readonly ConteudoHabitante[];
 }
 
 function elemento<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -153,6 +153,7 @@ function iniciar(): void {
   const hudProvas = elemento('contador-provas');
   const hudAlmas = elemento('contador-almas');
   const hudHabitante = elemento('status-habitante');
+  const hudHabitanteRotulo = hudHabitante.querySelector<HTMLElement>('.hud-habitante-rotulo') ?? hudHabitante;
   const hudDeslizes = elemento('contador-deslizes');
   const hudMortes = elemento('contador-mortes');
   const botaoPausa = elemento('btn-pausa');
@@ -206,12 +207,32 @@ function iniciar(): void {
     }
   };
 
+  /**
+   * Habitantes de uma Fase e quantos já foram resgatados (em qualquer partida). O total
+   * vem do conteúdo (um arquivo por `H` do mapa, conferido pelo check-content), para a
+   * seleção e as Marcas não precisarem carregar o mapa.
+   */
+  const contarHabitantesDaEntrada = (entrada: { readonly id: string; readonly conteudo: string }) => {
+    const total = carregarConteudoHabitantesDaFase(entrada.conteudo).length;
+    const salvos = progresso.habitantesResgatados(entrada.id);
+    const resgatados = [...salvos].filter((numero) => numero <= total).length;
+    return { resgatados, total };
+  };
+
+  const contarHabitantesSalvos = (faseId: string) => {
+    const entrada = catalogo.find((e) => e.id === faseId);
+    const { resgatados, total } = entrada
+      ? contarHabitantesDaEntrada(entrada)
+      : { resgatados: 0, total: 0 };
+    return { habitantesResgatados: resgatados, totalHabitantes: total };
+  };
+
   const renderizarSelecao = () => {
     const concluidas = progresso.fasesConcluidas();
     const itens = catalogo.map((entrada, indice) => {
       const liberada = faseDesbloqueada(catalogo, indice, concluidas);
       const concluida = concluidas.has(entrada.id);
-      const resgatado = progresso.habitanteResgatado(entrada.id);
+      const habitantes = contarHabitantesDaEntrada(entrada);
 
       const li = document.createElement('li');
       const botao = document.createElement('button');
@@ -240,10 +261,8 @@ function iniciar(): void {
       const detalhe = document.createElement('span');
       detalhe.className = 'cartao-fase-habitante';
       if (liberada) {
-        detalhe.dataset.resgatado = String(resgatado);
-        detalhe.textContent = resgatado
-          ? TEXTOS.selecao.habitanteResgatado
-          : TEXTOS.selecao.habitanteNaoResgatado;
+        detalhe.dataset.resgatado = String(habitantes.total > 0 && habitantes.resgatados >= habitantes.total);
+        detalhe.textContent = formatarTexto(TEXTOS.selecao.habitantes, habitantes);
       } else {
         detalhe.textContent = TEXTOS.selecao.bloqueadaDica;
       }
@@ -505,12 +524,11 @@ function iniciar(): void {
     dimensoesFaseAtual = null;
   }
 
-  const atualizarHudHabitante = (resgatado: boolean, temHabitante: boolean) => {
-    hudHabitante.hidden = !temHabitante;
-    hudHabitante.dataset.resgatado = String(resgatado);
-    const descricao = resgatado
-      ? TEXTOS.hud.habitanteResgatado
-      : TEXTOS.hud.habitanteNaoResgatado;
+  const atualizarHudHabitantes = (resgatados: number, total: number) => {
+    hudHabitante.hidden = total === 0;
+    hudHabitante.dataset.resgatado = String(total > 0 && resgatados >= total);
+    hudHabitanteRotulo.textContent = formatarTexto(TEXTOS.hud.habitantes, { resgatados, total });
+    const descricao = formatarTexto(TEXTOS.hud.habitantesAria, { resgatados, total });
     hudHabitante.setAttribute('aria-label', descricao);
     hudHabitante.title = descricao;
   };
@@ -523,13 +541,13 @@ function iniciar(): void {
       melhorAlmas: recorde?.melhor ?? 0,
       // Sem recorde (Fase nunca concluída), a Marca das Almas ainda não foi ganha.
       totalAlmas: recorde?.total ?? Number.POSITIVE_INFINITY,
-      habitanteResgatado: progresso.habitanteResgatado(faseId),
+      ...contarHabitantesSalvos(faseId),
     });
   };
 
   /** ✦ para Marca ganha, ✧ para Marca que falta, na ordem do glossário. */
   const simbolosMarcas = (marcas: ReturnType<typeof calcularMarcas>) =>
-    [marcas.concluida, marcas.todasAsAlmas, marcas.habitante].map((m) => (m ? '✦' : '✧')).join('');
+    [marcas.concluida, marcas.todasAsAlmas, marcas.habitantes].map((m) => (m ? '✦' : '✧')).join('');
 
   const mostrarFimDeFase = (indice: number, resumo: ResumoConclusaoFase) => {
     const entrada = catalogo[indice];
@@ -552,8 +570,13 @@ function iniciar(): void {
             }),
           ]
         : []),
-      ...(resumo.temHabitante
-        ? [resumo.habitanteResgatado ? TEXTOS.fimFase.habitanteSim : TEXTOS.fimFase.habitanteNao]
+      ...(resumo.habitantesTotal > 0
+        ? [
+            formatarTexto(TEXTOS.fimFase.habitantes, {
+              resgatados: resumo.habitantesResgatados,
+              total: resumo.habitantesTotal,
+            }),
+          ]
         : []),
       formatarContagemMortes(resumo.mortes),
       formatarTexto(TEXTOS.fimFase.tempo, { tempo: formatarTempo(resumo.tempoSegundos) }),
@@ -609,7 +632,7 @@ function iniciar(): void {
     hudProvas.dataset.completo = 'false';
     hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: 0 });
     hudMortes.textContent = formatarTexto(TEXTOS.hud.mortes, { n: 0 });
-    atualizarHudHabitante(false, false);
+    atualizarHudHabitantes(0, 0);
     document.title = `${entrada.nome} · ${TEXTOS.documento.titulo}`;
     mostrarTela('jogo');
 
@@ -619,9 +642,12 @@ function iniciar(): void {
 
       const fase = parseFase(textoFase);
       const conteudoProvas = carregarConteudoProvasDaFase(entrada.conteudo);
-      const conteudoHabitante = carregarConteudoHabitanteDaFase(entrada.conteudo);
+      const conteudoHabitantes = carregarConteudoHabitantesDaFase(entrada.conteudo);
 
       const cena = new FaseScene(fase, {
+        aparenciasHabitantes: fase.habitantes.map(
+          (_, i) => conteudoHabitantes.find((c) => c.numero === i + 1)?.aparencia ?? '',
+        ),
         aoAtualizarDeslizes: (deslizes) => {
           hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: deslizes });
         },
@@ -632,7 +658,7 @@ function iniciar(): void {
           hudProvas.textContent = formatarTexto(TEXTOS.hud.provas, { coletadas, total });
           hudProvas.dataset.completo = String(coletadas >= total);
         },
-        aoAtualizarHabitante: atualizarHudHabitante,
+        aoAtualizarHabitantes: atualizarHudHabitantes,
         aoAtualizarAlmas: (coletadas, total) => {
           hudAlmas.hidden = total === 0;
           hudAlmas.textContent = formatarTexto(TEXTOS.hud.almas, { coletadas, total });
@@ -642,10 +668,11 @@ function iniciar(): void {
           progresso.registrarProva(entrada.id, prova.numero);
           mostrarAvisoProva(conteudoProvas[prova.numero]);
         },
-        aoResgatarHabitante: () => {
-          progresso.registrarHabitante(entrada.id);
-          if (conteudoHabitante) {
-            exibirBalaoHabitante(conteudoHabitante);
+        aoResgatarHabitante: (indice) => {
+          progresso.registrarHabitante(entrada.id, indice + 1);
+          const conteudo = conteudoHabitantes.find((c) => c.numero === indice + 1);
+          if (conteudo) {
+            exibirBalaoHabitante(conteudo);
           }
         },
         aoAbrirProva: (prova) => {
@@ -687,7 +714,7 @@ function iniciar(): void {
         scene: [cena],
       });
 
-      sessao = { indice, entrada, cena, jogo, conteudoProvas, conteudoHabitante };
+      sessao = { indice, entrada, cena, jogo, conteudoProvas, conteudoHabitantes };
       audio.iniciarLoopsAmeacas({
         gosma: fase.ameacas.some((a) => a.tipo === 'gosma'),
         drone: fase.ameacas.some((a) => a.tipo === 'drone'),

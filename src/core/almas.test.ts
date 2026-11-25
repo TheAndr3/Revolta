@@ -86,13 +86,22 @@ describe('Almas: solver e Marcas', () => {
     ]);
   });
 
-  it('calcula as 3 Marcas: concluir, todas as Almas e Habitante', () => {
-    const base = { concluida: true, melhorAlmas: 40, totalAlmas: 50, habitanteResgatado: false };
-    expect(calcularMarcas(base)).toEqual({ concluida: true, todasAsAlmas: false, habitante: false });
+  it('calcula as 3 Marcas: concluir, todas as Almas e todos os Habitantes', () => {
+    const base = {
+      concluida: true,
+      melhorAlmas: 40,
+      totalAlmas: 50,
+      habitantesResgatados: 2,
+      totalHabitantes: 3,
+    };
+    expect(calcularMarcas(base)).toEqual({ concluida: true, todasAsAlmas: false, habitantes: false });
     expect(contarMarcas(calcularMarcas(base))).toBe(1);
 
-    const tudo = calcularMarcas({ ...base, melhorAlmas: 50, habitanteResgatado: true });
+    const tudo = calcularMarcas({ ...base, melhorAlmas: 50, habitantesResgatados: 3 });
     expect(contarMarcas(tudo)).toBe(3);
+
+    // Fase sem Habitantes: a Marca vem com a conclusão.
+    expect(calcularMarcas({ ...base, habitantesResgatados: 0, totalHabitantes: 0 }).habitantes).toBe(true);
 
     // Fase sem Almas: a Marca vem com a conclusão.
     expect(calcularMarcas({ ...base, totalAlmas: 0, melhorAlmas: 0 }).todasAsAlmas).toBe(true);

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
 import {
   atualizarDeslize,
+  contarHabitantesResgatados,
   criarEstadoFase,
   fecharProvaEmExibicao,
   matarProtagonista,
@@ -406,7 +407,7 @@ describe('núcleo de deslize', () => {
 
     expect(overlaysAbertos).toBe(3);
     expect(estado.provasColetadas).toEqual([1, 2, 3]);
-    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.habitantesResgatados).toEqual([true]);
     expect(estado.totemAtivo).toEqual({ col: 2, lin: 11 });
     expect(estado.mortes).toBe(0);
     expect(estado.saidaAcesa).toBe(true);
@@ -513,7 +514,7 @@ describe('núcleo de deslize', () => {
     solicitarDirecao(estado, 'direita');
     atualizarDeslize(estado, 1);
     expect(estado.provasColetadas).toEqual([1]);
-    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.habitantesResgatados).toEqual([true]);
     expect(estado.totemAtivo).toEqual({ col: 7, lin: 1 });
     fecharProvaEmExibicao(estado);
 
@@ -527,7 +528,7 @@ describe('núcleo de deslize', () => {
     expect(estado.versaoCiclos).toBe(1);
     expect(estado.celulaAtual).toEqual({ col: 7, lin: 1 });
     expect(estado.provasColetadas).toEqual([1]);
-    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.habitantesResgatados).toEqual([true]);
     expect(eventosMorte).toEqual([
       {
         tipo: 'morreu',
@@ -650,6 +651,36 @@ describe('núcleo de deslize', () => {
     expect(eventosMorteDireta.map((e) => e.tipo)).toEqual(['morreu', 'ciclos_reiniciados']);
   });
 
+  it('resgata vários Habitantes no mesmo deslize, cada um com a sua contagem', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 9',
+        'ALTURA 3',
+        '[GRID]',
+        '#########',
+        '#@.H.H..#',
+        '####X####',
+        '[FIM]',
+      ].join('\n'),
+    );
+    const estado = criarEstadoFase(fase, { habitantesJaResgatados: [] });
+    solicitarDirecao(estado, 'direita');
+    const eventos = atualizarDeslize(estado, 1);
+
+    expect(eventos.filter((e) => e.tipo === 'habitante_resgatado')).toEqual([
+      { tipo: 'habitante_resgatado', celula: { col: 3, lin: 1 }, indice: 0, resgatados: 1, total: 2 },
+      { tipo: 'habitante_resgatado', celula: { col: 5, lin: 1 }, indice: 1, resgatados: 2, total: 2 },
+    ]);
+    expect(contarHabitantesResgatados(estado)).toBe(2);
+
+    // Já resgatado (de outra partida): não dispara de novo.
+    const outra = criarEstadoFase(fase, { habitantesJaResgatados: [1] });
+    solicitarDirecao(outra, 'direita');
+    const eventosOutra = atualizarDeslize(outra, 1);
+    expect(eventosOutra.filter((e) => e.tipo === 'habitante_resgatado')).toHaveLength(1);
+  });
+
   it('resgata o Habitante no meio do deslize sem pausar o mundo e não dispara duas vezes', () => {
     const fase = parseFase(
       [
@@ -669,12 +700,12 @@ describe('núcleo de deslize', () => {
     solicitarDirecao(estado, 'direita');
     const eventosMeio = atualizarDeslize(estado, 4 / CONFIG.velocidadeDeslizeTilesPorSegundo);
 
-    expect(estado.habitanteResgatado).toBe(true);
+    expect(estado.habitantesResgatados).toEqual([true]);
     expect(estado.deslizando).toBe(true);
     expect(estado.pausado).toBe(false);
     expect(estado.provaEmExibicao).toBeNull();
     expect(eventosMeio).toEqual([
-      { tipo: 'habitante_resgatado', celula: { col: 4, lin: 1 } },
+      { tipo: 'habitante_resgatado', celula: { col: 4, lin: 1 }, indice: 0, resgatados: 1, total: 1 },
     ]);
 
     // Termina o deslize até a parede sem pausar
@@ -709,7 +740,7 @@ describe('núcleo de deslize', () => {
     solicitarDirecao(estadoSemResgate, 'direita');
     atualizarDeslize(estadoSemResgate, 1);
     expect(estadoSemResgate.concluida).toBe(true);
-    expect(estadoSemResgate.habitanteResgatado).toBe(false);
+    expect(estadoSemResgate.habitantesResgatados).toEqual([false]);
 
     const fasePerigoAposHabitante = parseFase(
       [
@@ -730,7 +761,7 @@ describe('núcleo de deslize', () => {
     solicitarDirecao(estadoMorte, 'direita');
     const eventos = atualizarDeslize(estadoMorte, 1);
 
-    expect(estadoMorte.habitanteResgatado).toBe(true);
+    expect(estadoMorte.habitantesResgatados).toEqual([true]);
     expect(estadoMorte.mortes).toBe(1);
     expect(estadoMorte.celulaAtual).toEqual(fasePerigoAposHabitante.inicio);
     expect(eventos.map((e) => e.tipo)).toEqual([

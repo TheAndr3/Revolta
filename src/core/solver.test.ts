@@ -7,6 +7,7 @@ import {
   fecharProvaEmExibicao,
   solicitarDirecao,
   type Direcao,
+  type EstadoFase,
 } from './deslize';
 import { parseFase } from './parser';
 import { resolverFase } from './solver';
@@ -62,48 +63,67 @@ describe('solver estático', () => {
     atualizarDeslize(estado, 1 / 60); // um quadro de reação
   };
 
-  it('a Fase 1 é válida, sem avisos, grande e com todos os perigos do protótipo', () => {
+  it('a Fase 1 é válida, sem avisos, grande, com todos os perigos e 2–3 Habitantes', () => {
     const resultado = resolverFase(FASE_1);
     expect(resultado.erros).toEqual([]);
-    expect(resultado.avisos).toEqual([]);
+    expect(resultado.avisos).toEqual([]); // Saída, Almas e Habitantes alcançáveis
     expect(FASE_1.altura).toBeGreaterThanOrEqual(70); // R14: 60–100 linhas
     expect(FASE_1.espinhos.length).toBeGreaterThan(0);
     expect(new Set(FASE_1.ameacas.map((a) => a.tipo))).toEqual(new Set(['gosma', 'drone', 'guarda']));
     expect(FASE_1.totens.length).toBeGreaterThanOrEqual(4);
+    expect(FASE_1.habitantes.length).toBeGreaterThanOrEqual(2);
+    expect(FASE_1.habitantes.length).toBeLessThanOrEqual(3);
   });
 
-  it('nenhuma Parada da rota fica sobre trilho de Ameaça ou espinho (R12)', () => {
+  it('a rota mínima da Fase 1 conclui a Fase no núcleo (sem Ameaças nem espinhos)', () => {
+    // A Fase 1 é de reflexo: a rota para de propósito em cima de espinhos e de trilhos
+    // de Ameaça (a R12 antiga não vale para ela; ver docs/design/fase-01.md).
     const rota = resolverFase(FASE_1).rotaMinima ?? [];
-    const perigosas = new Set([
-      ...FASE_1.ameacas.flatMap((a) => a.trilho.map((c) => `${c.col},${c.lin}`)),
-      ...FASE_1.espinhos.map((c) => `${c.col},${c.lin}`),
-    ]);
     const estado = criarEstadoFase(FASE_1, { simularAmeacas: false, simularEspinhos: false });
-    for (const direcao of rota) {
-      deslizarAtePararFase(estado, direcao);
-      expect(perigosas.has(`${estado.celulaAtual.col},${estado.celulaAtual.lin}`)).toBe(false);
-    }
+    for (const direcao of rota) deslizarAtePararFase(estado, direcao);
     expect(estado.concluida).toBe(true);
   });
 
-  it('a Fase 1 é jogável de ponta a ponta com Ameaças e espinhos ligados, esperando a hora certa', () => {
-    const rota = resolverFase(FASE_1).rotaMinima ?? [];
-    let estado = criarEstadoFase(FASE_1); // como no jogo
-    for (const direcao of rota) {
-      // Espera parado de 0 a 8 s, de 1/30 em 1/30 s, até achar uma partida que não mata.
-      let seguro: typeof estado | null = null;
-      for (let espera = 0; espera <= 240 && !seguro; espera++) {
-        const tentativa = structuredClone(estado);
-        for (let i = 0; i < espera; i++) atualizarDeslize(tentativa, 1 / 30);
-        deslizarAtePararFase(tentativa, direcao);
-        if (tentativa.mortes === estado.mortes) seguro = tentativa;
-      }
-      expect(seguro, `sem janela segura para "${direcao}" a partir de (${estado.celulaAtual.col},${estado.celulaAtual.lin})`).not.toBeNull();
-      estado = seguro!;
-    }
-    expect(estado.mortes).toBe(0);
-    expect(estado.concluida).toBe(true);
-  });
+  it(
+    'a Fase 1 dá para terminar sem morrer, com Ameaças e espinhos ligados, saindo na hora certa',
+    () => {
+      // Difícil não é impossível: segue a rota mínima e, em cada parada, tenta partir em
+      // cada momento (de 1/30 em 1/30 s, até 6 s). Se um trecho trava, volta e tenta outro
+      // momento no trecho anterior; janelas curtas (como a do Guarda na linha 5, ~0,17 s)
+      // são o desafio de reflexo da Fase, não um defeito.
+      const rota = resolverFase(FASE_1).rotaMinima ?? [];
+      const copiar = (estado: EstadoFase): EstadoFase => {
+        const { fase, ...resto } = estado; // a Fase não muda: não precisa clonar o grid
+        return { ...structuredClone(resto), fase } as EstadoFase;
+      };
+      const falhas = new Set<string>();
+      const seguir = (estado: EstadoFase, i: number): EstadoFase | null => {
+        if (i === rota.length) return estado.concluida ? estado : null;
+        const chave = `${i}|${estado.tempoCicloSegundos.toFixed(3)}`;
+        if (falhas.has(chave)) return null;
+        const esperando = copiar(estado);
+        for (let q = 0; q <= 180; q++) {
+          if (q > 0) {
+            atualizarDeslize(esperando, 1 / 30);
+            if (esperando.mortes !== estado.mortes) break; // ficar parado ali já mata
+          }
+          const tentativa = copiar(esperando);
+          deslizarAtePararFase(tentativa, rota[i]);
+          if (tentativa.mortes !== estado.mortes) continue;
+          const fim = seguir(tentativa, i + 1);
+          if (fim) return fim;
+        }
+        falhas.add(chave);
+        return null;
+      };
+
+      const fim = seguir(criarEstadoFase(FASE_1), 0);
+      expect(fim, 'nenhum jeito de terminar a Fase 1 sem morrer').not.toBeNull();
+      expect(fim?.mortes).toBe(0);
+      expect(fim?.concluida).toBe(true);
+    },
+    120_000,
+  );
 
   it('acha a rota mínima em número de deslizes', () => {
     // Início em (1,1): direita coleta 1 e 2 e para em (13,1); baixo coleta 3 em (13,3)
@@ -222,7 +242,7 @@ describe('solver estático', () => {
     const resultado = resolverFase(fase);
     expect(resultado.valida).toBe(true);
     expect(resultado.avisos).toEqual([
-      'Habitante em (11,3) não é alcançável: ninguém conseguirá resgatá-lo.',
+      'Habitante 1 em (11,3) não é alcançável: ninguém conseguirá resgatá-lo.',
     ]);
   });
 });

@@ -14,6 +14,7 @@ import {
 import {
   atualizarDeslize,
   contarAlmasColetadas,
+  contarHabitantesResgatados,
   criarEstadoFase,
   distanciaAteAmeacaMaisProxima,
   fecharProvaEmExibicao,
@@ -36,16 +37,69 @@ import {
   type ProvaNaFase,
   type TipoAmeaca,
 } from '../core/fase';
+import {
+  COLUNAS_ACAO,
+  LINHA_MORTE,
+  LINHA_OLHAR,
+  QUADROS_MORTE,
+  SPRITES_PROTAGONISTA,
+  chaveAnimacao,
+  distanciaDoDeslize,
+  indiceQuadro,
+  intensidadeDoImpacto,
+  olharDaDirecao,
+  type Olhar,
+} from './protagonistaSprites';
+import {
+  ANGULO_DRONE,
+  ANGULO_LANTERNA,
+  COLUNAS_GUARDA,
+  LINHA_GUARDA,
+  SPRITES_DRONE,
+  SPRITES_GUARDA,
+  chaveAnimacaoGuarda,
+} from './ameacasSprites';
+import {
+  COLUNAS_HABITANTE,
+  SPRITES_HABITANTES,
+  chaveAnimacaoHabitante,
+  linhaDoHabitante,
+} from './habitantesSprites';
+
+/** Cores da paleta usadas nos efeitos do Protagonista (art/paleta.hex). */
+const COR_ESPIRITO = 0x52e596;
+const COR_VERDE_CLARO = 0xb5d96a;
+const COR_BROTO = 0x6fae5a;
+const COR_POEIRA = [0xd9a066, 0xa0703f, 0x8a9a90];
+const COR_NOITE = 0x0d1512;
+const COR_VERMELHO_MAQUINA = 0xc23b22;
+const COR_AMARELO_SINAL = 0xf4d35e;
+
+/**
+ * Leque (em graus do Phaser: 0 = direita, 90 = baixo) em que a poeira sai da parede:
+ * a parede está na direção do deslize, então a poeira volta para o lado oposto.
+ */
+const ANGULO_PARA_LONGE_DA_PAREDE: Record<Direcao, { min: number; max: number }> = {
+  baixo: { min: 200, max: 340 },
+  cima: { min: 20, max: 160 },
+  direita: { min: 110, max: 250 },
+  esquerda: { min: -70, max: 70 },
+};
 
 export interface ResumoConclusaoFase {
   readonly deslizes: number;
   readonly mortes: number;
   /** Tempo jogado na tentativa, sem pausas nem overlays de Prova. */
   readonly tempoSegundos: number;
-  readonly habitanteResgatado: boolean;
-  readonly temHabitante: boolean;
+  readonly habitantesResgatados: number;
+  readonly habitantesTotal: number;
   readonly almasColetadas: number;
   readonly almasTotal: number;
+}
+
+export interface OpcoesFaseScene {
+  /** Aparência de cada Habitante (mesma ordem de `fase.habitantes`; vazio: pelo número). */
+  readonly aparenciasHabitantes?: readonly string[];
 }
 
 export interface CallbacksFaseScene {
@@ -53,11 +107,12 @@ export interface CallbacksFaseScene {
   aoAtualizarDeslizes: (deslizes: number) => void;
   aoAtualizarMortes: (mortes: number) => void;
   aoAtualizarProvas: (coletadas: number, total: number) => void;
-  aoAtualizarHabitante: (resgatado: boolean, temHabitante: boolean) => void;
+  aoAtualizarHabitantes: (resgatados: number, total: number) => void;
   aoAtualizarAlmas: (coletadas: number, total: number) => void;
   aoColetarProva: (prova: ProvaNaFase) => void;
   aoAbrirProva: (prova: ProvaNaFase) => void;
-  aoResgatarHabitante: () => void;
+  /** `indice` é a posição em `fase.habitantes` (o número do Habitante é `indice + 1`). */
+  aoResgatarHabitante: (indice: number) => void;
   /** Todos os eventos do núcleo, na ordem em que acontecem (usado pelo áudio). */
   aoEventos?: (eventos: readonly EventoDeslize[]) => void;
 }
@@ -114,7 +169,6 @@ const CORES = {
   droneMarca: 0x450a0a,
   guarda: 0x6366f1,
   guardaMarca: 0x1e1b4b,
-  guardaOlhar: 0xf8fafc,
   pausaMarca: 0xfef08a,
 } as const;
 
@@ -141,13 +195,6 @@ const ESTILO_AMEACA: Record<
   guarda: { cor: CORES.guarda, marca: CORES.guardaMarca, glifo: 'R' },
 };
 
-const ANGULO_PES: Record<Direcao, number> = {
-  baixo: 0,
-  esquerda: 90,
-  cima: 180,
-  direita: -90,
-};
-
 const QUADRO_ESPINHO: Record<EtapaEspinho, number> = {
   recolhido: 0,
   aviso: 1, // 1 e 2 alternam no pisca
@@ -171,12 +218,27 @@ interface CelulaBrilhoTrilho {
 export class FaseScene extends Phaser.Scene {
   private readonly fase: Fase;
   private readonly callbacks: CallbacksFaseScene;
+  private readonly opcoes: OpcoesFaseScene;
   private estado!: EstadoFase;
 
   private protagonista!: Phaser.GameObjects.Container;
-  private corpoProtagonista!: Phaser.GameObjects.Image;
-  private escalaBaseProtagonista = 1;
+  private corpoProtagonista!: Phaser.GameObjects.Sprite;
   private marcadorBuffer!: Phaser.GameObjects.Rectangle;
+  /** Para onde o Protagonista olha (escolhe a linha da spritesheet). */
+  private olharAtual: Olhar = 'frente';
+  /** Distância em tiles do deslize em curso (0 parado). */
+  private distanciaDeslizeAtual = 0;
+  /** Aura verde do espírito da mata, atrás do corpo. */
+  private auraEspirito: Phaser.GameObjects.Image | null = null;
+  private auraCorridaTween: Phaser.Tweens.Tween | null = null;
+  private escalaBaseAura = 1;
+  /** Ecos do corpo na corrida do espírito (reaproveitados). */
+  private readonly ecos: Phaser.GameObjects.Image[] = [];
+  private proximoEcoMs = 0;
+  private emissorPoeira: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorFolhasParede: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorFolhasRastro: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private emissorEsporos: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   private baseSaida!: Phaser.GameObjects.Rectangle;
   private nucleoSaida!: Phaser.GameObjects.Rectangle;
@@ -187,10 +249,16 @@ export class FaseScene extends Phaser.Scene {
   private readonly marcadoresProva = new Map<NumeroProva, Phaser.GameObjects.Graphics>();
   private readonly marcadoresTotem: MarcadorTotem[] = [];
   private haloTotemTween: Phaser.Tweens.Tween | null = null;
-  private marcadorHabitante: Phaser.GameObjects.Graphics | null = null;
+  /** Um sprite por Habitante (mesma ordem de `fase.habitantes`), tremendo de medo até o resgate. */
+  private readonly spritesHabitante: Array<{ readonly sprite: Phaser.GameObjects.Sprite; readonly linha: number }> = [];
   private readonly spritesAmeaca = new Map<string, Phaser.GameObjects.Container>();
-  /** Marca provisória de "para onde o Guarda olha" (até a animação em 4 direções da arte final). */
-  private readonly olharGuarda = new Map<string, Phaser.GameObjects.Rectangle>();
+  /** Corpo do Drone (gira para a direção do trilho). */
+  private readonly corposDrone = new Map<string, Phaser.GameObjects.Sprite>();
+  /** Corpo do Guarda e o cone da lanterna, que mostra para onde ele olha. */
+  private readonly guardas = new Map<
+    string,
+    { readonly corpo: Phaser.GameObjects.Sprite; readonly cone: Phaser.GameObjects.Image }
+  >();
   private readonly brilhosTrilhoGosma: CelulaBrilhoTrilho[] = [];
   /** Um gráfico por espinho, redesenhado quando a etapa muda (e piscando no aviso). */
   /** Um sprite por espinho; troca de quadro por etapa e anima nas transições. */
@@ -204,7 +272,6 @@ export class FaseScene extends Phaser.Scene {
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
-  private rotacaoTween: Phaser.Tweens.Tween | null = null;
   private lookAheadAtualY = 0;
   private lookAheadAtualX = 0;
 
@@ -227,16 +294,18 @@ export class FaseScene extends Phaser.Scene {
   private brilhoSaida: Phaser.GameObjects.Image | null = null;
   private brilhoSaidaPulso: Phaser.Tweens.Tween | null = null;
 
-  constructor(fase: Fase, callbacks: CallbacksFaseScene) {
+  constructor(fase: Fase, callbacks: CallbacksFaseScene & OpcoesFaseScene) {
     super({ key: 'FaseScene' });
     this.fase = fase;
     this.callbacks = callbacks;
+    this.opcoes = { aparenciasHabitantes: callbacks.aparenciasHabitantes };
   }
 
   preload(): void {
-    this.load.image(
-      'protagonista',
-      `${import.meta.env.BASE_URL}assets/protagonista.png`,
+    this.load.spritesheet(
+      SPRITES_PROTAGONISTA.chave,
+      `${import.meta.env.BASE_URL}${SPRITES_PROTAGONISTA.arquivo}`,
+      { frameWidth: SPRITES_PROTAGONISTA.quadroPx, frameHeight: SPRITES_PROTAGONISTA.quadroPx },
     );
     // Experimento com assets CC0 (ver public/assets/cc0/CREDITOS.md).
     const tamanho = { frameWidth: CONFIG.tamanhoTilePx, frameHeight: CONFIG.tamanhoTilePx };
@@ -249,6 +318,12 @@ export class FaseScene extends Phaser.Scene {
       this.load.image(`cenario-${objeto.chave}`, `${cc0}/cenario/${objeto.chave}.png`);
     }
     this.load.spritesheet('gosma', `${import.meta.env.BASE_URL}assets/cc0/gosma.png`, tamanho);
+    for (const folha of [SPRITES_DRONE, SPRITES_GUARDA, SPRITES_HABITANTES]) {
+      this.load.spritesheet(folha.chave, `${import.meta.env.BASE_URL}${folha.arquivo}`, {
+        frameWidth: folha.quadroPx,
+        frameHeight: folha.quadroPx,
+      });
+    }
   }
 
   create(): void {
@@ -258,6 +333,9 @@ export class FaseScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(CORES.fundo);
     this.cameras.main.setBounds(0, 0, larguraMundo, alturaMundo);
+    this.reduzirMovimento =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
     this.desenharGrade();
     this.desenharElementosPlaceholder();
@@ -334,7 +412,16 @@ export class FaseScene extends Phaser.Scene {
     for (const marcador of this.marcadoresProva.values()) {
       marcador.setVisible(true);
     }
-    this.marcadorHabitante?.setVisible(true);
+    this.spritesHabitante.forEach(({ sprite, linha }, i) => {
+      const { col, lin } = this.fase.habitantes[i];
+      const tile = CONFIG.tamanhoTilePx;
+      this.tweens.killTweensOf(sprite);
+      sprite
+        .setVisible(true)
+        .setAlpha(1)
+        .setPosition(col * tile + tile / 2, lin * tile + tile / 2)
+        .play(chaveAnimacaoHabitante('medo', linha));
+    });
     for (const alma of this.spritesAlma) {
       alma.setVisible(true);
     }
@@ -351,10 +438,7 @@ export class FaseScene extends Phaser.Scene {
     this.callbacks.aoAtualizarDeslizes(0);
     this.callbacks.aoAtualizarMortes(0);
     this.callbacks.aoAtualizarProvas(this.estado.provasColetadas.length, TOTAL_PROVAS_FASE);
-    this.callbacks.aoAtualizarHabitante(
-      this.estado.habitanteResgatado,
-      this.fase.habitante !== null,
-    );
+    this.callbacks.aoAtualizarHabitantes(0, this.fase.habitantes.length);
     this.callbacks.aoAtualizarAlmas(0, this.fase.almas.length);
   }
 
@@ -409,9 +493,11 @@ export class FaseScene extends Phaser.Scene {
     this.trancoOffset.y = 0;
     this.lookAheadAtualY = 0;
     this.lookAheadAtualX = 0;
-    this.rotacaoTween?.stop();
-    this.corpoProtagonista.setAngle(0);
     this.restaurarFormaProtagonista();
+    this.encerrarCorridaEspirito();
+    this.olharAtual = 'frente';
+    this.corpoProtagonista.setFlipX(false);
+    this.corpoProtagonista.play(chaveAnimacao('parado', 'frente'));
   }
 
   private reiniciarCiclosAmeacasEArmadilhas(): void {
@@ -719,18 +805,7 @@ export class FaseScene extends Phaser.Scene {
       this.marcadoresProva.set(prova.numero, marcador);
     }
 
-    this.marcadorHabitante = null;
-    if (this.fase.habitante) {
-      const marcador = this.add.graphics().setDepth(6);
-      this.desenharQuadradoMarcado(
-        marcador,
-        this.fase.habitante,
-        CORES.habitante,
-        CORES.habitanteMarca,
-        'H',
-      );
-      this.marcadorHabitante = marcador;
-    }
+    this.criarHabitantes();
 
     this.gerarTexturaEspinho();
     for (const item of this.spritesEspinho) item.tween?.stop();
@@ -742,10 +817,12 @@ export class FaseScene extends Phaser.Scene {
       this.spritesEspinho.push({ sprite, etapa: '', quadro: 0, tween: null });
     }
 
+    this.gerarTexturasEfeitos();
+    this.criarAnimacoesAmeacas();
     this.spritesAmeaca.clear();
-    this.olharGuarda.clear();
+    this.corposDrone.clear();
+    this.guardas.clear();
     for (const ameaca of this.fase.ameacas) {
-      const estilo = ESTILO_AMEACA[ameaca.tipo];
       const centroX = ameaca.posicaoInicial.col * tile + tile / 2;
       const centroY = ameaca.posicaoInicial.lin * tile + tile / 2;
 
@@ -773,83 +850,207 @@ export class FaseScene extends Phaser.Scene {
         });
 
         this.spritesAmeaca.set(ameaca.id, container);
+      } else if (ameaca.tipo === 'drone') {
+        this.spritesAmeaca.set(ameaca.id, this.criarDrone(ameaca.id, centroX, centroY));
       } else {
-        const grafico = this.add.graphics();
-        this.desenharQuadradoMarcadoLocal(
-          grafico,
-          -tile / 2,
-          -tile / 2,
-          estilo.cor,
-          estilo.marca,
-          estilo.glifo,
-        );
-        const container = this.add.container(centroX, centroY, [grafico]).setDepth(8);
-        if (ameaca.tipo === 'guarda') {
-          const olhar = this.add.rectangle(0, 0, 4, 4, CORES.guardaOlhar, 1);
-          container.add(olhar);
-          this.olharGuarda.set(ameaca.id, olhar);
-        }
-        this.spritesAmeaca.set(ameaca.id, container);
+        this.spritesAmeaca.set(ameaca.id, this.criarGuarda(ameaca.id, centroX, centroY));
       }
     }
   }
 
-  private desenharQuadradoMarcadoLocal(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    corFundo: number,
-    corMarca: number,
-    glifo: GlifoMarcador,
-  ): void {
-    const tile = CONFIG.tamanhoTilePx;
-    g.fillStyle(corFundo, 1);
-    g.fillRect(x + 1, y + 1, tile - 3, tile - 3);
-
-    const padrao = GLIFOS_MARCADOR[glifo];
-    g.fillStyle(corMarca, 1);
-    for (let lin = 0; lin < padrao.length; lin++) {
-      const linha = padrao[lin];
-      for (let col = 0; col < linha.length; col++) {
-        if (linha[col] === '#') {
-          g.fillRect(x + 5 + col, y + 5 + lin, 1, 1);
-        }
+  /** Animações do Drone (hélices) e do Guarda (andar e parado nas 3 vistas). */
+  private criarAnimacoesAmeacas(): void {
+    if (!this.anims.exists('drone-helice')) {
+      this.anims.create({
+        key: 'drone-helice',
+        frames: this.anims.generateFrameNumbers(SPRITES_DRONE.chave, {
+          start: 0,
+          end: SPRITES_DRONE.quadrosHelice - 1,
+        }),
+        frameRate: 20,
+        repeat: -1,
+      });
+    }
+    const { chave, colunas } = SPRITES_GUARDA;
+    for (const olhar of ['frente', 'costas', 'lado'] as const) {
+      const q = (coluna: number) => LINHA_GUARDA[olhar] * colunas + coluna;
+      if (!this.anims.exists(chaveAnimacaoGuarda('andar', olhar))) {
+        this.anims.create({
+          key: chaveAnimacaoGuarda('andar', olhar),
+          frames: COLUNAS_GUARDA.andar.map((coluna) => ({ key: chave, frame: q(coluna) })),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+      if (!this.anims.exists(chaveAnimacaoGuarda('parado', olhar))) {
+        const [base, olhando] = COLUNAS_GUARDA.parado;
+        this.anims.create({
+          key: chaveAnimacaoGuarda('parado', olhar),
+          frames: [
+            { key: chave, frame: q(base), duration: 700 },
+            { key: chave, frame: q(olhando), duration: 500 },
+          ],
+          repeat: -1,
+        });
       }
     }
   }
 
-  private desenharQuadradoMarcado(
-    g: Phaser.GameObjects.Graphics,
-    coord: Coordenada,
-    corFundo: number,
-    corMarca: number,
-    glifo: GlifoMarcador,
-  ): void {
+  /**
+   * Drone Desmatador: voa (sombra no chão, corpo 3 px acima e balançando), hélices
+   * girando e uma luz vermelha piscando em volta. O corpo gira para a direção do trilho.
+   */
+  private criarDrone(id: string, x: number, y: number): Phaser.GameObjects.Container {
     const tile = CONFIG.tamanhoTilePx;
-    this.desenharQuadradoMarcadoLocal(
-      g,
-      coord.col * tile,
-      coord.lin * tile,
-      corFundo,
-      corMarca,
-      glifo,
-    );
+    const sombra = this.add.ellipse(1, 4, 14, 7, COR_NOITE, 0.4);
+    const luz = this.add
+      .image(0, -3, 'fx-brilho')
+      .setDisplaySize(tile * 1.6, tile * 1.6)
+      .setTint(COR_VERMELHO_MAQUINA)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.2);
+    const corpo = this.add.sprite(0, -3, SPRITES_DRONE.chave, 0).play('drone-helice');
+    this.corposDrone.set(id, corpo);
+
+    this.tweens.add({
+      targets: luz,
+      alpha: { from: 0.12, to: 0.45 },
+      duration: 260,
+      yoyo: true,
+      repeat: -1,
+      repeatDelay: 380,
+    });
+    if (!this.reduzirMovimento) {
+      this.tweens.add({
+        targets: corpo,
+        y: -4,
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+    return this.add.container(x, y, [sombra, luz, corpo]).setDepth(8);
+  }
+
+  /** Guarda Florestal: sprite em 3/4 que anda nas 4 direções e o cone da lanterna. */
+  private criarGuarda(id: string, x: number, y: number): Phaser.GameObjects.Container {
+    const tile = CONFIG.tamanhoTilePx;
+    const sombra = this.add.ellipse(0, 7, 12, 4, COR_NOITE, 0.35);
+    const cone = this.add
+      .image(0, 0, 'fx-cone')
+      .setOrigin(0, 0.5)
+      .setDisplaySize(tile * 3, tile * 1.6)
+      .setTint(COR_AMARELO_SINAL)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.34);
+    const corpo = this.add
+      .sprite(0, 0, SPRITES_GUARDA.chave, 0)
+      .setOrigin(0.5, SPRITES_GUARDA.origemY)
+      .play(chaveAnimacaoGuarda('andar', 'lado'));
+    this.guardas.set(id, { corpo, cone });
+    return this.add.container(x, y, [sombra, cone, corpo]).setDepth(8);
   }
 
   private criarProtagonista(): void {
     const tile = CONFIG.tamanhoTilePx;
-    this.corpoProtagonista = this.add.image(0, 0, 'protagonista');
-    this.corpoProtagonista.setDisplaySize(tile, tile);
-    this.escalaBaseProtagonista = this.corpoProtagonista.scaleX;
+    this.criarAnimacoesProtagonista();
+    this.gerarTexturasEfeitos();
+
+    this.corpoProtagonista = this.add
+      .sprite(0, 0, SPRITES_PROTAGONISTA.chave, 0)
+      .setOrigin(0.5, SPRITES_PROTAGONISTA.origemY);
+    this.corpoProtagonista.play(chaveAnimacao('parado', 'frente'));
+
+    // Aura do espírito da mata: luz verde suave atrás do corpo, pulsando devagar.
+    const { aura } = CONFIG.feel.protagonista;
+    this.auraEspirito = this.add
+      .image(0, -2, 'fx-brilho')
+      .setDisplaySize(tile * 1.7, tile * 1.7)
+      .setTint(COR_ESPIRITO)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(aura.alfa.min);
+    this.escalaBaseAura = this.auraEspirito.scaleX;
+    this.tweens.add({
+      targets: this.auraEspirito,
+      alpha: { from: aura.alfa.min, to: aura.alfa.max },
+      duration: aura.pulsoMs,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     this.marcadorBuffer = this.add.rectangle(0, 0, 3, 3, CORES.bufferIndicador);
     this.marcadorBuffer.setVisible(false);
 
     this.protagonista = this.add.container(0, 0, [
+      this.auraEspirito,
       this.corpoProtagonista,
       this.marcadorBuffer,
     ]);
     this.protagonista.setDepth(10);
+  }
+
+  /** Animações da spritesheet do Protagonista (criadas uma vez por jogo). */
+  private criarAnimacoesProtagonista(): void {
+    const { chave } = SPRITES_PROTAGONISTA;
+    const criar = (config: Phaser.Types.Animations.Animation) => {
+      if (!this.anims.exists(config.key as string)) this.anims.create(config);
+    };
+    const olhares: Olhar[] = ['frente', 'costas', 'lado'];
+    for (const olhar of olhares) {
+      const linha = LINHA_OLHAR[olhar];
+      const q = (coluna: number) => indiceQuadro(linha, coluna);
+      const [base, respiro, balanco, extra] = COLUNAS_ACAO.parado;
+      criar({
+        key: chaveAnimacao('parado', olhar),
+        frames: [
+          { key: chave, frame: q(base), duration: 420 },
+          { key: chave, frame: q(respiro), duration: 380 },
+          { key: chave, frame: q(balanco), duration: 300 },
+          { key: chave, frame: q(respiro), duration: 300 },
+          { key: chave, frame: q(base), duration: 520 },
+          // piscar (frente e lado) ou o broto balançando (costas): rápido
+          { key: chave, frame: q(extra), duration: 130 },
+        ],
+        repeat: -1,
+      });
+      criar({
+        key: chaveAnimacao('deslize', olhar),
+        frames: COLUNAS_ACAO.deslize.map((coluna) => ({ key: chave, frame: q(coluna) })),
+        frameRate: 14,
+        repeat: -1,
+      });
+      criar({
+        key: chaveAnimacao('batida', olhar),
+        frames: COLUNAS_ACAO.batida.map((coluna) => ({ key: chave, frame: q(coluna) })),
+        frameRate: 1,
+        repeat: 0,
+      });
+    }
+    const quadrosMorte = Array.from({ length: QUADROS_MORTE }, (_, i) => ({
+      key: chave,
+      frame: indiceQuadro(LINHA_MORTE, i),
+    }));
+    criar({ key: chaveAnimacao('morte'), frames: quadrosMorte, frameRate: 14, repeat: 0 });
+    // Reaparecer: as folhas e a luz se juntam de volta (a morte ao contrário, sem o vazio).
+    criar({
+      key: chaveAnimacao('reaparecer'),
+      frames: quadrosMorte.slice(1, -1).reverse(),
+      frameRate: 16,
+      repeat: 0,
+    });
+  }
+
+  /** Vira o corpo para a direção (frente, costas ou lado, espelhando à esquerda). */
+  private virarPara(direcao: Direcao): void {
+    const { olhar, espelhar } = olharDaDirecao(direcao);
+    this.olharAtual = olhar;
+    this.corpoProtagonista.setFlipX(espelhar);
+  }
+
+  private tocarParado(): void {
+    this.corpoProtagonista.play(chaveAnimacao('parado', this.olharAtual), true);
   }
 
   private processarEventos(eventos: readonly EventoDeslize[]): void {
@@ -858,23 +1059,25 @@ export class FaseScene extends Phaser.Scene {
       switch (evento.tipo) {
         case 'iniciou_deslize':
           this.callbacks.aoAtualizarDeslizes(this.estado.deslizes);
-          this.aplicarEstiramentoDeslize(evento.direcao);
+          this.iniciarDeslizeVisual(evento.direcao);
           break;
         case 'tranco':
+          this.virarPara(evento.direcao);
           this.executarAnimacaoTranco(evento.direcao);
+          this.impactoNaParede(evento.direcao, 0);
           break;
         case 'parou_na_parede':
-          this.achatarAoBater();
+          this.impactoNaParede(evento.direcao, this.distanciaDeslizeAtual);
+          this.distanciaDeslizeAtual = 0;
           break;
         case 'totem_ativado':
           this.efeitoAtivacaoTotem(evento.celula);
           this.atualizarVisualTotemAtivo(evento.celula, true);
           break;
         case 'habitante_resgatado':
-          this.marcadorHabitante?.setVisible(false);
-          this.animarPartidaHabitante(evento.celula);
-          this.callbacks.aoResgatarHabitante();
-          this.callbacks.aoAtualizarHabitante(true, this.fase.habitante !== null);
+          this.animarResgateHabitante(evento.indice);
+          this.callbacks.aoResgatarHabitante(evento.indice);
+          this.callbacks.aoAtualizarHabitantes(evento.resgatados, evento.total);
           break;
         case 'prova_coletada':
           this.marcadoresProva.get(evento.prova.numero)?.setVisible(false);
@@ -887,6 +1090,7 @@ export class FaseScene extends Phaser.Scene {
         case 'morreu':
           this.efeitoMorte(evento.origem);
           this.resetarVisualProtagonista();
+          this.animarReaparecer();
           this.sincronizarProtagonista();
           this.atualizarIndicadorBuffer();
           this.centralizarCameraImediatamente();
@@ -895,6 +1099,7 @@ export class FaseScene extends Phaser.Scene {
           break;
         case 'retornou_ao_totem':
           this.resetarVisualProtagonista();
+          this.animarReaparecer();
           this.sincronizarProtagonista();
           this.atualizarIndicadorBuffer();
           this.centralizarCameraImediatamente();
@@ -920,8 +1125,8 @@ export class FaseScene extends Phaser.Scene {
             deslizes: this.estado.deslizes,
             mortes: this.estado.mortes,
             tempoSegundos: this.estado.tempoJogadoSegundos,
-            habitanteResgatado: this.estado.habitanteResgatado,
-            temHabitante: this.fase.habitante !== null,
+            habitantesResgatados: contarHabitantesResgatados(this.estado),
+            habitantesTotal: this.fase.habitantes.length,
             almasColetadas: contarAlmasColetadas(this.estado),
             almasTotal: this.fase.almas.length,
           });
@@ -930,73 +1135,267 @@ export class FaseScene extends Phaser.Scene {
     }
   }
 
-  private animarPartidaHabitante(celula: Coordenada): void {
+  /** Sprites dos Habitantes, tremendo de medo no lugar de cada `H`. */
+  private criarHabitantes(): void {
     const tile = CONFIG.tamanhoTilePx;
-    const brilho = this.add
-      .rectangle(
-        celula.col * tile + tile / 2,
-        celula.lin * tile + tile / 2,
-        tile - 2,
-        tile - 2,
-        CORES.habitante,
-        0.9,
-      )
-      .setDepth(9);
+    const { chave, colunas } = SPRITES_HABITANTES;
+    for (const item of this.spritesHabitante) item.sprite.destroy();
+    this.spritesHabitante.length = 0;
 
-    this.tweens.add({
-      targets: brilho,
-      y: brilho.y - tile,
-      scaleX: 1.5,
-      scaleY: 1.5,
-      alpha: 0,
-      duration: 360,
-      ease: 'Quad.easeOut',
-      onComplete: () => brilho.destroy(),
+    this.fase.habitantes.forEach((celula, i) => {
+      const linha = linhaDoHabitante(this.opcoes.aparenciasHabitantes?.[i], i + 1);
+      const quadro = (coluna: number) => ({ key: chave, frame: linha * colunas + coluna });
+      if (!this.anims.exists(chaveAnimacaoHabitante('medo', linha))) {
+        // Treme (base, um lado, base, outro lado) com os olhos procurando; uma pausa
+        // curta na base deixa o tremor irregular, de medo de verdade.
+        const [base, direita, olhando, esquerda] = COLUNAS_HABITANTE.medo;
+        this.anims.create({
+          key: chaveAnimacaoHabitante('medo', linha),
+          frames: [
+            { ...quadro(base), duration: 90 },
+            { ...quadro(direita), duration: 70 },
+            { ...quadro(base), duration: 90 },
+            { ...quadro(esquerda), duration: 70 },
+            { ...quadro(olhando), duration: 420 },
+            { ...quadro(direita), duration: 70 },
+            { ...quadro(olhando), duration: 90 },
+            { ...quadro(esquerda), duration: 70 },
+            { ...quadro(base), duration: 480 },
+          ],
+          repeat: -1,
+        });
+      }
+      if (!this.anims.exists(chaveAnimacaoHabitante('alivio', linha))) {
+        this.anims.create({
+          key: chaveAnimacaoHabitante('alivio', linha),
+          frames: COLUNAS_HABITANTE.alivio.map((coluna) => quadro(coluna)),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+      const sprite = this.add
+        .sprite(celula.col * tile + tile / 2, celula.lin * tile + tile / 2, chave, linha * colunas)
+        .setOrigin(0.5, SPRITES_HABITANTES.origemY)
+        .setDepth(6)
+        .play(chaveAnimacaoHabitante('medo', linha));
+      // Cada um começa o tremor num ponto diferente, para não tremerem em coro.
+      sprite.anims.setProgress((i * 0.37) % 1);
+      this.spritesHabitante.push({ sprite, linha });
     });
   }
 
-  private aplicarEstiramentoDeslize(direcao: Direcao): void {
-    this.girarPesPara(direcao);
-    this.restaurarFormaProtagonista();
-    const base = this.escalaBaseProtagonista;
-    const { x, y } = CONFIG.feel.estiramentoDeslize;
-    this.corpoProtagonista.setScale(base * x, base * y);
+  /**
+   * Resgate: o Habitante pula de alívio, a luz do espírito da mata sobe em volta e ele
+   * some subindo (vai para o ponto de encontro).
+   */
+  private animarResgateHabitante(indice: number): void {
+    const item = this.spritesHabitante[indice];
+    if (!item) return;
+    const { sprite, linha } = item;
+    sprite.play(chaveAnimacaoHabitante('alivio', linha));
+    this.emissorTotem?.explode(10, sprite.x, sprite.y - 4);
+    this.anelDeLuz(sprite.x, sprite.y, 0.6);
+    this.tweens.add({
+      targets: sprite,
+      y: sprite.y - CONFIG.tamanhoTilePx,
+      alpha: 0,
+      delay: 520,
+      duration: 420,
+      ease: 'Quad.easeIn',
+      onComplete: () => sprite.setVisible(false),
+    });
   }
 
-  /** Achata na direção do deslize ao bater na parede e volta ao normal com um quique. */
-  private achatarAoBater(): void {
-    const base = this.escalaBaseProtagonista;
-    const { x, y, duracaoMs } = CONFIG.feel.achatamentoBatida;
+  /** Começo do deslize: vira, entra na pose de voo e, se for longe, vira corrida do espírito. */
+  private iniciarDeslizeVisual(direcao: Direcao): void {
     this.restaurarFormaProtagonista();
-    this.corpoProtagonista.setScale(base * x, base * y);
+    this.virarPara(direcao);
+    this.corpoProtagonista.play(chaveAnimacao('deslize', this.olharAtual));
+    this.distanciaDeslizeAtual = distanciaDoDeslize(this.estado.posicao, this.estado.destinoDeslize);
+
+    // Arrancada: um sopro de poeira para trás.
+    const { x, y } = this.protagonista;
+    const { dc, dl } = VETOR_DIRECAO[direcao];
+    const tras = ANGULO_PARA_LONGE_DA_PAREDE[direcao];
+    this.emissorPoeira?.setEmitterAngle({ min: tras.min + 180, max: tras.max + 180 });
+    this.emissorPoeira?.explode(3, x - dc * 5, y - dl * 5 + 4);
+
+    const { distanciaEspiritoTiles, aura } = CONFIG.feel.protagonista;
+    if (this.distanciaDeslizeAtual >= distanciaEspiritoTiles && this.auraEspirito) {
+      this.auraCorridaTween?.stop();
+      this.auraCorridaTween = this.tweens.add({
+        targets: this.auraEspirito,
+        scale: this.escalaBaseAura * aura.escalaCorrida,
+        duration: 120,
+        ease: 'Quad.easeOut',
+      });
+      this.emissorFolhasRastro?.start();
+    }
+  }
+
+  /** A aura volta ao tamanho normal e as folhas do rastro param. */
+  private encerrarCorridaEspirito(): void {
+    this.emissorFolhasRastro?.stop();
+    const aura = this.auraEspirito;
+    if (!aura) return;
+    this.auraCorridaTween?.stop();
+    this.auraCorridaTween = this.tweens.add({
+      targets: aura,
+      scale: this.escalaBaseAura,
+      duration: 260,
+      ease: 'Quad.easeOut',
+    });
+  }
+
+  /**
+   * Batida na parede: quadro de batida (que fica mais tempo quanto mais forte), achatamento,
+   * poeira da trilha, folhas caindo da mata, anel de luz e, nos deslizes longos, tremor de
+   * tela e brotos que nascem no chão.
+   */
+  private impactoNaParede(direcao: Direcao, distanciaTiles: number): void {
+    const tile = CONFIG.tamanhoTilePx;
+    const forca = intensidadeDoImpacto(distanciaTiles);
+    const { impacto } = CONFIG.feel.protagonista;
+    const lerp = (faixa: { min: number; max: number }) => faixa.min + (faixa.max - faixa.min) * forca;
+    this.encerrarCorridaEspirito();
+
+    // Quadro de batida segurado por um instante, depois volta a respirar.
+    const corpo = this.corpoProtagonista;
+    corpo.play({ key: chaveAnimacao('batida', this.olharAtual), duration: lerp(impacto.pausaMs) });
+    corpo.chain(chaveAnimacao('parado', this.olharAtual));
+
+    // Achatamento extra contra a parede, mantendo o lado da parede no lugar.
+    const { contra, largura, duracaoMs } = CONFIG.feel.achatamentoBatida;
+    const horizontal = direcao === 'esquerda' || direcao === 'direita';
+    const { dc, dl } = VETOR_DIRECAO[direcao];
+    this.restaurarFormaProtagonista();
+    const fator = 0.4 + 0.6 * forca;
+    const escalaContra = 1 - (1 - contra) * fator;
+    const escalaLargura = 1 + (largura - 1) * fator;
+    corpo.setScale(horizontal ? escalaContra : escalaLargura, horizontal ? escalaLargura : escalaContra);
+    // O achatamento é em volta da origem; desloca o corpo para o lado da parede continuar
+    // encostado. O quadro de batida de costas também sobe 2 px (a cabeça fica na parede).
+    const encolhe = 1 - escalaContra;
+    corpo.x = Math.round(dc * encolhe * 6);
+    corpo.y = dl > 0 ? Math.round(encolhe * 8) : dl < 0 ? -2 - Math.round(encolhe * 12) : 0;
     this.achatamentoTween = this.tweens.add({
-      targets: this.corpoProtagonista,
-      scaleX: base,
-      scaleY: base,
+      targets: corpo,
+      scaleX: 1,
+      scaleY: 1,
+      x: 0,
+      y: 0,
+      delay: lerp(impacto.pausaMs) * 0.5,
       duration: duracaoMs,
       ease: 'Back.easeOut',
     });
+
+    // Ponto de contato: a borda do tile, do lado da parede.
+    const cx = this.protagonista.x + dc * (tile / 2);
+    const cy = this.protagonista.y + dl * (tile / 2) + (horizontal ? 3 : 0);
+
+    const angulo = ANGULO_PARA_LONGE_DA_PAREDE[direcao];
+    this.emissorPoeira?.setEmitterAngle(angulo);
+    this.emissorPoeira?.explode(Math.round(lerp(impacto.poeira)), cx, cy);
+    this.emissorFolhasParede?.explode(Math.round(lerp(impacto.folhas)), cx + dc * 2, cy + dl * 2);
+    this.anelDeLuz(cx, cy, forca);
+
+    if (this.reduzirMovimento) return;
+    if (forca >= impacto.tremorAPartir) {
+      this.cameras.main.shake(lerp(impacto.tremorMs), lerp(impacto.tremorIntensidade));
+    }
+    if (forca >= impacto.brotosAPartir) this.brotarNoChao(direcao, forca);
   }
 
-  private girarPesPara(direcao: Direcao): void {
-    const corpo = this.corpoProtagonista;
-    const alvo = ANGULO_PES[direcao];
-    // menor caminho angular (evita girar 270° quando 90° bastam)
-    const delta = Phaser.Math.Angle.ShortestBetween(corpo.angle, alvo);
-
-    this.rotacaoTween?.stop();
-    this.rotacaoTween = this.tweens.add({
-      targets: corpo,
-      angle: corpo.angle + delta,
-      duration: 80,
+  /** Anel de luz do espírito que se abre no ponto da batida. */
+  private anelDeLuz(x: number, y: number, forca: number): void {
+    const anel = this.add
+      .circle(x, y, 3)
+      .setStrokeStyle(1, COR_ESPIRITO, 0.9)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(10.5);
+    this.tweens.add({
+      targets: anel,
+      scale: 2 + forca * 2.5,
+      alpha: 0,
+      duration: 260 + forca * 140,
       ease: 'Quad.easeOut',
+      onComplete: () => anel.destroy(),
+    });
+  }
+
+  /**
+   * Brotos que nascem no chão junto à parede depois de uma batida forte: por onde o
+   * espírito da mata passa, a floresta volta. Somem sozinhos depois de um tempo.
+   */
+  private brotarNoChao(direcao: Direcao, forca: number): void {
+    if (!this.textures.exists('fx-broto')) return;
+    const tile = CONFIG.tamanhoTilePx;
+    const { dc, dl } = VETOR_DIRECAO[direcao];
+    const quantidade = forca >= 0.9 ? 3 : 2;
+    for (let i = 0; i < quantidade; i++) {
+      // espalhados ao longo da parede, na beira do tile do Protagonista
+      const lateral = (i - (quantidade - 1) / 2) * 5 + Phaser.Math.Between(-1, 1);
+      const x = Math.round(this.protagonista.x + dc * (tile / 2 - 2) + (dc === 0 ? lateral : 0));
+      const y = Math.round(this.protagonista.y + dl * (tile / 2 - 2) + (dl === 0 ? lateral : 0) + 6);
+      const broto = this.add
+        .image(x, y, 'fx-broto', i % 2)
+        .setOrigin(0.5, 1)
+        .setDepth(1.5)
+        .setScale(1, 0);
+      this.tweens.chain({
+        targets: broto,
+        tweens: [
+          { scaleY: 1, duration: 180, delay: 60 + i * 70, ease: 'Back.easeOut' },
+          { alpha: 0, duration: 600, delay: 1400 },
+        ],
+        onComplete: () => broto.destroy(),
+      });
+    }
+  }
+
+  /** Ao morrer ou voltar ao Totem, o corpo se refaz de folhas e luz. */
+  private animarReaparecer(): void {
+    this.corpoProtagonista.play(chaveAnimacao('reaparecer'));
+    this.corpoProtagonista.chain(chaveAnimacao('parado', this.olharAtual));
+  }
+
+  /** Eco do corpo na corrida do espírito: uma cópia verde que some atrás. */
+  private soltarEco(): void {
+    const { eco } = CONFIG.feel.protagonista;
+    let imagem = this.ecos.find((e) => !e.visible);
+    if (!imagem) {
+      if (this.ecos.length >= 10) return;
+      imagem = this.add
+        .image(0, 0, SPRITES_PROTAGONISTA.chave, 0)
+        .setOrigin(0.5, SPRITES_PROTAGONISTA.origemY)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setTintFill(COR_ESPIRITO)
+        .setDepth(9.6)
+        .setVisible(false);
+      this.ecos.push(imagem);
+    }
+    const corpo = this.corpoProtagonista;
+    imagem
+      .setFrame(corpo.frame.name)
+      .setFlipX(corpo.flipX)
+      .setPosition(this.protagonista.x, this.protagonista.y)
+      .setAlpha(eco.alfa)
+      .setVisible(true);
+    const alvo = imagem;
+    this.tweens.add({
+      targets: alvo,
+      alpha: 0,
+      duration: eco.vidaMs,
+      ease: 'Quad.easeIn',
+      onComplete: () => alvo.setVisible(false),
     });
   }
 
   private restaurarFormaProtagonista(): void {
     this.achatamentoTween?.stop();
     this.achatamentoTween = null;
-    this.corpoProtagonista.setScale(this.escalaBaseProtagonista);
+    this.corpoProtagonista.setScale(1);
+    this.corpoProtagonista.setPosition(0, 0);
   }
 
   private executarAnimacaoTranco(direcao: Direcao): void {
@@ -1031,6 +1430,24 @@ export class FaseScene extends Phaser.Scene {
       if (this.estado.deslizando) rastro.start();
       else rastro.stop();
     }
+
+    if (this.estado.deslizando) {
+      // Corrida do espírito: ecos verdes ficam para trás.
+      const { distanciaEspiritoTiles, eco } = CONFIG.feel.protagonista;
+      const agora = this.time.now;
+      if (
+        !this.reduzirMovimento &&
+        this.distanciaDeslizeAtual >= distanciaEspiritoTiles &&
+        agora >= this.proximoEcoMs
+      ) {
+        this.soltarEco();
+        this.proximoEcoMs = agora + eco.intervaloMs;
+      }
+    } else if (this.corpoProtagonista.anims.currentAnim?.key.startsWith('protagonista-deslize')) {
+      // Parou sem bater (ex.: voltou ao Totem no meio do caminho): só volta a respirar.
+      this.encerrarCorridaEspirito();
+      this.tocarParado();
+    }
   }
 
   private sincronizarAmeacas(deltaSegundos: number): void {
@@ -1045,12 +1462,21 @@ export class FaseScene extends Phaser.Scene {
         const ay = ameaca.posicao.y * tile + tile / 2;
         sprite.setPosition(Math.round(ax), Math.round(ay));
       }
-      const olhar = this.olharGuarda.get(ameaca.id);
-      if (olhar) {
+      const drone = this.corposDrone.get(ameaca.id);
+      if (drone) drone.setAngle(ANGULO_DRONE[ameaca.direcao]);
+
+      const guarda = this.guardas.get(ameaca.id);
+      if (guarda) {
+        const { olhar, espelhar } = olharDaDirecao(ameaca.direcao);
+        guarda.corpo.setFlipX(espelhar);
+        guarda.corpo.play(chaveAnimacaoGuarda(ameaca.pausada ? 'parado' : 'andar', olhar), true);
+        // O cone sai da lanterna, na mão, e aponta para onde ele olha. Na pausa da ponta,
+        // varre devagar de um lado para o outro (é a deixa para o jogador passar).
         const { dc, dl } = VETOR_DIRECAO[ameaca.direcao];
-        olhar.setPosition(dc * 6, dl * 6);
-        // Parado no ponto de pausa: a marca fica amarela, como os pontos de pausa do trilho.
-        olhar.setFillStyle(ameaca.pausada ? CORES.pausaMarca : CORES.guardaOlhar, 1);
+        const varredura = ameaca.pausada ? Math.sin(this.time.now / 420) * 28 : 0;
+        guarda.cone
+          .setPosition(dc * 5, 3 + dl * 2)
+          .setAngle(ANGULO_LANTERNA[ameaca.direcao] + varredura);
       }
       if (ameaca.tipo === 'gosma') {
         posicoesGosma.push(ameaca.posicao);
@@ -1160,6 +1586,68 @@ export class FaseScene extends Phaser.Scene {
       .setDepth(9);
     this.emissorRastro.startFollow(this.protagonista);
 
+    // Folhas soltas no rastro da corrida do espírito.
+    this.emissorFolhasRastro = this.add
+      .particles(0, 0, 'fx-folha', {
+        lifespan: 520,
+        frequency: 60,
+        speed: { min: 4, max: 16 },
+        angle: { min: 0, max: 360 },
+        rotate: { min: 0, max: 360 },
+        alpha: { start: 0.9, end: 0 },
+        tint: [COR_ESPIRITO, COR_VERDE_CLARO, COR_BROTO],
+        emitting: false,
+      })
+      .setDepth(9);
+    this.emissorFolhasRastro.startFollow(this.protagonista);
+
+    // Esporos do espírito da mata: pontinhos de luz que sobem devagar em volta dele.
+    this.emissorEsporos = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: { min: 900, max: 1500 },
+        frequency: 340,
+        speedY: { min: -14, max: -6 },
+        speedX: { min: -4, max: 4 },
+        emitZone: new Phaser.GameObjects.Particles.Zones.RandomZone({
+          getRandomPoint: (ponto) => {
+            ponto.x = (Math.random() - 0.5) * tile;
+            ponto.y = (Math.random() - 0.5) * tile * 0.8;
+          },
+        }),
+        scale: 0.5,
+        alpha: { values: [0, 0.95, 0] },
+        tint: [COR_ESPIRITO, COR_VERDE_CLARO],
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: !this.reduzirMovimento,
+      })
+      .setDepth(10.2);
+    this.emissorEsporos.startFollow(this.protagonista);
+
+    // Batida na parede: poeira da trilha e folhas que caem da mata.
+    this.emissorPoeira = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: { min: 220, max: 420 },
+        speed: { min: 18, max: 60 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1, end: 0.4 },
+        alpha: { start: 0.9, end: 0 },
+        tint: COR_POEIRA,
+        emitting: false,
+      })
+      .setDepth(10.4);
+    this.emissorFolhasParede = this.add
+      .particles(0, 0, 'fx-folha', {
+        lifespan: { min: 600, max: 900 },
+        speed: { min: 8, max: 30 },
+        angle: { min: 0, max: 360 },
+        gravityY: 55,
+        rotate: { min: 0, max: 360 },
+        alpha: { start: 1, end: 0 },
+        tint: [CORES.folhaClara, CORES.folhaEscura, COR_BROTO],
+        emitting: false,
+      })
+      .setDepth(10.4);
+
     this.emissorFolhas = this.add
       .particles(0, 0, 'fx-folha', {
         lifespan: feel.morte.vidaFolhasMs,
@@ -1248,6 +1736,50 @@ export class FaseScene extends Phaser.Scene {
       g.destroy();
     }
 
+    // Cone de luz da lanterna do Guarda: ponta à esquerda, abre para a direita e some.
+    if (!this.textures.exists('fx-cone')) {
+      const largura = 64;
+      const altura = 32;
+      const textura = this.textures.createCanvas('fx-cone', largura, altura);
+      if (textura) {
+        const ctx = textura.getContext();
+        const gradiente = ctx.createLinearGradient(0, 0, largura, 0);
+        gradiente.addColorStop(0, 'rgba(255,255,255,0.95)');
+        gradiente.addColorStop(0.6, 'rgba(255,255,255,0.4)');
+        gradiente.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradiente;
+        ctx.beginPath();
+        ctx.moveTo(0, altura / 2 - 2);
+        ctx.lineTo(largura, 0);
+        ctx.lineTo(largura, altura);
+        ctx.lineTo(0, altura / 2 + 2);
+        ctx.closePath();
+        ctx.fill();
+        textura.refresh();
+        textura.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
+
+    // Brotos que nascem no chão depois de uma batida forte (2 quadros de 5×5).
+    if (!this.textures.exists('fx-broto')) {
+      const g = this.make.graphics({}, false);
+      const pixel = (x: number, y: number, cor: number) => {
+        g.fillStyle(cor, 1);
+        g.fillRect(x, y, 1, 1);
+      };
+      // 0: dois brotos de folha
+      pixel(2, 4, 0x3f7a4f); pixel(2, 3, 0x3f7a4f); pixel(1, 2, COR_BROTO); pixel(0, 1, COR_VERDE_CLARO);
+      pixel(3, 2, COR_BROTO); pixel(4, 1, COR_ESPIRITO); pixel(2, 2, 0x3f7a4f);
+      // 1: broto com botão de luz
+      pixel(7, 4, 0x3f7a4f); pixel(7, 3, 0x3f7a4f); pixel(6, 3, COR_BROTO); pixel(8, 2, COR_BROTO);
+      pixel(7, 2, 0x3f7a4f); pixel(7, 1, COR_ESPIRITO); pixel(7, 0, 0xeef4f0);
+      g.generateTexture('fx-broto', 10, 5);
+      g.destroy();
+      const textura = this.textures.get('fx-broto');
+      textura.add(0, 0, 0, 0, 5, 5);
+      textura.add(1, 0, 5, 0, 5, 5);
+    }
+
     if (!this.textures.exists('fx-brilho')) {
       const tamanho = 64;
       const textura = this.textures.createCanvas('fx-brilho', tamanho, tamanho);
@@ -1297,11 +1829,18 @@ export class FaseScene extends Phaser.Scene {
     const tile = CONFIG.tamanhoTilePx;
     const { folhas, tremorMs, tremorIntensidade } = CONFIG.feel.morte;
     this.emissorRastro?.stop();
-    this.emissorFolhas?.explode(
-      folhas,
-      origem.col * tile + tile / 2,
-      origem.lin * tile + tile / 2,
-    );
+    this.distanciaDeslizeAtual = 0;
+    const x = origem.col * tile + tile / 2;
+    const y = origem.lin * tile + tile / 2;
+    this.emissorFolhas?.explode(folhas, x, y);
+
+    // O corpo fica no lugar e se desfaz em luz e folhas (o Protagonista já foi para o Totem).
+    const fantasma = this.add
+      .sprite(x, y, SPRITES_PROTAGONISTA.chave, indiceQuadro(LINHA_MORTE, 0))
+      .setOrigin(0.5, SPRITES_PROTAGONISTA.origemY)
+      .setDepth(10.6);
+    fantasma.play(chaveAnimacao('morte'));
+    fantasma.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => fantasma.destroy());
     if (!this.reduzirMovimento) {
       this.cameras.main.shake(tremorMs, tremorIntensidade);
     }

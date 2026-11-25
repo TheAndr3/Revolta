@@ -30,14 +30,16 @@ describe('repositório de progresso', () => {
     const primeiro = criarRepositorioProgresso(storage);
     primeiro.registrarConclusao('fase-01');
     primeiro.registrarProva('fase-01', 2);
-    primeiro.registrarHabitante('fase-01');
+    primeiro.registrarHabitante('fase-01', 1);
+    primeiro.registrarHabitante('fase-01', 3);
 
     const depoisDeRecarregar = criarRepositorioProgresso(storage);
     expect(depoisDeRecarregar.faseConcluida('fase-01')).toBe(true);
     expect(depoisDeRecarregar.faseConcluida('fase-02')).toBe(false);
     expect(depoisDeRecarregar.provaColetada('fase-01', 2)).toBe(true);
     expect(depoisDeRecarregar.provaColetada('fase-01', 1)).toBe(false);
-    expect(depoisDeRecarregar.habitanteResgatado('fase-01')).toBe(true);
+    expect([...depoisDeRecarregar.habitantesResgatados('fase-01')].sort()).toEqual([1, 3]);
+    expect(depoisDeRecarregar.habitantesResgatados('fase-02').size).toBe(0);
   });
 
   it('continua funcionando em memória quando o armazenamento falha', () => {
@@ -45,11 +47,11 @@ describe('repositório de progresso', () => {
 
     expect(() => repositorio.registrarConclusao('fase-01')).not.toThrow();
     expect(() => repositorio.registrarProva('fase-01', 1)).not.toThrow();
-    expect(() => repositorio.registrarHabitante('fase-01')).not.toThrow();
+    expect(() => repositorio.registrarHabitante('fase-01', 2)).not.toThrow();
 
     expect(repositorio.faseConcluida('fase-01')).toBe(true);
     expect(repositorio.provaColetada('fase-01', 1)).toBe(true);
-    expect(repositorio.habitanteResgatado('fase-01')).toBe(true);
+    expect(repositorio.habitantesResgatados('fase-01').has(2)).toBe(true);
   });
 
   it('funciona sem armazenamento algum e ignora dados corrompidos', () => {
