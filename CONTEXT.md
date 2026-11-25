@@ -79,8 +79,12 @@ Uma passagem por uma Fase, do início (ou do último reinício) até concluí-la
 _Avoid_: Run, partida, vida
 
 **Ranking**:
-Lista dos dez menores tempos de conclusão de uma Fase, compartilhada entre todos os jogadores. Toda Tentativa concluída concorre, em qualquer modo.
+Lista dos dez menores tempos de Tentativas perfeitas de uma Fase, compartilhada entre todos os jogadores. Concorre em qualquer modo.
 _Avoid_: Leaderboard, placar, recordes
+
+**Tentativa perfeita**:
+Tentativa concluída com todas as Almas e todos os Habitantes da Fase reunidos nela mesma (as três Provas já são obrigatórias para concluir). O que foi pego numa Tentativa anterior não conta.
+_Avoid_: Run perfeita, 100%, zerar
 
 **Modo speedrun**:
 Forma de jogar uma Fase com a tela limpa e o tempo sempre à vista. Muda só o que aparece na tela; coleta, regras e o tempo medido são os mesmos do modo normal.
