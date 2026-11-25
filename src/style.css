@@ -1325,3 +1325,140 @@ html:active-view-transition-type(backward)::view-transition-new(intro-quadro) {
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------ Como jogar */
+
+.como-jogar {
+  display: grid;
+  gap: 1.5rem;
+  inline-size: 100%;
+  text-align: start;
+}
+
+.cj-secao h2 {
+  margin-block-end: 0.6rem;
+  font-size: 1.1rem;
+  color: var(--cor-prova);
+}
+
+.cj-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cj-cartao {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.6rem;
+  background-color: var(--cor-superficie);
+}
+
+.cj-cartao h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+}
+
+.cj-cartao p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--cor-texto-suave);
+}
+
+.cj-figura {
+  display: grid;
+  place-items: center;
+  min-block-size: 4.5rem;
+  border-radius: 0.5rem;
+  background-color: #1a2620;
+  overflow: hidden;
+}
+
+.cj-sprite {
+  display: block;
+  inline-size: var(--cj-lado);
+  block-size: var(--cj-lado);
+  background-image: var(--cj-img);
+  background-repeat: no-repeat;
+  background-size: var(--cj-largura-folha) auto;
+  background-position: var(--cj-x0) var(--cj-y0);
+  image-rendering: pixelated;
+  animation: cj-quadros var(--cj-duracao) steps(var(--cj-quadros)) infinite;
+}
+
+@keyframes cj-quadros {
+  from {
+    background-position: var(--cj-x0) var(--cj-y0);
+  }
+  to {
+    background-position: calc(var(--cj-x0) - var(--cj-passo)) var(--cj-y0);
+  }
+}
+
+.cj-deslizando {
+  filter: drop-shadow(-6px 0 0 rgb(82 229 150 / 0.35)) drop-shadow(-12px 0 0 rgb(82 229 150 / 0.18));
+}
+
+.cj-icone svg,
+.cj-swipe svg {
+  display: block;
+  inline-size: 3rem;
+  block-size: 3rem;
+  image-rendering: pixelated;
+}
+
+.cj-teclas,
+.cj-setas {
+  display: inline-grid;
+  gap: 0.25rem;
+}
+
+.cj-teclas {
+  grid-auto-flow: column;
+}
+
+.cj-setas {
+  grid-template-areas: '. cima .' 'esq baixo dir';
+}
+
+.cj-cima { grid-area: cima; }
+.cj-esq { grid-area: esq; }
+.cj-baixo { grid-area: baixo; }
+.cj-dir { grid-area: dir; }
+
+.como-jogar kbd {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 1.5rem;
+  block-size: 1.5rem;
+  padding-inline: 0.3rem;
+  border: 1px solid var(--cor-borda);
+  border-block-end-width: 3px;
+  border-radius: 0.35rem;
+  background-color: #0d1512;
+  color: var(--cor-texto);
+  font: 700 0.8rem/1 inherit;
+}
+
+.cj-passos,
+.cj-dicas {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding-inline-start: 1.4rem;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cj-sprite {
+    animation: none;
+  }
+}

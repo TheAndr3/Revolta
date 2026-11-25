@@ -21,6 +21,7 @@ import { criarArquivo } from './game/arquivo';
 import { criarMotorAudio } from './game/audio';
 import { criarIntro } from './game/intro';
 import { montarSobre } from './game/sobre';
+import { montarComoJogar } from './game/comoJogar';
 import { criarAberturaAnimada } from './game/capaAnimada';
 import { carregarConteudoHabitantesDaFase } from './game/carregarHabitante';
 import {
@@ -43,6 +44,7 @@ type NomeTela =
   | 'intro'
   | 'arquivo'
   | 'sobre'
+  | 'como-jogar'
   | 'selecao'
   | 'fim-prototipo'
   | 'jogo';
@@ -53,6 +55,7 @@ const NOMES_TELA: readonly NomeTela[] = [
   'intro',
   'arquivo',
   'sobre',
+  'como-jogar',
   'selecao',
   'fim-prototipo',
   'jogo',
@@ -204,8 +207,13 @@ function iniciar(): void {
     abertura.ativar(nome === 'capa' || nome === 'menu');
     if (nome !== 'jogo') {
       document.title = TEXTOS.documento.titulo;
-      const alvo = telas.get(nome)?.querySelector<HTMLElement>('button:not([disabled])');
-      alvo?.focus();
+      const tela = telas.get(nome);
+      const alvo = tela?.querySelector<HTMLElement>('button:not([disabled])');
+      // O foco vai para o primeiro botão sem rolar a tela (em telas longas, como
+      // Como jogar, o primeiro botão é o "Voltar" lá embaixo).
+      alvo?.focus({ preventScroll: true });
+      tela?.scrollTo?.({ top: 0 });
+      window.scrollTo({ top: 0 });
     }
   };
 
@@ -804,6 +812,7 @@ function iniciar(): void {
   });
 
   montarSobre(elemento('titulo-sobre'), elemento('sobre-conteudo'));
+  montarComoJogar(elemento('como-jogar-conteudo'), resolverUrlAsset);
 
   botaoComecar.addEventListener('click', () => {
     // Gesto do jogador: destrava o áudio no celular e começa a música (também no menu).

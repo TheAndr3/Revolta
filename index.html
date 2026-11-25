@@ -40,6 +40,9 @@
           <button type="button" class="btn-primario btn-grande" data-ir-para="jogar" data-texto="menu.jogar">
             Jogar
           </button>
+          <button type="button" class="btn-secundario btn-grande" data-ir-para="como-jogar" data-texto="menu.comoJogar">
+            Como jogar
+          </button>
           <button type="button" class="btn-secundario btn-grande" data-ir-para="arquivo" data-texto="menu.arquivo">
             Arquivo da Resistência
           </button>
@@ -67,6 +70,17 @@
         <div id="painel-povo" class="painel-arquivo" role="tabpanel" aria-labelledby="aba-povo" hidden></div>
 
         <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="arquivo.voltar">
+          Voltar ao menu
+        </button>
+      </div>
+    </section>
+
+    <section id="tela-como-jogar" class="tela tela-longa" aria-labelledby="titulo-como-jogar" hidden>
+      <div class="tela-conteudo tela-conteudo-larga">
+        <h1 id="titulo-como-jogar" data-texto="comoJogar.titulo">Como jogar</h1>
+        <!-- Preenchido por src/game/comoJogar.ts (textos em content/telas.json) -->
+        <div id="como-jogar-conteudo" class="como-jogar"></div>
+        <button type="button" class="btn-secundario" data-ir-para="menu" data-texto="comoJogar.voltar">
           Voltar ao menu
         </button>
       </div>
