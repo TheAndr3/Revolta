@@ -97,7 +97,11 @@ describe('solver estático', () => {
         return { ...structuredClone(resto), fase } as EstadoFase;
       };
       const falhas = new Set<string>();
+      // A busca é síncrona: o timeout do Vitest não a interrompe. Com um orçamento de
+      // deslizes simulados, uma Fase impossível faz o teste falhar em vez de travar.
+      let orcamento = 60_000;
       const seguir = (estado: EstadoFase, i: number): EstadoFase | null => {
+        if (orcamento <= 0) return null;
         if (i === rota.length) return estado.concluida ? estado : null;
         const chave = `${i}|${estado.tempoCicloSegundos.toFixed(3)}`;
         if (falhas.has(chave)) return null;
@@ -108,6 +112,7 @@ describe('solver estático', () => {
             if (esperando.mortes !== estado.mortes) break; // ficar parado ali já mata
           }
           const tentativa = copiar(esperando);
+          orcamento -= 1;
           deslizarAtePararFase(tentativa, rota[i]);
           if (tentativa.mortes !== estado.mortes) continue;
           const fim = seguir(tentativa, i + 1);
@@ -118,6 +123,7 @@ describe('solver estático', () => {
       };
 
       const fim = seguir(criarEstadoFase(FASE_1), 0);
+      expect(orcamento, 'a busca estourou o orçamento: a Fase 1 parece impossível sem morrer').toBeGreaterThan(0);
       expect(fim, 'nenhum jeito de terminar a Fase 1 sem morrer').not.toBeNull();
       expect(fim?.mortes).toBe(0);
       expect(fim?.concluida).toBe(true);
