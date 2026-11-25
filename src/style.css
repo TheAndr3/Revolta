@@ -58,7 +58,7 @@ p {
 
 .app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   min-block-size: 100dvh;
 }
 
@@ -154,6 +154,7 @@ p {
 }
 
 .palco {
+  position: relative;
   display: grid;
   place-items: center;
   min-block-size: 0;
@@ -1214,5 +1215,113 @@ html:active-view-transition-type(backward)::view-transition-new(intro-quadro) {
   .aviso-prova {
     transition: none;
     transform: none;
+  }
+}
+
+/* ------------------------------------------------ HUD sobre a tela do jogo */
+/* Contadores nos cantos do canvas (a área de jogo), sem barra: Provas à esquerda,
+   Almas à direita, aviso breve de Habitante e pausa embaixo à direita. */
+
+.hud-jogo {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  inline-size: var(--hud-largura, 100%);
+  block-size: var(--hud-altura, 100%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-jogo > .hud-provas,
+.hud-jogo > .hud-almas,
+.hud-jogo > .hud-habitante {
+  position: absolute;
+  inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background-color: rgb(13 21 18 / 0.62);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hud-jogo > .hud-provas {
+  inset-inline-start: 0.5rem;
+  color: var(--cor-prova);
+}
+
+.hud-jogo > .hud-provas:has([data-completo='true']) {
+  color: #9ef7c2;
+  border-color: rgb(46 196 116 / 0.55);
+}
+
+.hud-jogo > .hud-almas {
+  inset-inline-end: 0.5rem;
+  color: #7dd3fc;
+}
+
+.hud-icone {
+  inline-size: 1rem;
+  block-size: 1rem;
+  fill: currentColor;
+}
+
+.hud-icone-linhas {
+  fill: none;
+  stroke: rgb(13 21 18 / 0.75);
+  stroke-width: 1.2;
+}
+
+.hud-jogo > .hud-habitante {
+  inset-block-start: calc(max(0.5rem, env(safe-area-inset-top, 0px)) + 2.1rem);
+  inset-inline-start: 0.5rem;
+  border-color: rgb(192 132 252 / 0.7);
+  color: #e9d5ff;
+  font-size: 0.85rem;
+  opacity: 0;
+  transform: translateY(-0.35rem);
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+
+.hud-jogo > .hud-habitante.visivel {
+  opacity: 1;
+  transform: none;
+}
+
+.hud-pausa {
+  position: absolute;
+  inset-inline-end: 0.5rem;
+  inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border: 1px solid rgb(238 244 240 / 0.25);
+  border-radius: 0.5rem;
+  background-color: rgb(13 21 18 / 0.62);
+  color: #eef4f0;
+  pointer-events: auto;
+}
+
+.hud-pausa svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  fill: currentColor;
+}
+
+.hud-pausa:hover,
+.hud-pausa:focus-visible {
+  border-color: rgb(82 229 150 / 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-jogo > .hud-habitante {
+    transition: none;
   }
 }

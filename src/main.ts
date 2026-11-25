@@ -154,8 +154,10 @@ function iniciar(): void {
   const hudAlmas = elemento('contador-almas');
   const hudHabitante = elemento('status-habitante');
   const hudHabitanteRotulo = hudHabitante.querySelector<HTMLElement>('.hud-habitante-rotulo') ?? hudHabitante;
-  const hudDeslizes = elemento('contador-deslizes');
-  const hudMortes = elemento('contador-mortes');
+  const hudJogo = elemento('hud-jogo');
+  /** Quanto tempo o aviso "Habitante 2 de 4" fica na tela depois de um resgate. */
+  const DURACAO_AVISO_HABITANTE_MS = 2200;
+  let temporizadorAvisoHabitante: number | undefined;
   const botaoPausa = elemento('btn-pausa');
   const balaoHabitante = elemento('balao-habitante');
   const balaoRetrato = elemento<HTMLImageElement>('balao-retrato');
@@ -482,6 +484,9 @@ function iniciar(): void {
       canvas.style.width = `${d.larguraCss}px`;
       canvas.style.height = `${d.alturaCss}px`;
     }
+    // A HUD fica sobre o canvas, com os contadores nos cantos da tela de jogo.
+    hudJogo.style.setProperty('--hud-largura', `${d.larguraCss}px`);
+    hudJogo.style.setProperty('--hud-altura', `${d.alturaCss}px`);
   };
 
   window.addEventListener('resize', aplicarEscalaNoCanvas);
@@ -524,13 +529,24 @@ function iniciar(): void {
     dimensoesFaseAtual = null;
   }
 
+  /**
+   * Habitantes não ficam na tela: ao resgatar um, "Habitante 2 de 4" aparece por um
+   * instante no canto e some (o total e o que faltou aparecem no fim da Fase).
+   */
   const atualizarHudHabitantes = (resgatados: number, total: number) => {
-    hudHabitante.hidden = total === 0;
-    hudHabitante.dataset.resgatado = String(total > 0 && resgatados >= total);
-    hudHabitanteRotulo.textContent = formatarTexto(TEXTOS.hud.habitantes, { resgatados, total });
-    const descricao = formatarTexto(TEXTOS.hud.habitantesAria, { resgatados, total });
-    hudHabitante.setAttribute('aria-label', descricao);
-    hudHabitante.title = descricao;
+    window.clearTimeout(temporizadorAvisoHabitante);
+    hudHabitante.classList.remove('visivel');
+    hudHabitante.hidden = true;
+    if (resgatados === 0 || total === 0) return;
+    hudHabitante.dataset.resgatado = String(resgatados >= total);
+    hudHabitanteRotulo.textContent = formatarTexto(TEXTOS.hud.habitanteResgatado, { resgatados, total });
+    hudHabitante.setAttribute('aria-label', formatarTexto(TEXTOS.hud.habitantesAria, { resgatados, total }));
+    hudHabitante.hidden = false;
+    requestAnimationFrame(() => hudHabitante.classList.add('visivel'));
+    temporizadorAvisoHabitante = window.setTimeout(() => {
+      hudHabitante.classList.remove('visivel');
+      temporizadorAvisoHabitante = window.setTimeout(() => (hudHabitante.hidden = true), 300);
+    }, DURACAO_AVISO_HABITANTE_MS);
   };
 
   /** Marcas da Fase pelo progresso salvo (concluir · todas as Almas · Habitante). */
@@ -562,23 +578,35 @@ function iniciar(): void {
         coletadas: TOTAL_PROVAS_FASE,
         total: TOTAL_PROVAS_FASE,
       }),
+      // No fim da Fase aparece o que a HUD esconde: o total e o que faltou.
       ...(resumo.almasTotal > 0
         ? [
-            formatarTexto(TEXTOS.fimFase.almas, {
-              coletadas: resumo.almasColetadas,
-              total: resumo.almasTotal,
-            }),
+            formatarTexto(
+              resumo.almasColetadas < resumo.almasTotal ? TEXTOS.fimFase.almasFaltaram : TEXTOS.fimFase.almas,
+              {
+                coletadas: resumo.almasColetadas,
+                total: resumo.almasTotal,
+                faltam: resumo.almasTotal - resumo.almasColetadas,
+              },
+            ),
           ]
         : []),
       ...(resumo.habitantesTotal > 0
         ? [
-            formatarTexto(TEXTOS.fimFase.habitantes, {
-              resgatados: resumo.habitantesResgatados,
-              total: resumo.habitantesTotal,
-            }),
+            formatarTexto(
+              resumo.habitantesResgatados < resumo.habitantesTotal
+                ? TEXTOS.fimFase.habitantesFaltaram
+                : TEXTOS.fimFase.habitantes,
+              {
+                resgatados: resumo.habitantesResgatados,
+                total: resumo.habitantesTotal,
+                faltam: resumo.habitantesTotal - resumo.habitantesResgatados,
+              },
+            ),
           ]
         : []),
       formatarContagemMortes(resumo.mortes),
+      formatarTexto(TEXTOS.fimFase.deslizes, { n: resumo.deslizes }),
       formatarTexto(TEXTOS.fimFase.tempo, { tempo: formatarTempo(resumo.tempoSegundos) }),
     ];
     const linhaMarcas = document.createElement('li');
@@ -630,8 +658,7 @@ function iniciar(): void {
       total: TOTAL_PROVAS_FASE,
     });
     hudProvas.dataset.completo = 'false';
-    hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: 0 });
-    hudMortes.textContent = formatarTexto(TEXTOS.hud.mortes, { n: 0 });
+    hudAlmas.textContent = formatarTexto(TEXTOS.hud.almas, { coletadas: 0 });
     atualizarHudHabitantes(0, 0);
     document.title = `${entrada.nome} · ${TEXTOS.documento.titulo}`;
     mostrarTela('jogo');
@@ -648,21 +675,18 @@ function iniciar(): void {
         aparenciasHabitantes: fase.habitantes.map(
           (_, i) => conteudoHabitantes.find((c) => c.numero === i + 1)?.aparencia ?? '',
         ),
-        aoAtualizarDeslizes: (deslizes) => {
-          hudDeslizes.textContent = formatarTexto(TEXTOS.hud.deslizes, { n: deslizes });
-        },
-        aoAtualizarMortes: (mortes) => {
-          hudMortes.textContent = formatarTexto(TEXTOS.hud.mortes, { n: mortes });
-        },
+        // Deslizes e mortes só aparecem no fim da Fase.
+        aoAtualizarDeslizes: () => {},
+        aoAtualizarMortes: () => {},
         aoAtualizarProvas: (coletadas, total) => {
           hudProvas.textContent = formatarTexto(TEXTOS.hud.provas, { coletadas, total });
           hudProvas.dataset.completo = String(coletadas >= total);
         },
         aoAtualizarHabitantes: atualizarHudHabitantes,
         aoAtualizarAlmas: (coletadas, total) => {
-          hudAlmas.hidden = total === 0;
-          hudAlmas.textContent = formatarTexto(TEXTOS.hud.almas, { coletadas, total });
-          hudAlmas.dataset.completo = String(total > 0 && coletadas >= total);
+          // Só a contagem: o total da Fase fica para o fim.
+          hudAlmas.textContent = formatarTexto(TEXTOS.hud.almas, { coletadas });
+          hudAlmas.parentElement!.hidden = total === 0;
         },
         aoColetarProva: (prova) => {
           progresso.registrarProva(entrada.id, prova.numero);

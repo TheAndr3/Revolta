@@ -132,46 +132,42 @@
     </section>
 
     <div id="tela-jogo" class="app" hidden>
-      <header class="hud">
-        <div class="hud-titulo">
-          <h1 id="hud-nome-fase" data-texto="hud.titulo">Revolta</h1>
-          <span
-            id="contador-provas"
-            class="hud-provas"
-            data-completo="false"
-            aria-live="polite"
-          >
-            Provas 0/3
+      <h1 id="hud-nome-fase" class="sr-only" data-texto="hud.titulo">Revolta</h1>
+
+      <main id="palco" class="palco" data-texto-aria="hud.areaJogo">
+        <!-- HUD sobre o jogo: Provas (esquerda), Almas (direita), aviso breve de Habitante e pausa. -->
+        <div id="hud-jogo" class="hud-jogo">
+          <span class="hud-provas" data-texto-title="hud.provasRotulo">
+            <svg class="hud-icone" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M3 1.5h7l3 3v10H3z" />
+              <path class="hud-icone-linhas" d="M5 7h6M5 9.5h6M5 12h4" />
+            </svg>
+            <span id="contador-provas" data-completo="false" aria-live="polite">0/3</span>
           </span>
-          <span id="contador-almas" class="hud-almas" aria-live="polite" hidden></span>
-          <span
-            id="status-habitante"
-            class="hud-habitante"
-            data-resgatado="false"
-            data-texto-aria="hud.habitante"
-            data-texto-title="hud.habitante"
-          >
+          <span class="hud-almas" data-texto-title="hud.almasRotulo">
+            <svg class="hud-icone" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 1c1.6 3 4 4.6 4 8a4 4 0 0 1-8 0c0-1.6.8-2.6 1.6-3.4C6 7 6.6 7.6 7 8.4 7.4 6 7 3.4 8 1z" />
+            </svg>
+            <span id="contador-almas" aria-live="polite">0</span>
+          </span>
+          <span id="status-habitante" class="hud-habitante" role="status" hidden>
             <svg class="icone-habitante" viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="10" cy="6.5" r="3.5" />
               <path d="M3.5 17.5c.6-3.7 3.2-5.8 6.5-5.8s5.9 2.1 6.5 5.8Z" />
             </svg>
-            <span class="hud-habitante-rotulo" data-texto="hud.habitante">Habitante</span>
+            <span class="hud-habitante-rotulo"></span>
           </span>
-          <span id="contador-deslizes" class="hud-meta" aria-live="polite"></span>
-          <span id="contador-mortes" class="hud-meta" aria-live="polite"></span>
+          <button
+            id="btn-pausa"
+            type="button"
+            class="hud-pausa"
+            aria-haspopup="dialog"
+            data-texto-aria="hud.pausa"
+            data-texto-title="hud.pausa"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h3v10H4zM9 3h3v10H9z" /></svg>
+          </button>
         </div>
-        <button
-          id="btn-pausa"
-          type="button"
-          class="btn-secundario"
-          aria-haspopup="dialog"
-          data-texto="hud.pausa"
-        >
-          Pausa
-        </button>
-      </header>
-
-      <main id="palco" class="palco" data-texto-aria="hud.areaJogo">
         <div id="mensagem-erro" class="erro" role="alert" hidden>
           <p id="mensagem-erro-texto"></p>
           <button id="btn-erro-voltar" type="button" class="btn-secundario" data-texto="erros.voltar">
