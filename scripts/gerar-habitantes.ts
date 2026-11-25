@@ -17,7 +17,7 @@ import {
   SPRITES_HABITANTES,
   type AparenciaHabitante,
 } from '../src/game/habitantesSprites';
-import { escreverPng } from './png';
+import { criarImagem, escreverPng } from './png';
 import {
   Q,
   RAIZ,
@@ -245,4 +245,53 @@ const arquivoPrevia = argumentoPrevia();
 if (arquivoPrevia) {
   writeFileSync(arquivoPrevia, escreverPng(previa(folha, 8)));
   console.log(`prévia 8× → ${arquivoPrevia}`);
+}
+
+// ---------------------------------------------------------------------------------
+// Retratos do Arquivo (aba Povo) e do balão de fala: a cara de cada Habitante,
+// recortada do próprio sprite (cabeça e ombros) e ampliada em escala inteira, sobre o
+// fundo escuro da mata com moldura verde. Assim o retrato é o mesmo boneco do mapa.
+
+const LADO_RECORTE = 18;
+const ESCALA_RETRATO = 7;
+const MARGEM_RETRATO = 1;
+
+function retrato(g: Grade, cores: ReturnType<typeof carregarCores>): Buffer {
+  const topo = g.findIndex((linha) => linha.some((c) => c !== '.'));
+  const x0 = 3; // colunas 3–20: o corpo fica centrado no quadro de 24
+  const y0 = Math.max(0, topo - 1);
+  const lado = (LADO_RECORTE + MARGEM_RETRATO * 2) * ESCALA_RETRATO;
+  const img = criarImagem(lado, lado);
+  const fundo = [0x1a, 0x26, 0x20];
+  const moldura = [0x52, 0xe5, 0x96];
+  for (let y = 0; y < lado; y++) {
+    for (let x = 0; x < lado; x++) {
+      const borda = x < 3 || y < 3 || x >= lado - 3 || y >= lado - 3;
+      img.dados.set([...(borda ? moldura : fundo), 255], (y * lado + x) * 4);
+    }
+  }
+  for (let y = 0; y < LADO_RECORTE; y++) {
+    for (let x = 0; x < LADO_RECORTE; x++) {
+      const c = g[y0 + y]?.[x0 + x];
+      if (!c || c === '.') continue;
+      const cor = cores.get(c);
+      if (!cor) continue;
+      for (let dy = 0; dy < ESCALA_RETRATO; dy++) {
+        for (let dx = 0; dx < ESCALA_RETRATO; dx++) {
+          const X = (x + MARGEM_RETRATO) * ESCALA_RETRATO + dx;
+          const Y = (y + MARGEM_RETRATO) * ESCALA_RETRATO + dy;
+          if (X < 3 || Y < 3 || X >= lado - 3 || Y >= lado - 3) continue;
+          img.dados.set([...cor, 255], (Y * lado + X) * 4);
+        }
+      }
+    }
+  }
+  return escreverPng(img);
+}
+
+const coresRetrato = carregarCores(CORES);
+for (const aparencia of APARENCIAS_HABITANTE) {
+  const arquivo = resolve(RAIZ, 'public/assets/habitantes', `retrato-${aparencia}.png`);
+  writeFileSync(arquivo, retrato(DESENHOS[aparencia].base, coresRetrato));
+  console.log(`retrato: ${arquivo}`);
 }

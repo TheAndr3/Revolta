@@ -34,7 +34,10 @@ function sprite(
   const el = document.createElement('span');
   el.className = 'cj-sprite';
   el.setAttribute('aria-hidden', 'true');
-  el.style.setProperty('--cj-img', `url("${resolver(folha.arquivo)}")`);
+  // URL absoluta: um caminho relativo dentro de variável CSS é resolvido a partir do
+  // arquivo .css (em /assets/ no build), não da página, e a imagem não carrega.
+  const url = new URL(resolver(folha.arquivo), document.baseURI).href;
+  el.style.setProperty('--cj-img', `url("${url}")`);
   el.style.setProperty('--cj-lado', `${lado}px`);
   el.style.setProperty('--cj-largura-folha', `${folha.colunas * lado}px`);
   el.style.setProperty('--cj-x0', `${-opcoes.coluna * lado}px`);

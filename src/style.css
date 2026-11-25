@@ -1462,3 +1462,9 @@ html:active-view-transition-type(backward)::view-transition-new(intro-quadro) {
     animation: none;
   }
 }
+
+/* Retratos dos Habitantes são pixel art ampliada: sem suavizar. */
+.ficha-retrato,
+.balao-habitante img {
+  image-rendering: pixelated;
+}

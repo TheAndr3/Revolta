@@ -1,4 +1,23 @@
-# Bíblia da história (rascunho para revisão)
+# Bíblia da história
+
+## História oficial (entrevista com a equipe, 25/11/2026)
+
+Esta seção vale sobre o rascunho antigo mais abaixo. Ela segue as 7 imagens da intro (`public/assets/intro/`).
+
+- **O povo:** os **Rekanã**, povo indígena fictício da Amazônia, que vivia em harmonia com a floresta e o rio.
+- **A empresa:** **Biovex Corp.**, indústria de "bioprodutos" (fertilizantes e cosméticos "naturais" da Amazônia). O "Bio" no nome é o *greenwashing*. Slogan: **"Biovex: natureza que vira futuro."**
+- **O crime:** a fábrica desmata e despeja no rio um **rejeito roxo com mercúrio**. Os peixes morrem; quem come o peixe adoece aos poucos. No jogo, esse rejeito é a **Gosma**.
+- **O ataque:** quem se recusou a sair foi perseguido, capturado ou morto pela **segurança armada da Biovex**, que queimou a aldeia e levou moradores em caminhões. No jogo: o **Segurança da Biovex** (antes "Guarda Florestal") e o **Drone Desmatador**.
+- **O protagonista:** **sem nome**, o último Rekanã livre. Ferido, toca as raízes de uma árvore ancestral, e o **espírito da floresta** (feito de folhas, flores e raízes douradas) desperta nele.
+- **A missão (quadro 7):** encontrar as **Provas**, resgatar os **sobreviventes** e libertar as **Almas**.
+  - **Provas:** 1) caderno da professora (o rio antes da Biovex); 2) laudo da água coletada pela agente de saúde (mercúrio 47× acima do limite abaixo do cano); 3) memorando vazado (a Biovex sabia, escondeu o laudo e mandou "liberar a área").
+  - **Habitantes:** Rekanã que fugiram do ataque e se esconderam na mata (menino, pescador, avó, agente de saúde). Ao serem resgatados, vão para o **ponto de encontro rio acima**, onde o povo se reagrupa para resistir.
+  - **Almas:** a **vida da floresta** (bichos, árvores, rios) que foi esquecida; reunir as Almas ajuda a mata a renascer.
+- **O final da Fase:** com as 3 Provas, o sobrevivente atravessa a Saída e **leva a verdade para fora da mata, até quem pode denunciar** (imprensa, Ministério Público). A Biovex é exposta e a floresta começa a renascer. Gancho para as próximas Fases.
+
+---
+
+## Rascunho antigo (substituído pela história oficial acima)
 
 > **Status: rascunho da IA, aguardando a entrevista de decisões e a revisão da equipe (#4).**
 > A issue pede uma entrevista antes de escrever. Ela ainda não aconteceu; para o protótipo não ficar com texto de teste a 2 dias do prazo, este rascunho registra **a recomendação para cada pergunta da entrevista**. Na entrevista, a equipe confirma ou troca cada item, e as Provas são reescritas onde mudar. Nomes de pessoas e do povo seguem provisórios e descritivos até a revisão de representação (ADR 0005).

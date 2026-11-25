@@ -113,7 +113,7 @@
   },
   "fimPrototipo": {
     "titulo": "Fim do protótipo",
-    "texto": "Você atravessou a Floresta Contaminada. Obrigado por jogar esta primeira versão de Revolta!",
+    "texto": "Com as 3 Provas, o sobrevivente leva a verdade para fora da mata, até quem pode denunciar a Biovex. A floresta começa a renascer. Obrigado por jogar esta primeira versão de Revolta!",
     "botao": "Voltar ao menu"
   },
   "erros": {
@@ -186,14 +186,14 @@
       },
       "gosma": {
         "titulo": "Gosma Tóxica",
-        "texto": "Lenta, dá voltas num trilho que brilha no chão. Espere ela passar e atravesse."
+        "texto": "Rejeito da fábrica da Biovex, cheio de mercúrio. Lenta, dá voltas num trilho que brilha no chão: espere ela passar e atravesse."
       },
       "drone": {
         "titulo": "Drone Desmatador",
         "texto": "Rápido, vai e volta em linha reta. Observe o ritmo e cruze logo depois que ele passar."
       },
       "guarda": {
-        "titulo": "Guarda Florestal",
+        "titulo": "Segurança da Biovex",
         "texto": "Anda por uma faixa e às vezes para. A luz da lanterna mostra para onde ele olha."
       }
     },

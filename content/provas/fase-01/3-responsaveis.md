@@ -1,20 +1,20 @@
 ---
 tipo: responsaveis
 formato: Memorando interno vazado
-titulo: "Assunto: barragem B2"
+titulo: "Assunto: laudo do rio e a aldeia"
 ilustracao: assets/provas/placeholder-responsaveis.svg
-tema: A empresa sabia do risco e adiou a obra
+tema: A Biovex sabia do veneno e mandou tirar a aldeia do caminho
 fontes:
   - https://www.mpf.mp.br/o-mpf/unidades/pr-am/noticias/mpf-requisita-que-policia-federal-investigue-contaminacao-de-rios-na-terra-indigena-waimiri-atroari-am
   - https://planalto.gov.br/ccivil_03/leis/L9605.htm
 ---
 
-VERDANA MINERAÇÃO S.A. · CONFIDENCIAL
+BIOVEX CORP. · CONFIDENCIAL
 
-A engenharia informa que a barragem B2 está acima da capacidade e pode transbordar nas próximas chuvas.
+O laudo da aldeia confirma o mercúrio abaixo do nosso cano. Trocar o filtro custa mais que a multa: **seguimos despejando**.
 
-Decisão da diretoria: adiar o reforço para o ano que vem, para não afetar o resultado do trimestre.
+O laudo não deve chegar à fiscalização. A campanha "Biovex: natureza que vira futuro" estreia no mês que vem.
 
-Comunicação: manter a campanha "Riqueza que respeita a floresta". Se a comunidade apresentar análises da água, contratar um laudo alternativo.
+A segurança deve **liberar a área** da aldeia antes da visita dos fiscais. Quem não sair por bem, sai no caminhão.
 
-Não encaminhar este documento por e-mail.
+Destruir após a leitura.

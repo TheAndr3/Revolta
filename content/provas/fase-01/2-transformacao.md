@@ -1,16 +1,20 @@
 ---
 tipo: transformacao
 formato: Laudo de análise da água
-titulo: "Laudo: água do Igarapé Claro"
+titulo: "Laudo: água e peixes do rio Rekanã"
 ilustracao: assets/provas/placeholder-transformacao.svg
-tema: Contaminação da água por rejeito de mineração
+tema: Mercúrio no rio, abaixo do cano da fábrica da Biovex
 fontes:
   - https://www.brasildefato.com.br/2023/06/26/agua-toxica-cinco-bacias-do-brasil-contaminadas-pela-mineracao/
   - https://lamorh.ufes.br/sites/lamorh.ufes.br/files/field/anexo/resolucao_conama_no_357-2005.pdf
 ---
 
-Amostras coletadas pela agente de saúde da aldeia, três dias depois da cheia, em quatro pontos do igarapé.
+Amostras coletadas pela agente de saúde da aldeia em quatro pontos do rio, três dias depois da água ficar roxa.
 
-Resultado: alumínio dezenas de vezes acima do limite da Resolução CONAMA 357/2005 para rios de Classe 2. Chumbo e mercúrio também acima do permitido. Lama fina no fundo, igual ao material das barragens de rejeito rio acima.
+Rio acima da fábrica: dentro do limite.
 
-Recomendação: não beber, não cozinhar e não pescar no igarapé até nova análise. Investigar o transbordamento das barragens durante a cheia.
+Abaixo do cano da Biovex: **mercúrio 47 vezes acima** do limite permitido para água de consumo e pesca.
+
+Peixes do mesmo trecho: mercúrio acumulado na carne. Quem come esse peixe toda semana adoece aos poucos, principalmente gestantes e crianças.
+
+Conclusão: a contaminação começa no ponto de despejo da fábrica.
