@@ -40,3 +40,7 @@ Com `prefers-reduced-motion`, a cena fica num quadro parado e o botão e o subt�
 
 - **Ícone pequeno** (favicon e ícone do app): pode ser só o "RE" azul, que se lê bem em tamanho pequeno.
 - **Arte final:** se o Protagonista ganhar um sprite novo (#24), a capa usa o mesmo arquivo `assets/protagonista.png`.
+
+## Revisão de 25/11/2026: o dash pela floresta
+
+A capa deixou de mostrar o Protagonista agachado na clareira. Agora ele aparece **em dash de lado**, no centro, usando os quadros de deslize da spritesheet em 2×, com ecos verdes, linhas de velocidade e folhas atrás. Ele avança e recua devagar e flutua 1–2 px. A floresta passa por ele em paralaxe, com cada camada indo para a esquerda na sua velocidade: copas ao longe (6 px/s), árvores e ruínas (22), trilha lateral com arbustos e cogumelos (70) e capim da frente (110). Ficaram como estavam a logo, as Almas azuis subindo (agora levadas pelo vento do dash), os vagalumes, a névoa e a vinheta. Com movimento reduzido, a cena fica parada num quadro do dash.

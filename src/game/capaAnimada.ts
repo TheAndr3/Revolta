@@ -1,14 +1,22 @@
 /**
- * Abertura animada (capa e menu): a floresta à noite em camadas, as ruínas da aldeia,
- * o Protagonista agachado na trilha, Almas azuis subindo, vagalumes, névoa e cogumelos
- * que brilham; por cima, a logo do Revolta (ver `logoRevolta.ts`).
+ * Abertura animada (capa e menu): o Protagonista em dash de lado, no centro, correndo
+ * pela floresta à noite. As camadas (copas, árvores e ruínas, trilha, capim da frente)
+ * deslizam para a esquerda em velocidades diferentes; atrás dele ficam ecos verdes,
+ * linhas de velocidade e folhas. Almas azuis sobem, vagalumes piscam; por cima, a logo
+ * do Revolta (ver `logoRevolta.ts`).
  *
  * Princípios (docs/design/capa.md): céu calmo e escuro atrás da logo, para ela não
- * competir com nada; um foco só (o Protagonista na clareira, com a aura); camadas com
- * paralaxe lenta; cores da paleta; pixel art em escala inteira.
+ * competir com nada; um foco só (o Protagonista com a aura); paralaxe em movimento;
+ * cores da paleta; pixel art em escala inteira.
  */
 import { CONFIG } from '../core/config';
 import { CORES_LOGO, montarLogo } from './logoRevolta';
+import {
+  COLUNAS_ACAO,
+  LINHA_OLHAR,
+  SPRITES_PROTAGONISTA,
+  indiceQuadro,
+} from './protagonistaSprites';
 
 const TILE = CONFIG.tamanhoTilePx;
 
@@ -29,8 +37,15 @@ const COR = {
 /** Altura lógica alvo da cena (a escala inteira se ajusta à tela). */
 const ALTURA_LOGICA_ALVO = 250;
 
+/** Velocidade (px lógicos/s) de cada camada: quanto mais perto, mais rápido passa. */
+const VEL = { longe: 6, meio: 22, chao: 70, frente: 110 } as const;
+/** Período (px) em que meio, chão e frente se repetem ao deslizar. */
+const PERIODO = 512;
+/** O Protagonista é desenhado em 2× (48 px), como o desenho antigo da capa. */
+const ESCALA_PROTAGONISTA = 2;
+
 interface Recursos {
-  readonly protagonista: HTMLImageElement;
+  readonly sprites: HTMLImageElement;
   readonly grama: HTMLImageElement;
   readonly trilha: HTMLImageElement;
   readonly pequenos: HTMLImageElement;
@@ -139,6 +154,11 @@ export function criarAberturaAnimada(opcoes: {
   let chao: HTMLCanvasElement | null = null;
   let frente: HTMLCanvasElement | null = null;
   let cogumelos: { x: number; y: number; fase: number }[] = [];
+  /** Quadros do dash de lado e os mesmos pintados de verde (para os ecos). */
+  let quadrosDash: HTMLCanvasElement[] = [];
+  let ecosDash: HTMLCanvasElement[] = [];
+  const rastros: Particula[] = [];
+  const folhas: Particula[] = [];
   let protagonista = { x: 0, y: 0 };
 
   const brilhoAzul = criarBrilho(COR.totem);
@@ -165,8 +185,8 @@ export function criarAberturaAnimada(opcoes: {
 
   const carregar = async () => {
     const cc0 = (n: string) => resolverUrlAsset(`assets/cc0/${n}`);
-    const [protagonistaImg, grama, trilha, pequenos, a, b, ma, mb, ruina, ca, cb] = await Promise.all([
-      carregarImagem(resolverUrlAsset('assets/protagonista.png')),
+    const [sprites, grama, trilha, pequenos, a, b, ma, mb, ruina, ca, cb] = await Promise.all([
+      carregarImagem(resolverUrlAsset(SPRITES_PROTAGONISTA.arquivo)),
       carregarImagem(cc0('grama.png')),
       carregarImagem(cc0('trilha.png')),
       carregarImagem(cc0('cenario-pequeno.png')),
@@ -178,8 +198,35 @@ export function criarAberturaAnimada(opcoes: {
       carregarImagem(cc0('cenario/casa-madeira-a.png')),
       carregarImagem(cc0('cenario/casa-barro.png')),
     ]);
+    // Recorta os 2 quadros do dash de lado (e uma versão verde de cada para os ecos).
+    const q = SPRITES_PROTAGONISTA.quadroPx;
+    quadrosDash = COLUNAS_ACAO.deslize.map((coluna) => {
+      const indice = indiceQuadro(LINHA_OLHAR.lado, coluna);
+      const c = criarCanvas(q, q);
+      ctx2d(c).drawImage(
+        sprites,
+        (indice % SPRITES_PROTAGONISTA.colunas) * q,
+        Math.floor(indice / SPRITES_PROTAGONISTA.colunas) * q,
+        q,
+        q,
+        0,
+        0,
+        q,
+        q,
+      );
+      return c;
+    });
+    ecosDash = quadrosDash.map((quadroOriginal) => {
+      const c = criarCanvas(q, q);
+      const ctx = ctx2d(c);
+      ctx.drawImage(quadroOriginal, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = COR.espirito;
+      ctx.fillRect(0, 0, q, q);
+      return c;
+    });
     recursos = {
-      protagonista: protagonistaImg,
+      sprites,
       grama,
       trilha,
       pequenos,
@@ -271,91 +318,85 @@ export function criarAberturaAnimada(opcoes: {
       }
     }
 
-    // Meio: árvores e ruínas da aldeia, escurecidas, deixando a clareira do centro.
-    meio = criarCanvas(largura, altura);
+    // Meio: árvores e ruínas da aldeia, escurecidas, numa faixa que se repete a cada
+    // PERIODO px (desenhada com folga para os objetos que passam da borda).
+    meio = criarCanvas(largura + PERIODO, altura);
     {
       const ctx = ctx2d(meio);
-      const clareira = 34;
-      // Ruína à esquerda e casa à direita, perto da clareira (a aldeia abandonada).
-      ctx.drawImage(r.ruina, centro - clareira - r.ruina.width + 10, chaoY - r.ruina.height + 6);
-      ctx.drawImage(r.casas[0], centro + clareira - 6, chaoY - r.casas[0].height + 4);
-      // Árvores grandes pelos lados, alternadas, até as bordas.
-      for (let lado = -1; lado <= 1; lado += 2) {
-        let x = lado < 0 ? centro - clareira - 36 : centro + clareira + 20;
-        let i = 0;
-        while (lado < 0 ? x > -64 : x < largura + 64) {
-          const img = i % 3 === 2 ? r.arvoresMedias[i % 2] : r.arvores[i % 2];
-          const y = chaoY - img.height + 8 - Math.round(hash(i * 7 + lado, 4) * 6);
-          ctx.drawImage(img, Math.round(x - img.width / 2), y);
-          x += lado * (36 + Math.round(hash(i, 5) * 14));
-          i++;
-        }
+      const objetos: { img: HTMLImageElement; x: number; y: number }[] = [];
+      let x = 0;
+      let i = 0;
+      while (x < PERIODO) {
+        const especial = i % 7 === 3 ? r.ruina : i % 7 === 6 ? r.casas[i % 2] : null;
+        const img = especial ?? (i % 3 === 2 ? r.arvoresMedias[i % 2] : r.arvores[i % 2]);
+        const y = chaoY - img.height + (especial ? 4 : 8 - Math.round(hash(i * 7, 4) * 6));
+        objetos.push({ img, x: Math.round(x - img.width / 2), y });
+        x += 34 + Math.round(hash(i, 5) * 16);
+        i++;
       }
-      // Casa de barro meio escondida à esquerda, mais ao fundo.
-      ctx.drawImage(r.casas[1], centro - clareira - 70, chaoY - r.casas[1].height + 2);
+      for (let k = 0; k * PERIODO < largura + PERIODO * 2; k++) {
+        for (const o of objetos) ctx.drawImage(o.img, o.x + k * PERIODO, o.y);
+      }
       escurecer(meio, COR.noite, 0.42);
     }
 
-    // Chão: grama escura, a trilha que vem até a frente e arbustos na beira.
-    chao = criarCanvas(largura, altura);
+    // Chão: grama escura com a trilha passando de lado (2 tiles de altura), onde o
+    // Protagonista corre; arbustos e cogumelos nas beiras. Também se repete em PERIODO.
+    chao = criarCanvas(largura + PERIODO, altura);
     cogumelos = [];
     {
       const ctx = ctx2d(chao);
       const linhas = Math.ceil((altura - chaoY) / TILE) + 1;
-      const colunas = Math.ceil(largura / TILE) + 1;
-      const x0 = centro - Math.floor(colunas / 2) * TILE - TILE / 2;
-      const colunaCentro = Math.floor(colunas / 2);
+      const colunas = Math.ceil((largura + PERIODO) / TILE) + 1;
+      const colunasPeriodo = PERIODO / TILE;
       for (let l = 0; l < linhas; l++) {
         for (let c = 0; c < colunas; c++) {
-          const x = x0 + c * TILE;
+          const cp = c % colunasPeriodo;
+          const x = c * TILE;
           const y = chaoY + l * TILE;
-          const frameGrama = hash(c * 31 + l, 6) < 0.6 ? 0 : 1 + Math.floor(hash(c, l + 9) * 3);
+          const frameGrama = hash(cp * 31 + l, 6) < 0.6 ? 0 : 1 + Math.floor(hash(cp, l + 9) * 3);
           ctx.drawImage(r.grama, frameGrama * TILE, 0, TILE, TILE, x, y, TILE, TILE);
-          // Trilha de 3 tiles de largura, do pé do Protagonista até a borda de baixo.
-          const dc = c - colunaCentro;
-          if (Math.abs(dc) <= 1) {
-            const norte = l > 0 ? 1 : 0;
-            const mascara = norte | 4 | (dc < 1 ? 2 : 0) | (dc > -1 ? 8 : 0);
+          if (l === 1 || l === 2) {
+            // Trilha: leste e oeste sempre abertos; borda de cima e de baixo.
+            const mascara = 2 | 8 | (l === 2 ? 1 : 4);
             ctx.drawImage(r.trilha, mascara * TILE, 0, TILE, TILE, x, y, TILE, TILE);
-          } else if (Math.abs(dc) === 2 && hash(c, l + 20) < 0.7) {
-            // Beira da trilha: arbusto ou cogumelo (nada com o tom da trilha).
-            if (hash(c, l + 30) < 0.45) {
-              cogumelos.push({ x: x + 8, y: y + 12, fase: hash(c, l + 40) * Math.PI * 2 });
+          } else if ((l === 0 || l === 3) && hash(cp, l + 20) < 0.45) {
+            if (hash(cp, l + 30) < 0.4) {
+              cogumelos.push({ x: x + 8, y: y + 12, fase: hash(cp, l + 40) * Math.PI * 2 });
             } else {
-              ctx.drawImage(r.pequenos, (hash(c, l) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, y, TILE, TILE);
+              ctx.drawImage(r.pequenos, (hash(cp, l) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, y, TILE, TILE);
             }
-          } else if (Math.abs(dc) > 2 && l > 0 && hash(c, l + 50) < 0.12) {
-            // Chão aberto: um arbusto ou cogumelo de vez em quando.
-            if (hash(c, l + 60) < 0.35) {
-              cogumelos.push({ x: x + 8, y: y + 12, fase: hash(c, l + 70) * Math.PI * 2 });
-            } else {
-              ctx.drawImage(r.pequenos, (hash(c, l + 80) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, y, TILE, TILE);
-            }
+          } else if (l > 3 && hash(cp, l + 50) < 0.12) {
+            ctx.drawImage(r.pequenos, (hash(cp, l + 80) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, y, TILE, TILE);
           }
         }
       }
       // Arbustos ao longo da linha do horizonte, escondendo o pé das árvores.
-      for (let x = -8; x < largura + 8; x += 12 + Math.round(hash(x + 500, 7) * 8)) {
-        if (Math.abs(x + 8 - centro) < 30) continue;
-        ctx.drawImage(r.pequenos, (hash(x, 8) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, chaoY - 10, TILE, TILE);
+      for (let x = -8; x < largura + PERIODO + 8; x += 12 + Math.round(hash(((x % PERIODO) + PERIODO) % PERIODO, 7) * 8)) {
+        const u = ((x % PERIODO) + PERIODO) % PERIODO;
+        ctx.drawImage(r.pequenos, (hash(u, 8) < 0.5 ? 0 : 1) * TILE, 0, TILE, TILE, x, chaoY - 10, TILE, TILE);
       }
     }
 
     // Frente: silhuetas de capim nos cantos de baixo (profundidade).
-    frente = criarCanvas(largura, altura);
+    // (passa rápido, em tufos, e se repete em PERIODO)
+    frente = criarCanvas(largura + PERIODO, altura);
     {
       const ctx = ctx2d(frente);
       ctx.fillStyle = COR.noite;
-      for (let x = 0; x < largura; x++) {
-        const distCentro = Math.abs(x - centro) / (largura / 2);
-        if (distCentro < 0.45) continue;
-        const h = Math.round(4 + distCentro * 22 * (0.6 + hash(x, 9) * 0.6));
+      for (let x = 0; x < largura + PERIODO; x++) {
+        const u = x % PERIODO;
+        const tufo = Math.max(0, Math.sin((u / PERIODO) * Math.PI * 6));
+        if (tufo < 0.2) continue;
+        const h = Math.round(4 + tufo * 18 * (0.6 + hash(u, 9) * 0.6));
         ctx.fillRect(x, altura - h, 1, h);
-        if (hash(x, 10) < 0.18) ctx.fillRect(x, altura - h - 4, 1, 4); // folha mais alta
+        if (hash(u, 10) < 0.18) ctx.fillRect(x, altura - h - 4, 1, 4); // folha mais alta
       }
     }
 
-    protagonista = { x: centro - 24, y: chaoY - 30 };
+    // Centro do dash: o corpo deitado flutua sobre a trilha (linhas 1–2 do chão).
+    const lado = SPRITES_PROTAGONISTA.quadroPx * ESCALA_PROTAGONISTA;
+    protagonista = { x: centro - lado / 2, y: chaoY + TILE + 4 - lado * (15 / 24) };
   };
 
   // ------------------------------------------------------------- partículas
@@ -405,12 +446,54 @@ export function criarAberturaAnimada(opcoes: {
     while (vagalumes.length < Math.round(largura / 14)) vagalumes.push(novoVagalume());
     if (almasLogo.length < 3 && Math.random() < dt * 1.5) almasLogo.push(novaAlmaLogo());
 
+    if (!reduzirMovimento && quadrosDash.length > 0) {
+      const lado = SPRITES_PROTAGONISTA.quadroPx * ESCALA_PROTAGONISTA;
+      const t = (performance.now() - inicio) / 1000;
+      const px = protagonista.x + Math.sin(t * 0.55) * 14;
+      if (Math.random() < dt * 22) {
+        rastros.push({
+          x: px + 2,
+          y: protagonista.y + lado * (0.32 + Math.random() * 0.45),
+          vx: -(160 + Math.random() * 80),
+          vy: 0,
+          vida: 0,
+          vidaTotal: 0.25 + Math.random() * 0.2,
+          fase: 0,
+          tamanho: Math.random() < 0.3 ? 2 : 1,
+        });
+      }
+      if (Math.random() < dt * 6) {
+        folhas.push({
+          x: px + 4,
+          y: protagonista.y + lado * (0.3 + Math.random() * 0.3),
+          vx: -(50 + Math.random() * 40),
+          vy: -6 + Math.random() * 6,
+          vida: 0,
+          vidaTotal: 0.8 + Math.random() * 0.6,
+          fase: Math.random() * Math.PI * 2,
+          tamanho: Math.random() < 0.5 ? 2 : 1,
+        });
+      }
+    }
+    for (const lista of [rastros, folhas]) {
+      for (let i = lista.length - 1; i >= 0; i--) {
+        const p = lista[i];
+        p.vida += dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 18 * dt;
+        if (p.vida >= p.vidaTotal) lista.splice(i, 1);
+      }
+    }
+
     for (const lista of [almas, vagalumes, almasLogo]) {
       for (let i = lista.length - 1; i >= 0; i--) {
         const p = lista[i];
         p.vida += dt;
         p.fase += dt;
-        p.x += (p.vx + Math.sin(p.fase * 1.7) * 2) * dt;
+        const vento = lista === almasLogo || reduzirMovimento ? 0 : lista === almas ? -14 : -8;
+        p.x += (p.vx + vento + Math.sin(p.fase * 1.7) * 2) * dt;
+        if (p.x < -8) p.x += largura + 16;
         p.y += p.vy * dt;
         if (p.vida >= p.vidaTotal) lista.splice(i, 1);
       }
@@ -431,21 +514,27 @@ export function criarAberturaAnimada(opcoes: {
     const chaoY = linhaDoChao();
     ctx.drawImage(ceu, 0, 0);
 
-    // Copas ao longe deslizando devagar (paralaxe).
-    const deslocLonge = reduzirMovimento ? 0 : Math.floor((t * 1.5) % 96);
-    ctx.drawImage(copasLonge, -deslocLonge, 0);
+    // Paralaxe em movimento: cada camada desliza para a esquerda na sua velocidade.
+    const desloc = (vel: number, periodo: number) => (reduzirMovimento ? 0 : Math.floor((t * vel) % periodo));
+    ctx.drawImage(copasLonge, -desloc(VEL.longe, 96), 0);
+
+    // Posição do Protagonista: centro da tela, avançando e recuando devagar (como quem
+    // acelera e solta) e subindo e descendo 1–2 px no ar.
+    const lado = SPRITES_PROTAGONISTA.quadroPx * ESCALA_PROTAGONISTA;
+    const px = Math.round(protagonista.x + (reduzirMovimento ? 0 : Math.sin(t * 0.55) * 14));
+    const py = Math.round(protagonista.y + (reduzirMovimento ? 0 : Math.sin(t * 3.1) * 1.5));
 
     // Aura do espírito atrás do Protagonista: o único foco claro da cena.
     const pulso = reduzirMovimento ? 0.5 : 0.5 + 0.5 * Math.sin(t * 1.4);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.16 + 0.08 * pulso;
-    ctx.drawImage(brilhoVerde, protagonista.x - 40, protagonista.y - 44, 128, 128);
+    ctx.drawImage(brilhoVerde, px - 40, py - 44, 128, 128);
     ctx.globalAlpha = 0.12 + 0.06 * pulso;
-    ctx.drawImage(brilhoAzul, protagonista.x - 8, protagonista.y - 6, 64, 64);
+    ctx.drawImage(brilhoAzul, px - 8, py - 6, 64, 64);
     ctx.restore();
 
-    ctx.drawImage(meio, 0, 0);
+    ctx.drawImage(meio, -desloc(VEL.meio, PERIODO), 0);
 
     // Névoa baixa em duas faixas que se cruzam.
     ctx.save();
@@ -465,10 +554,13 @@ export function criarAberturaAnimada(opcoes: {
     }
     ctx.restore();
 
-    ctx.drawImage(chao, 0, 0);
+    const deslocChao = desloc(VEL.chao, PERIODO);
+    ctx.drawImage(chao, -deslocChao, 0);
 
-    // Cogumelos que brilham na beira da trilha.
-    for (const cog of cogumelos) {
+    // Cogumelos que brilham na beira da trilha (passam junto com o chão).
+    for (const cogBase of cogumelos) {
+      const cog = { ...cogBase, x: cogBase.x - deslocChao };
+      if (cog.x < -12 || cog.x > largura + 12) continue;
       const brilho = reduzirMovimento ? 0.5 : 0.5 + 0.5 * Math.sin(t * 1.2 + cog.fase);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -485,15 +577,44 @@ export function criarAberturaAnimada(opcoes: {
       ctx.fillRect(cog.x, cog.y - 3, 1, 1);
     }
 
-    // Protagonista agachado, respirando: a metade de cima sobe e desce 1 px.
-    if (recursos) {
-      const img = recursos.protagonista;
-      const corte = 30;
-      const respiro = reduzirMovimento ? 0 : Math.sin(t * 2.2) > 0.2 ? 1 : 0;
-      const { x, y } = protagonista;
-      ctx.drawImage(img, 0, corte, img.width, img.height - corte, x, y + corte, img.width, img.height - corte);
-      ctx.drawImage(img, 0, 0, img.width, corte, x, y + respiro, img.width, corte);
+    // Sombra na trilha, embaixo do corpo no ar.
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = COR.noite;
+    ctx.beginPath();
+    ctx.ellipse(px + lado / 2, chaoY + TILE * 2 + 4, lado * 0.32, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Linhas de velocidade passando por trás.
+    for (const r of rastros) {
+      const a = alfaDaVida(r);
+      ctx.globalAlpha = 0.55 * a;
+      ctx.fillStyle = r.tamanho === 2 ? COR.luz : COR.verdeClaro;
+      ctx.fillRect(Math.round(r.x), Math.round(r.y), 6 + r.tamanho * 5, 1);
     }
+    ctx.globalAlpha = 1;
+
+    // Protagonista em dash de lado, com ecos verdes que ficam para trás.
+    if (quadrosDash.length > 0) {
+      const iQuadro = reduzirMovimento ? 0 : Math.floor(t * 14) % quadrosDash.length;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let k = 4; k >= 1; k--) {
+        ctx.globalAlpha = 0.34 - k * 0.07;
+        ctx.drawImage(ecosDash[(iQuadro + k) % ecosDash.length], px - k * 11, py, lado, lado);
+      }
+      ctx.restore();
+      ctx.drawImage(quadrosDash[iQuadro], px, py, lado, lado);
+    }
+
+    // Folhas soltas no rastro.
+    for (const f of folhas) {
+      ctx.globalAlpha = alfaDaVida(f);
+      ctx.fillStyle = f.tamanho === 2 ? COR.espirito : COR.verdeClaro;
+      ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 1);
+    }
+    ctx.globalAlpha = 1;
 
     // Almas subindo: brilho azul e núcleo claro.
     for (const p of almas) {
@@ -526,7 +647,7 @@ export function criarAberturaAnimada(opcoes: {
       ctx.globalAlpha = 1;
     }
 
-    ctx.drawImage(frente, 0, 0);
+    ctx.drawImage(frente, -desloc(VEL.frente, PERIODO), 0);
 
     // Vinheta: as bordas escurecem, como a noite fechando.
     const v = ctx.createRadialGradient(
