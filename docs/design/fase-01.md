@@ -12,18 +12,18 @@ Em 25/11 só consertamos o que impedia terminar, sem mudar a proposta:
 
 - **A Saída ficou fechada.** O poço da coluna 14 tinha virado parede das linhas 2 a 34. A **linha 44 foi aberta** (colunas 15–33) e liga a sala da Gosma G4 ao poço. Assim a área leste vira o trecho final antes da Saída.
 - **6 Almas na coluna 33 (linhas 35–40) não tinham como ser pegas.** Abrimos **(38,33)**, uma parada (subindo de (38,34)) que leva até a coluna 33.
-- **Habitantes:** a Fase agora tem **3**. O do Luan fica no corredor 28. Os 2 novos ficam no Desvio oeste (11,36) e no alto da área leste (34,7).
+- **Habitantes:** a Fase agora tem **3**. O do Luan fica no corredor 28. Os 2 novos ficam no Desvio oeste (11,36) e no salão do topo (25,1).
 
 ## Números
 
 | | |
 |---|---|
 | Tamanho | 69 × 71 (área jogável até a coluna 45; R14: 60–100 linhas) |
-| Rota mínima | 64 deslizes (solver estático) |
+| Rota mínima | 62 deslizes (solver estático) |
 | Perigos | 27 espinhos · 4 Gosmas · 3 Drones · 2 Guardas |
 | Totens | 5 · Almas: 108 |
 | Provas | 1 (8,52) · 2 (10,22) · 3 (11,3), todas no lado oeste |
-| Habitantes | 3: (34,7) Menino do igarapé · (11,36) Avó que cuida da roça · (28,38) Agente de saúde |
+| Habitantes | 3: (25,1) Menino do igarapé (salão do topo) · (11,36) Avó que cuida da roça · (28,38) Agente de saúde |
 | Jogada limpa | ~18,5 s de jogo, se o jogador acertar todos os tempos (busca do teste) |
 
 ## A ideia
