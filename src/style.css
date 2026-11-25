@@ -1468,3 +1468,152 @@ html:active-view-transition-type(backward)::view-transition-new(intro-quadro) {
 .balao-habitante img {
   image-rendering: pixelated;
 }
+
+/* ------------------------------------------------------- Modo speedrun */
+/* Tela limpa: sem contadores nem avisos; só o tempo à direita e a pausa. */
+
+.hud-jogo[data-speedrun='true'] > .hud-provas,
+.hud-jogo[data-speedrun='true'] > .hud-almas,
+.hud-jogo[data-speedrun='true'] > .hud-habitante {
+  display: none;
+}
+
+.hud-jogo > .hud-tempo {
+  position: absolute;
+  inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
+  inset-inline-end: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgb(238 244 240 / 0.2);
+  border-radius: 0.5rem;
+  background-color: rgb(13 21 18 / 0.72);
+  color: var(--cor-texto);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+/* ------------------------------------------------------------ Ranking */
+
+.ranking-conclusao {
+  display: grid;
+  gap: 0.5rem;
+  padding-block-start: 0.6rem;
+  border-block-start: 1px solid var(--cor-borda);
+}
+
+.ranking-conclusao h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.form-letras {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--cor-prova);
+  font-weight: 700;
+}
+
+.form-letras-linha {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.form-letras input {
+  min-inline-size: 0;
+  min-block-size: max(var(--target-size), 2.4rem);
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--cor-prova);
+  border-radius: 6px;
+  background-color: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 1.2rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.form-letras input:focus-visible {
+  outline: 2px solid var(--cor-destaque);
+  outline-offset: 1px;
+}
+
+.lista-ranking {
+  display: grid;
+  gap: 0.15rem;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-ranking {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  gap: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  text-align: start;
+}
+
+.linha-ranking:nth-child(odd) {
+  background-color: rgb(238 244 240 / 0.04);
+}
+
+.linha-ranking[data-destaque='true'] {
+  background-color: rgb(46 196 116 / 0.2);
+  outline: 1px solid rgb(46 196 116 / 0.7);
+  color: #9ef7c2;
+}
+
+.ranking-posicao {
+  color: var(--cor-texto-suave);
+}
+
+.linha-ranking:first-child .ranking-posicao {
+  color: var(--cor-prova);
+  font-weight: 700;
+}
+
+.ranking-letras {
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.ranking-nota,
+.ranking-subtitulo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--cor-texto-suave);
+}
+
+.ranking-nota:empty {
+  display: none;
+}
+
+/* Sobre o projeto: link discreto abaixo dos botões do menu. */
+.link-sobre {
+  justify-self: center;
+  min-block-size: var(--target-size);
+  padding: 0.2rem 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  /* Fundo escuro para ler sobre a floresta animada do menu. */
+  background-color: rgb(13 21 18 / 0.78);
+  color: var(--cor-texto-suave);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.link-sobre:hover,
+.link-sobre:focus-visible {
+  color: var(--cor-texto);
+}

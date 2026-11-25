@@ -353,6 +353,11 @@ export class FaseScene extends Phaser.Scene {
     this.atualizarIndicadorBuffer();
   }
 
+  /** Tempo jogado na Tentativa (sem pausas nem Prova aberta), para o contador do speedrun. */
+  public tempoJogadoSegundos(): number {
+    return this.estado?.tempoJogadoSegundos ?? 0;
+  }
+
   public pausar(): void {
     if (!this.estado || this.estado.concluida) return;
     pausarJogo(this.estado);
