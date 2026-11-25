@@ -43,7 +43,14 @@ export type EventoDeslize =
       readonly direcao: Direcao;
     }
   | { readonly tipo: 'totem_ativado'; readonly celula: Coordenada }
-  | { readonly tipo: 'habitante_resgatado'; readonly celula: Coordenada }
+  | {
+      readonly tipo: 'habitante_resgatado';
+      readonly celula: Coordenada;
+      /** Posição do Habitante em `fase.habitantes` (0, 1, 2). */
+      readonly indice: number;
+      readonly resgatados: number;
+      readonly total: number;
+    }
   | {
       readonly tipo: 'prova_coletada';
       readonly prova: ProvaNaFase;
@@ -92,7 +99,8 @@ export interface EstadoFase {
   /** Tempo jogado na tentativa atual, sem contar pausas e overlays (não zera ao morrer). */
   tempoJogadoSegundos: number;
   totemAtivo: Coordenada | null;
-  habitanteResgatado: boolean;
+  /** Um por Habitante da Fase (mesma ordem de `fase.habitantes`); não voltam ao morrer. */
+  habitantesResgatados: boolean[];
   provasColetadas: NumeroProva[];
   /** Uma posição por Alma da Fase (mesma ordem de `fase.almas`); não voltam ao morrer. */
   almasColetadas: boolean[];
@@ -112,7 +120,8 @@ export interface EstadoFase {
 export interface OpcoesEstadoFase {
   velocidadeTilesPorSegundo?: number;
   provasJaColetadas?: readonly NumeroProva[];
-  habitanteJaResgatado?: boolean;
+  /** Índices (em `fase.habitantes`) dos Habitantes já resgatados. */
+  habitantesJaResgatados?: readonly number[];
   perigosProvisorios?: readonly Coordenada[];
   simularAmeacas?: boolean;
   /** Liga o ciclo dos espinhos temporários da Fase (padrão: ligado). */
@@ -130,6 +139,11 @@ export const VETOR_DIRECAO: Record<Direcao, { readonly dc: number; readonly dl: 
 
 function mesmaCoordenada(a: Coordenada | null, b: Coordenada | null): boolean {
   return a !== null && b !== null && a.col === b.col && a.lin === b.lin;
+}
+
+/** Quantos Habitantes da Fase já foram resgatados nesta partida. */
+export function contarHabitantesResgatados(estado: Pick<EstadoFase, 'habitantesResgatados'>): number {
+  return estado.habitantesResgatados.filter(Boolean).length;
 }
 
 export function contarAlmasColetadas(estado: EstadoFase): number {
@@ -200,7 +214,7 @@ export function criarEstadoFase(
     tempoCicloSegundos: 0,
     tempoJogadoSegundos: 0,
     totemAtivo: null,
-    habitanteResgatado: opcoes.habitanteJaResgatado ?? false,
+    habitantesResgatados: fase.habitantes.map((_, i) => opcoes.habitantesJaResgatados?.includes(i) ?? false),
     provasColetadas,
     almasColetadas: fase.almas.map(() => false),
     provasPendentesOverlay: [],
@@ -410,6 +424,7 @@ type EncontroNoPasso =
       readonly prioridade: number;
       readonly tipo: 'habitante';
       readonly celula: Coordenada;
+      readonly indice: number;
     }
   | {
       readonly dist: number;
@@ -463,22 +478,13 @@ function coletarEncontrosNoPasso(
     }
   }
 
-  if (estado.fase.habitante && !estado.habitanteResgatado) {
-    const dist = distanciaAteAlvoNoTrajeto(
-      estado.posicao,
-      direcao,
-      estado.fase.habitante,
-      alcancePasso,
-    );
+  estado.fase.habitantes.forEach((habitante, indice) => {
+    if (estado.habitantesResgatados[indice]) return;
+    const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, habitante, alcancePasso);
     if (dist !== null) {
-      encontros.push({
-        dist,
-        prioridade: 2,
-        tipo: 'habitante',
-        celula: estado.fase.habitante,
-      });
+      encontros.push({ dist, prioridade: 2, tipo: 'habitante', celula: habitante, indice });
     }
-  }
+  });
 
   const distSaida = distanciaAteAlvoNoTrajeto(
     estado.posicao,
@@ -597,10 +603,13 @@ function avancarDeslize(
         }
 
         case 'habitante':
-          estado.habitanteResgatado = true;
+          estado.habitantesResgatados[encontro.indice] = true;
           eventos.push({
             tipo: 'habitante_resgatado',
             celula: { col: encontro.celula.col, lin: encontro.celula.lin },
+            indice: encontro.indice,
+            resgatados: contarHabitantesResgatados(estado),
+            total: estado.fase.habitantes.length,
           });
           break;
 

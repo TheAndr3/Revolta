@@ -47,7 +47,7 @@ Pequeno espírito da floresta (de um bicho, uma planta, o rio), animado, espalha
 _Avoid_: Moeda, ponto, orbe, semente, alma de antepassado
 
 **Marca**:
-Cada uma das três conquistas de uma Fase: concluí-la, reunir todas as Almas e resgatar o Habitante. A nota da Fase é quantas Marcas o jogador já obteve nela.
+Cada uma das três conquistas de uma Fase: concluí-la, reunir todas as Almas e resgatar todos os Habitantes. A nota da Fase é quantas Marcas o jogador já obteve nela.
 _Avoid_: Estrela, medalha, troféu, pontuação
 
 **Arquivo da Resistência**:
@@ -57,7 +57,7 @@ _Avoid_: Galeria, coleção, dossiê
 ## Personagens
 
 **Habitante**:
-Morador do território, escondido numa Fase, que pode ser resgatado ao encostar nele. É opcional, um colecionável.
+Morador do território, escondido numa Fase (de 0 a 3 por Fase, cada um num Desvio), que pode ser resgatado ao encostar nele. É opcional, um colecionável.
 _Avoid_: Morador, NPC, refém, aldeão
 
 **Protagonista**:

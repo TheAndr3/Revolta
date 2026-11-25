@@ -6,7 +6,8 @@
  * Para cada Fase do catálogo (`content/fases.json`) confere:
  * - as 3 Provas existem em `content/provas/<conteudo>/<N>-<tipo>.md`, com cabeçalho
  *   completo e texto de até LIMITE_PALAVRAS_PROVA palavras;
- * - o Habitante em `content/habitantes/<conteudo>.md` tem nome, retrato, papel e fala;
+ * - cada Habitante (`H` no mapa) tem `content/habitantes/<conteudo>/<N>.md` com nome,
+ *   retrato, papel e fala (N = 1, 2, 3 na ordem de leitura do grid);
  * - a introdução (`content/intro.json`) tem 7 quadros com imagem, descrição e texto;
  * - o Sobre (`content/sobre.md`) tem título e a lista de fontes;
  * - as ilustrações, retratos e quadros citados existem em `public/`.
@@ -14,6 +15,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseFase } from '../src/core/parser';
 import { lerCatalogoFases } from '../src/core/progresso';
 import { lerMarkdownSimples } from '../src/core/markdownSimples';
 import {
@@ -56,9 +58,13 @@ for (const entrada of catalogo) {
     resultado.assets.forEach((asset) => assets.set(asset, caminho));
   }
 
-  const caminhoHabitante = `content/habitantes/${entrada.conteudo}.md`;
-  const markdownHabitante = ler(caminhoHabitante);
-  if (markdownHabitante !== null) {
+  // Um arquivo por `H` do mapa da Fase.
+  const mapa = ler(`public/${entrada.mapa}`);
+  const totalHabitantes = mapa === null ? 0 : parseFase(mapa).habitantes.length;
+  for (let numero = 1; numero <= totalHabitantes; numero++) {
+    const caminhoHabitante = `content/habitantes/${entrada.conteudo}/${numero}.md`;
+    const markdownHabitante = ler(caminhoHabitante);
+    if (markdownHabitante === null) continue;
     arquivosVerificados += 1;
     const resultado = validarHabitante(markdownHabitante, entrada.conteudo, caminhoHabitante);
     erros.push(...resultado.erros);

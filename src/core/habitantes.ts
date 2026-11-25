@@ -1,9 +1,16 @@
 export interface ConteudoHabitante {
   readonly faseId: string;
+  /** Número do Habitante na Fase (1, 2, 3), na ordem de leitura do grid. */
+  readonly numero: number;
   readonly nome: string;
   readonly retrato: string;
   readonly papel: string;
   readonly fala: string;
+  /**
+   * Qual sprite de Habitante usar no mapa (ex.: `agente`, `avo`, `menino`; ver
+   * src/game/habitantesSprites.ts). Vazio: escolhido pelo número.
+   */
+  readonly aparencia: string;
 }
 
 export class ErroParseHabitante extends Error {
@@ -35,6 +42,7 @@ function removerAspas(valor: string): string {
 export function parseHabitanteMarkdown(
   conteudo: string,
   faseId: string,
+  numero = 1,
 ): ConteudoHabitante {
   const normalizado = conteudo.replace(/\r\n/g, '\n');
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(normalizado);
@@ -89,9 +97,11 @@ export function parseHabitanteMarkdown(
 
   return {
     faseId,
+    numero,
     nome,
     retrato,
     papel,
     fala,
+    aparencia: campos.get('aparencia') ?? '',
   };
 }

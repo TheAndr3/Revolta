@@ -4,7 +4,7 @@
  * - R11: existe rota que coleta as 3 Provas e atravessa a Saída (busca em largura
  *   sobre célula de parada + Provas coletadas). Cada deslize é simulado pelo próprio
  *   núcleo do jogo (`solicitarDirecao` + `atualizarDeslize`), sem duplicar a regra.
- * - Habitante e Almas alcançáveis (aviso, não erro).
+ * - Habitantes e Almas alcançáveis (aviso, não erro).
  * - R09: nenhum Totem em trilho de Ameaça.
  * - R08: trilhos de Ameaças não se cruzam.
  */
@@ -44,7 +44,8 @@ export function formatarCoordenada(coord: Coordenada): string {
 interface ResultadoDeslize {
   readonly parada: Coordenada;
   readonly provas: readonly NumeroProva[];
-  readonly resgatouHabitante: boolean;
+  /** Índices dos Habitantes resgatados neste deslize. */
+  readonly habitantes: readonly number[];
   /** Índices das Almas atravessadas neste deslize. */
   readonly almas: readonly number[];
   readonly concluiu: boolean;
@@ -82,7 +83,7 @@ function simularDeslize(
   return {
     parada: { col: estado.celulaAtual.col, lin: estado.celulaAtual.lin },
     provas: [...estado.provasColetadas].sort(),
-    resgatouHabitante: estado.habitanteResgatado,
+    habitantes: estado.habitantesResgatados.flatMap((resgatado, i) => (resgatado ? [i] : [])),
     almas: estado.almasColetadas.flatMap((pega, i) => (pega ? [i] : [])),
     concluiu: estado.concluida,
   };
@@ -110,7 +111,7 @@ function reconstruirRota(no: NoBusca, ultima: Direcao): Direcao[] {
 function buscarRota(fase: Fase): {
   rota: Direcao[] | null;
   provasAlcancadas: Set<NumeroProva>;
-  habitanteAlcancado: boolean;
+  habitantesAlcancados: Set<number>;
   almasAlcancadas: Set<number>;
   explorados: number;
 } {
@@ -118,15 +119,15 @@ function buscarRota(fase: Fase): {
   const visitados = new Set([chaveNo(inicio.parada, inicio.provas)]);
   const provasAlcancadas = new Set<NumeroProva>();
   const almasAlcancadas = new Set<number>();
-  let habitanteAlcancado = false;
+  const habitantesAlcancados = new Set<number>();
   let fila: NoBusca[] = [inicio];
   let rota: Direcao[] | null = null;
 
   const faltaAlgoOpcional = () =>
-    (fase.habitante !== null && !habitanteAlcancado) || almasAlcancadas.size < fase.almas.length;
+    habitantesAlcancados.size < fase.habitantes.length || almasAlcancadas.size < fase.almas.length;
 
   // Busca em largura: a primeira rota achada é a mínima. Depois de achá-la, a busca
-  // continua só enquanto falta saber se o Habitante e todas as Almas são alcançáveis.
+  // continua só enquanto falta saber se todos os Habitantes e Almas são alcançáveis.
   while (fila.length > 0 && (rota === null || faltaAlgoOpcional())) {
     const proxima: NoBusca[] = [];
     for (const no of fila) {
@@ -136,7 +137,7 @@ function buscarRota(fase: Fase): {
 
         resultado.provas.forEach((p) => provasAlcancadas.add(p));
         resultado.almas.forEach((a) => almasAlcancadas.add(a));
-        habitanteAlcancado ||= resultado.resgatouHabitante;
+        resultado.habitantes.forEach((h) => habitantesAlcancados.add(h));
 
         if (resultado.concluiu) {
           rota ??= reconstruirRota(no, direcao);
@@ -152,7 +153,7 @@ function buscarRota(fase: Fase): {
     fila = proxima;
   }
 
-  return { rota, provasAlcancadas, habitanteAlcancado, almasAlcancadas, explorados: visitados.size };
+  return { rota, provasAlcancadas, habitantesAlcancados, almasAlcancadas, explorados: visitados.size };
 }
 
 function verificarTotensEmTrilho(fase: Fase): string[] {
@@ -214,11 +215,12 @@ export function resolverFase(fase: Fase): ResultadoSolver {
     }
   }
 
-  if (fase.habitante && !busca.habitanteAlcancado) {
+  fase.habitantes.forEach((habitante, i) => {
+    if (busca.habitantesAlcancados.has(i)) return;
     avisos.push(
-      `Habitante em ${formatarCoordenada(fase.habitante)} não é alcançável: ninguém conseguirá resgatá-lo.`,
+      `Habitante ${i + 1} em ${formatarCoordenada(habitante)} não é alcançável: ninguém conseguirá resgatá-lo.`,
     );
-  }
+  });
 
   const almasInalcancaveis = fase.almas.filter((_, i) => !busca.almasAlcancadas.has(i));
   if (almasInalcancaveis.length > 0) {

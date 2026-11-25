@@ -77,7 +77,7 @@ describe('parseFase', () => {
     expect(fase.grade[3][3]).toBe('saida');
     expect(fase.totens).toEqual([]);
     expect(fase.provas).toEqual([]);
-    expect(fase.habitante).toBeNull();
+    expect(fase.habitantes).toEqual([]);
     expect(fase.espinhos).toEqual([]);
     expect(fase.ameacas).toEqual([]);
   });
@@ -95,7 +95,7 @@ describe('parseFase', () => {
       { numero: 2, tipo: 'transformacao', posicao: { col: 11, lin: 11 } },
       { numero: 3, tipo: 'responsaveis', posicao: { col: 11, lin: 4 } },
     ]);
-    expect(fase.habitante).toEqual({ col: 5, lin: 7 });
+    expect(fase.habitantes).toEqual([{ col: 5, lin: 7 }]);
     expect(fase.espinhos).toEqual([{ col: 10, lin: 14 }]);
 
     // Células com elementos dinâmicos/colecionáveis viram chão transitável na grade neutra
@@ -255,7 +255,7 @@ describe('parseFase', () => {
     expect(erro.coluna).toBe(3);
   });
 
-  it('exige exatamente um inicio (@), uma saida (X), sem duplicar Provas ou Habitante', () => {
+  it('exige exatamente um inicio (@), uma saida (X), sem duplicar Provas nem passar de 3 Habitantes', () => {
     const semSaida = MINI_FASE.replace('X', '.');
     expect(capturarErroParse(semSaida).message).toMatch(/saída|saida/i);
 
@@ -271,11 +271,13 @@ describe('parseFase', () => {
     expect(erroProva.linha).toBe(20);
     expect(erroProva.coluna).toBe(7);
 
-    const habitanteDuplicado = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H..........#');
-    const erroHab = capturarErroParse(habitanteDuplicado);
-    expect(erroHab.message).toMatch(/habitante/i);
+    // Até 3 Habitantes é válido (lidos na ordem do grid); o 4º é recusado.
+    const tresHabitantes = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H....H.....#');
+    expect(parseFase(tresHabitantes).habitantes).toHaveLength(3);
+    const quatroHabitantes = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H..H..H....#');
+    const erroHab = capturarErroParse(quatroHabitantes);
+    expect(erroHab.message).toMatch(/mais de 3 habitantes/i);
     expect(erroHab.linha).toBe(13);
-    expect(erroHab.coluna).toBe(6);
   });
 
   it('reporta linha e coluna em cabecalhos, dimensoes e secoes malformadas', () => {

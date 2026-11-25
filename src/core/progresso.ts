@@ -4,13 +4,13 @@
  */
 
 export interface EntradaCatalogoFase {
-  /** Identificador usado no progresso salvo (Provas, Habitante, conclusão). */
+  /** Identificador usado no progresso salvo (Provas, Habitantes, conclusão). */
   readonly id: string;
   readonly nome: string;
   readonly subtitulo: string;
   /** Caminho do `.txt` da Fase dentro de `public/`. */
   readonly mapa: string;
-  /** Pasta de conteúdo em `content/provas/<conteudo>/` e `content/habitantes/<conteudo>.md`. */
+  /** Pasta de conteúdo em `content/provas/<conteudo>/` e `content/habitantes/<conteudo>/`. */
   readonly conteudo: string;
 }
 
@@ -85,11 +85,11 @@ export function proximaFase(
   return proximo < catalogo.length ? proximo : null;
 }
 
-/** As três Marcas de uma Fase (glossário): concluir, reunir todas as Almas, resgatar o Habitante. */
+/** As três Marcas de uma Fase (glossário): concluir, reunir todas as Almas, resgatar todos os Habitantes. */
 export interface MarcasDaFase {
   readonly concluida: boolean;
   readonly todasAsAlmas: boolean;
-  readonly habitante: boolean;
+  readonly habitantes: boolean;
 }
 
 export const TOTAL_MARCAS = 3;
@@ -99,19 +99,25 @@ export function calcularMarcas(dados: {
   /** Melhor número de Almas já reunidas numa mesma partida da Fase. */
   readonly melhorAlmas: number;
   readonly totalAlmas: number;
-  readonly habitanteResgatado: boolean;
+  /** Habitantes da Fase já resgatados (em qualquer partida) e quantos ela tem. */
+  readonly habitantesResgatados: number;
+  readonly totalHabitantes: number;
 }): MarcasDaFase {
   return {
     concluida: dados.concluida,
     // Uma Fase sem Almas não tem o que reunir: a Marca vem junto com a conclusão.
     todasAsAlmas:
       dados.totalAlmas === 0 ? dados.concluida : dados.melhorAlmas >= dados.totalAlmas,
-    habitante: dados.habitanteResgatado,
+    // Uma Fase sem Habitantes também dá a Marca ao ser concluída.
+    habitantes:
+      dados.totalHabitantes === 0
+        ? dados.concluida
+        : dados.habitantesResgatados >= dados.totalHabitantes,
   };
 }
 
 export function contarMarcas(marcas: MarcasDaFase): number {
-  return [marcas.concluida, marcas.todasAsAlmas, marcas.habitante].filter(Boolean).length;
+  return [marcas.concluida, marcas.todasAsAlmas, marcas.habitantes].filter(Boolean).length;
 }
 
 /** Formata segundos como `m:ss` (ou `h:mm:ss` acima de uma hora). */

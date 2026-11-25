@@ -1,5 +1,6 @@
 import { CONFIG } from './config';
 import {
+  MAXIMO_HABITANTES_FASE,
   TIPO_PROVA_POR_NUMERO,
   type AmeacaNaFase,
   type Coordenada,
@@ -567,7 +568,7 @@ export function parseFase(texto: string): Fase {
   let saida: Coordenada | null = null;
   const totens: Coordenada[] = [];
   const provasPorNumero = new Map<NumeroProva, ProvaNaFase>();
-  let habitante: Coordenada | null = null;
+  const habitantes: Coordenada[] = [];
   const espinhos: Coordenada[] = [];
   const almas: Coordenada[] = [];
   const ameacasDoGrid = new Map<string, AmeacaNoGrid>();
@@ -653,14 +654,14 @@ export function parseFase(texto: string): Fase {
           break;
         }
         case 'H':
-          if (habitante !== null) {
+          if (habitantes.length >= MAXIMO_HABITANTES_FASE) {
             throw new ErroParseFase(
-              `Mais de um Habitante (H) encontrado na linha ${linhaGrid}, coluna ${colunaGrid} do grid (linha ${linhaArquivo} do arquivo).`,
+              `Mais de ${MAXIMO_HABITANTES_FASE} Habitantes (H): o excedente está na linha ${linhaGrid}, coluna ${colunaGrid} do grid (linha ${linhaArquivo} do arquivo).`,
               linhaArquivo,
               colunaGrid,
             );
           }
-          habitante = { col: c, lin: r };
+          habitantes.push({ col: c, lin: r });
           linhaCelulas.push('chao');
           break;
         case '^':
@@ -804,7 +805,7 @@ export function parseFase(texto: string): Fase {
     saida,
     totens,
     provas,
-    habitante,
+    habitantes,
     espinhos,
     almas,
     ameacas,

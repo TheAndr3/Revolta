@@ -40,18 +40,20 @@ A "vida" vem do código (esticar/achatar, partículas, luz): desenhe só o neces
 
 | Asset | Frames |
 |---|---|
-| Protagonista | idle 2–4 · deslize 1–2 em cada uma das 4 direções · morte "se desfaz em folhas" 4 · reaparecer 4 |
+| Protagonista | **feito (24/11):** parado 4 · deslize 2 · batida 1 em frente, costas e lado (esquerda espelhada) · morte "se desfaz em folhas" 7 · reaparecer (a morte ao contrário). Ver nota abaixo. |
 | Gosma | loop 4 |
-| Drone | hélice 2–4, visto **de cima** (o código rotaciona) |
-| Guarda | andar 4 em cada uma das 4 direções · parado 1 |
+| Drone | **feito (24/11):** hélice ×4 (disco girando 45° por quadro), visto de cima com a serra na frente; o código gira, dá sombra, balanço e luz vermelha |
+| Guarda | **feito (24/11):** andar ×4 e parado ×2 em frente, costas e lado (esquerda espelhada), quadros de 24×24; o cone da lanterna é por código |
 | Espinhos | recolhido 1 · aviso 2 · ativo 1 · recolhendo 1 |
 | Totem | inativo 1 · ativo em loop 2–4 |
 | Saída | apagada 1 · acesa 1 (o brilho é por código) |
 | Prova no mapa | papel flutuando 2–4 |
-| Habitante | 1 sprite base com variações · escondido 2 · alívio 2–4 |
+| Habitante | **feito (25/11):** 3 aparências (agente de saúde, avó, menino) · medo 4 (tremendo, olhos procurando, suor) · alívio 2; mesmas proporções do Protagonista (`npm run gerar-habitantes`) |
 | Tileset da Floresta | ~40–60 tiles + 1 tile animado (água contaminada) |
 
 Spritesheets: quadros lado a lado na horizontal, 16 px cada, uma linha por animação, na ordem da tabela.
+
+**Protagonista desenhado em código (24/11/2026).** O sprite antigo tinha 48×48 e era reduzido para 16 px no jogo, o que apagava o detalhe. O novo é pixel art no tamanho real, desenhada em texto em [`scripts/gerar-protagonista.ts`](../scripts/gerar-protagonista.ts) (`npm run gerar-protagonista`). Cada quadro tem **24×24**: o corpo ocupa o tile e a cabeça passa uns pixels para cima, como em 3/4. O broto na cabeça, a aura verde, os esporos e os ecos no deslize longo são o espírito da mata. Detalhes e efeitos por código em `src/game/protagonistaSprites.ts` e `CONFIG.feel.protagonista`. O Drone e o Guarda usam a mesma técnica (`npm run gerar-ameacas`, [`scripts/gerar-ameacas.ts`](../scripts/gerar-ameacas.ts)); a pesquisa que levou a ela está em [pesquisa-drone-guarda.md](pesquisa-drone-guarda.md).
 
 ## Prompt-base (PixelLab)
 

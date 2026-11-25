@@ -6,7 +6,7 @@ import type { ConteudoHabitante } from '../core/habitantes';
 import type { EntradaCatalogoFase } from '../core/progresso';
 import { ROTULO_TIPO_PROVA, type ConteudoProva } from '../core/provas';
 import type { RepositorioProgresso } from './armazenamentoProgresso';
-import { carregarConteudoHabitanteDaFase } from './carregarHabitante';
+import { carregarConteudoHabitantesDaFase } from './carregarHabitante';
 import { carregarConteudoProvasDaFase, type MapaConteudoProvas } from './carregarProvas';
 import { formatarTexto, TEXTOS } from './textos';
 
@@ -51,11 +51,11 @@ function tentarCarregarProvas(conteudo: string): MapaConteudoProvas | null {
   }
 }
 
-function tentarCarregarHabitante(conteudo: string): ConteudoHabitante | null {
+function tentarCarregarHabitantes(conteudo: string): ConteudoHabitante[] {
   try {
-    return carregarConteudoHabitanteDaFase(conteudo);
+    return carregarConteudoHabitantesDaFase(conteudo);
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -158,10 +158,19 @@ export function criarArquivo(opcoes: OpcoesArquivo): ControleArquivo {
 
   const renderizarPovo = () => {
     let resgatados = 0;
+    let total = 0;
     const lista = elemento('ul', 'arquivo-povo');
-    for (const entrada of catalogo) {
-      const habitante = tentarCarregarHabitante(entrada.conteudo);
-      const resgatado = habitante !== null && progresso.habitanteResgatado(entrada.id);
+    // Uma ficha por Habitante de cada Fase, na ordem dos números.
+    const fichas = catalogo.flatMap((entrada) => {
+      const salvos = progresso.habitantesResgatados(entrada.id);
+      return tentarCarregarHabitantes(entrada.conteudo).map((habitante) => ({
+        entrada,
+        habitante,
+        resgatado: salvos.has(habitante.numero),
+      }));
+    });
+    for (const { entrada, habitante, resgatado } of fichas) {
+      total += 1;
       if (resgatado) resgatados += 1;
 
       const ficha = elemento('li', 'ficha-habitante');
@@ -169,16 +178,14 @@ export function criarArquivo(opcoes: OpcoesArquivo): ControleArquivo {
 
       const retrato = elemento('img', 'ficha-retrato');
       retrato.loading = 'lazy';
-      if (habitante) {
-        retrato.src = opcoes.resolverUrlAsset(habitante.retrato);
-      }
-      retrato.alt = resgatado && habitante
+      retrato.src = opcoes.resolverUrlAsset(habitante.retrato);
+      retrato.alt = resgatado
         ? formatarTexto(TEXTOS.arquivo.retrato, { nome: habitante.nome })
         : TEXTOS.arquivo.silhueta;
 
       const corpo = elemento('div', 'ficha-corpo');
       corpo.append(elemento('span', 'ficha-fase', entrada.nome));
-      if (resgatado && habitante) {
+      if (resgatado) {
         corpo.append(
           elemento('strong', 'ficha-nome', habitante.nome),
           elemento('p', 'ficha-frase', habitante.papel),
@@ -197,7 +204,7 @@ export function criarArquivo(opcoes: OpcoesArquivo): ControleArquivo {
     const resumo = elemento(
       'p',
       'arquivo-resumo',
-      formatarTexto(TEXTOS.arquivo.resumoPovo, { resgatados, total: catalogo.length }),
+      formatarTexto(TEXTOS.arquivo.resumoPovo, { resgatados, total }),
     );
     paineis.povo.replaceChildren(resumo, lista);
   };

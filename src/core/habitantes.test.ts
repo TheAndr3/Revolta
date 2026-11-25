@@ -17,10 +17,12 @@ describe('parser de conteúdo de Habitantes', () => {
 
     expect(parseHabitanteMarkdown(markdown, 'fase-00')).toEqual({
       faseId: 'fase-00',
+      numero: 1,
       nome: 'Habitante da Mata',
       retrato: 'assets/habitantes/placeholder-habitante.svg',
       papel: 'Guardiã da trilha',
       fala: 'Vou para o ponto de encontro avisar o grupo!',
+      aparencia: '',
     });
   });
 
@@ -39,8 +41,8 @@ describe('parser de conteúdo de Habitantes', () => {
     expect(() => parseHabitanteMarkdown(semFala, 'fase-00')).toThrow(ErroParseHabitante);
   });
 
-  it('carrega o arquivo real de conteúdo do Habitante da fase-00', () => {
-    const caminho = resolve(process.cwd(), 'content/habitantes/fase-00.md');
+  it('carrega o arquivo real de conteúdo do Habitante 1 da fase-00', () => {
+    const caminho = resolve(process.cwd(), 'content/habitantes/fase-00/1.md');
     const conteudo = readFileSync(caminho, 'utf-8');
     const habitante = parseHabitanteMarkdown(conteudo, 'fase-00');
 

@@ -5,12 +5,36 @@ export const CONFIG = {
   tamanhoTilePx: 16,
   /** Efeitos por código ("feel", ADR 0004). Tudo aqui é visual e pode ser ajustado no playtest. */
   feel: {
-    /** Escala do corpo durante o deslize (x: largura, y: comprimento na direção do movimento). */
-    estiramentoDeslize: { x: 0.9, y: 1.12 },
-    /** Achatamento ao bater na parede, que volta ao normal em `duracaoMs`. */
-    achatamentoBatida: { x: 1.3, y: 0.72, duracaoMs: 160 },
-    /** Rastro de partículas enquanto desliza. */
-    rastro: { intervaloMs: 16, vidaMs: 280, alfaInicial: 0.6, cor: 0xf4d35e },
+    /**
+     * Achatamento extra ao bater na parede (além do quadro de batida da spritesheet):
+     * `contra` é a escala no eixo do deslize e `largura` no outro; volta em `duracaoMs`.
+     */
+    achatamentoBatida: { contra: 0.86, largura: 1.12, duracaoMs: 160 },
+    /** Rastro de partículas enquanto desliza (luz do espírito da mata). */
+    rastro: { intervaloMs: 16, vidaMs: 280, alfaInicial: 0.6, cor: 0x52e596 },
+    /** Protagonista como espírito da mata: aura, esporos, ecos no deslize longo e impacto. */
+    protagonista: {
+      /** A partir de quantos tiles o deslize vira "corrida do espírito" (ecos, folhas, aura maior). */
+      distanciaEspiritoTiles: 5,
+      /** Ecos (imagens que ficam para trás) durante a corrida do espírito. */
+      eco: { intervaloMs: 40, vidaMs: 200, alfa: 0.36 },
+      /** Aura verde em volta do corpo: pulso do alfa e escala extra na corrida do espírito. */
+      aura: { alfa: { min: 0.14, max: 0.3 }, pulsoMs: 1400, escalaCorrida: 1.6 },
+      /**
+       * Impacto na parede, interpolado pela força (0 = deslize de 1 tile, 1 = 8 tiles ou mais):
+       * poeira e folhas sempre; tremor de tela e brotos no chão só nos fortes.
+       */
+      impacto: {
+        poeira: { min: 4, max: 14 },
+        folhas: { min: 1, max: 8 },
+        tremorAPartir: 0.35,
+        tremorMs: { min: 70, max: 150 },
+        tremorIntensidade: { min: 0.003, max: 0.008 },
+        brotosAPartir: 0.5,
+        /** Quanto o quadro de batida fica na tela (a "parada" do impacto), em ms. */
+        pausaMs: { min: 110, max: 220 },
+      },
+    },
     /** Morte: tremor de tela e folhas que se espalham. */
     morte: { tremorMs: 240, tremorIntensidade: 0.012, folhas: 22, vidaFolhasMs: 900 },
     /** Ativação do Totem: clarão da câmera e partículas. */
@@ -64,6 +88,7 @@ export const CONFIG = {
   velocidadeReferenciaAmeacaTilesPorSegundo: {
     gosma: 3,
     drone: 10,
-    guarda: 5,
+    // 5 → 4 em 25/11/2026: no playtest o Guarda estava rápido demais.
+    guarda: 4,
   },
 } as const;

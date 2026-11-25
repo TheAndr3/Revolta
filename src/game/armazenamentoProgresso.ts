@@ -1,6 +1,8 @@
 import type { NumeroProva } from '../core/fase';
 import {
+  chaveHabitante,
   listarHabitantesResgatados,
+  numerosResgatados,
   salvarHabitanteResgatado,
 } from './armazenamentoHabitantes';
 import {
@@ -76,11 +78,12 @@ function gravarListaDeTextos(
 export interface RepositorioProgresso {
   fasesConcluidas(): ReadonlySet<string>;
   faseConcluida(faseId: string): boolean;
-  habitanteResgatado(faseId: string): boolean;
+  /** Números (1, 2, 3) dos Habitantes da Fase já resgatados em alguma partida. */
+  habitantesResgatados(faseId: string): ReadonlySet<number>;
   provaColetada(faseId: string, numero: NumeroProva): boolean;
   registrarConclusao(faseId: string): void;
   registrarProva(faseId: string, numero: NumeroProva): void;
-  registrarHabitante(faseId: string): void;
+  registrarHabitante(faseId: string, numero: number): void;
   /** A introdução já foi vista (ou pulada) neste navegador. */
   /** Recorde de Almas da Fase, ou `null` se ela nunca foi concluída. */
   recordeAlmas(faseId: string): RecordeAlmas | null;
@@ -114,7 +117,7 @@ export function criarRepositorioProgresso(
   return {
     fasesConcluidas: () => concluidas,
     faseConcluida: (faseId) => concluidas.has(faseId),
-    habitanteResgatado: (faseId) => habitantes.has(faseId),
+    habitantesResgatados: (faseId) => numerosResgatados(habitantes, faseId),
     provaColetada: (faseId, numero) => provas.has(`${faseId}:${numero}`),
     registrarConclusao: (faseId) => {
       concluidas.add(faseId);
@@ -124,9 +127,9 @@ export function criarRepositorioProgresso(
       provas.add(`${faseId}:${numero}`);
       salvarProvaColetada(faseId, numero, storage);
     },
-    registrarHabitante: (faseId) => {
-      habitantes.add(faseId);
-      salvarHabitanteResgatado(faseId, storage);
+    registrarHabitante: (faseId, numero) => {
+      habitantes.add(chaveHabitante(faseId, numero));
+      salvarHabitanteResgatado(faseId, numero, storage);
     },
     recordeAlmas: (faseId) => recordesAlmas.get(faseId) ?? null,
     registrarAlmas: (faseId, coletadas, total) => {
