@@ -25,6 +25,31 @@ export interface EnvioRanking {
   readonly criadoEm: string;
 }
 
+/** O que uma Tentativa concluída reuniu (as 3 Provas são obrigatórias para concluir). */
+export interface ColetaDaTentativa {
+  readonly almasColetadas: number;
+  readonly almasTotal: number;
+  readonly habitantesResgatados: number;
+  readonly habitantesTotal: number;
+}
+
+/** Quantas Almas e Habitantes faltaram na Tentativa para ela ser perfeita. */
+export function faltasDaTentativa(coleta: ColetaDaTentativa): { almas: number; habitantes: number } {
+  return {
+    almas: Math.max(0, coleta.almasTotal - coleta.almasColetadas),
+    habitantes: Math.max(0, coleta.habitantesTotal - coleta.habitantesResgatados),
+  };
+}
+
+/**
+ * Só a Tentativa perfeita concorre ao Ranking: concluída com todas as Almas e todos
+ * os Habitantes reunidos nela mesma (o que foi pego em outra Tentativa não conta).
+ */
+export function tentativaPerfeita(coleta: ColetaDaTentativa): boolean {
+  const faltas = faltasDaTentativa(coleta);
+  return faltas.almas === 0 && faltas.habitantes === 0;
+}
+
 export function segundosParaMs(segundos: number): number {
   return Number.isFinite(segundos) ? Math.max(0, Math.round(segundos * 1000)) : 0;
 }

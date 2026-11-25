@@ -16,6 +16,7 @@ import {
 import type { ConteudoProva } from './core/provas';
 import {
   faltaParaEntrar,
+  faltasDaTentativa,
   formatarDiferenca,
   formatarTempoRanking,
   inserirNoRanking,
@@ -23,6 +24,8 @@ import {
   normalizarLetras,
   posicaoNoRanking,
   segundosParaMs,
+  tentativaPerfeita,
+  type ColetaDaTentativa,
   type EntradaRanking,
 } from './core/ranking';
 import { criarClienteRanking } from './game/ranking';
@@ -607,12 +610,44 @@ function iniciar(): void {
   // ------------------------------------------------------------ Ranking
 
   /** Conclusão que está no modal agora (para descartar respostas atrasadas da rede). */
-  let conclusaoAtual: { faseId: string; tempoMs: number; gravou: boolean } | null = null;
+  let conclusaoAtual: {
+    faseId: string;
+    tempoMs: number;
+    coleta: ColetaDaTentativa;
+    gravou: boolean;
+  } | null = null;
+
+  /** "3 Almas e 1 Habitante": o que faltou para a Tentativa ser perfeita. */
+  const descreverFaltas = (coleta: ColetaDaTentativa) => {
+    const { almas, habitantes } = faltasDaTentativa(coleta);
+    const partes = [
+      ...(almas > 0
+        ? [almas === 1 ? TEXTOS.ranking.faltaAlma : formatarTexto(TEXTOS.ranking.faltaAlmas, { n: almas })]
+        : []),
+      ...(habitantes > 0
+        ? [
+            habitantes === 1
+              ? TEXTOS.ranking.faltaHabitante
+              : formatarTexto(TEXTOS.ranking.faltaHabitantes, { n: habitantes }),
+          ]
+        : []),
+    ];
+    return partes.length === 2 ? formatarTexto(TEXTOS.ranking.faltasE, { a: partes[0], b: partes[1] }) : partes[0] ?? '';
+  };
 
   const mostrarRankingDaConclusao = () => {
     const atual = conclusaoAtual;
     if (!atual || atual.gravou) return;
     const top = ranking.topConhecido(atual.faseId);
+    if (!tentativaPerfeita(atual.coleta)) {
+      // Só a Tentativa perfeita concorre: mostra o Ranking e o que faltou.
+      renderizarListaRanking(listaRankingConclusao, top);
+      formLetras.hidden = true;
+      notaRankingConclusao.textContent = formatarTexto(TEXTOS.ranking.naoPerfeita, {
+        faltas: descreverFaltas(atual.coleta),
+      });
+      return;
+    }
     const entra = posicaoNoRanking(top, atual.tempoMs) !== null;
     renderizarListaRanking(listaRankingConclusao, top);
     const estavaOculto = formLetras.hidden;
@@ -631,8 +666,8 @@ function iniciar(): void {
     }
   };
 
-  const prepararRankingDaConclusao = (faseId: string, tempoMs: number) => {
-    const pedido = { faseId, tempoMs, gravou: false };
+  const prepararRankingDaConclusao = (faseId: string, tempoMs: number, coleta: ColetaDaTentativa) => {
+    const pedido = { faseId, tempoMs, coleta, gravou: false };
     conclusaoAtual = pedido;
     formLetras.hidden = true;
     mostrarRankingDaConclusao();
@@ -796,7 +831,7 @@ function iniciar(): void {
     if (!dialogConclusao.open) {
       dialogConclusao.showModal();
     }
-    prepararRankingDaConclusao(entrada.id, segundosParaMs(resumo.tempoSegundos));
+    prepararRankingDaConclusao(entrada.id, segundosParaMs(resumo.tempoSegundos), resumo);
   };
 
   const mostrarErroDeFase = (erro: unknown) => {

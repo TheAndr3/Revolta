@@ -16,6 +16,14 @@ A planilha guarda tudo o que recebe e nunca apaga; o top 10 é calculado na leit
 - **Supabase (plano grátis):** pausa o projeto depois de 7 dias sem uso, justamente o problema a evitar.
 - **Firebase Firestore:** sem pausa e rápido, mas o SDK pesa e as regras de segurança dão mais trabalho que o protótipo justifica.
 
+## Revisão de 25/11/2026: só a Tentativa perfeita entra
+
+Concluir não basta: só concorre ao Ranking a **Tentativa perfeita**, concluída com todas as Almas e todos os Habitantes reunidos nela mesma. O Ranking passa a medir a Fase inteira, não o atalho mais curto até a Saída. Quem conclui sem tudo vê o Ranking e o que faltou ("Faltaram 3 Almas e 1 Habitante"), sem o campo das letras.
+
+No Modo speedrun a tela continua limpa, sem contador de Almas nem aviso de Habitante: saber se pegou tudo faz parte do desafio (quem corre decora a Fase), e o resumo do fim mostra o que faltou.
+
+A regra é aplicada só no cliente: o Apps Script não tem como conferir a coleta, assim como já não confere o tempo. O piso de 6,7 s continua valendo como limite inferior (uma Tentativa perfeita é bem mais longa que a rota mínima).
+
 ## Consequences
 
 - Não há proteção real contra trapaça: a URL é pública e o JS também. O script só barra o óbvio (3 letras A–Z, Fase conhecida, tempo inteiro em ms entre um piso e 2 h) e grava com `LockService`. O Apps Script não informa o IP, então não há limite por pessoa. Tempo falso se apaga na planilha.

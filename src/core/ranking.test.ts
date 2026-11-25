@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   faltaParaEntrar,
+  faltasDaTentativa,
   formatarDiferenca,
   formatarTempoRanking,
   inserirNoRanking,
@@ -12,6 +13,7 @@ import {
   ordenarRanking,
   posicaoNoRanking,
   segundosParaMs,
+  tentativaPerfeita,
   type EntradaRanking,
 } from './ranking';
 
@@ -106,6 +108,29 @@ describe('ordem e entrada no Ranking', () => {
       'fase-01',
     );
     expect(top.map((e) => e.letras)).toEqual(['PEN', 'AAA']);
+  });
+});
+
+describe('Tentativa perfeita', () => {
+  const completa = { almasColetadas: 10, almasTotal: 10, habitantesResgatados: 4, habitantesTotal: 4 };
+
+  it('só é perfeita com todas as Almas e todos os Habitantes', () => {
+    expect(tentativaPerfeita(completa)).toBe(true);
+    expect(tentativaPerfeita({ ...completa, almasColetadas: 9 })).toBe(false);
+    expect(tentativaPerfeita({ ...completa, habitantesResgatados: 3 })).toBe(false);
+  });
+
+  it('diz quanto faltou de cada coisa', () => {
+    expect(faltasDaTentativa({ ...completa, almasColetadas: 7, habitantesResgatados: 3 })).toEqual({
+      almas: 3,
+      habitantes: 1,
+    });
+  });
+
+  it('uma Fase sem Almas ou sem Habitantes não exige o que não tem', () => {
+    expect(
+      tentativaPerfeita({ almasColetadas: 0, almasTotal: 0, habitantesResgatados: 0, habitantesTotal: 0 }),
+    ).toBe(true);
   });
 });
 
