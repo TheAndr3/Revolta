@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "gerar-ameacas": "vite-node scripts/gerar-ameacas.ts",
+    "gerar-favicon": "vite-node scripts/gerar-favicon.ts",
     "gerar-habitantes": "vite-node scripts/gerar-habitantes.ts",
     "gerar-paleta": "vite-node scripts/gerar-paleta.ts",
     "gerar-protagonista": "vite-node scripts/gerar-protagonista.ts",

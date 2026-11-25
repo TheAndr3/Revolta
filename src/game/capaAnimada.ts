@@ -255,7 +255,8 @@ export function criarAberturaAnimada(opcoes: {
     }
   };
 
-  const linhaDoChao = () => Math.round(altura * 0.66);
+  // Chão na metade da tela: o Protagonista fica acima dos botões do menu.
+  const linhaDoChao = () => Math.round(altura * 0.5);
 
   const montarCamadas = () => {
     if (!recursos) return;
