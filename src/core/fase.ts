@@ -43,8 +43,8 @@ export interface AmeacaNaFase {
   readonly pausas: readonly PausaAmeaca[];
 }
 
-/** Uma Fase tem de 0 a 3 Habitantes (2–3 nas Fases do jogo, um por Desvio). */
-export const MAXIMO_HABITANTES_FASE = 3;
+/** Uma Fase tem de 0 a 4 Habitantes (2–4 nas Fases do jogo, um por Desvio). */
+export const MAXIMO_HABITANTES_FASE = 4;
 
 export interface Fase {
   readonly largura: number;

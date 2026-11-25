@@ -48,7 +48,7 @@ A "vida" vem do código (esticar/achatar, partículas, luz): desenhe só o neces
 | Totem | inativo 1 · ativo em loop 2–4 |
 | Saída | apagada 1 · acesa 1 (o brilho é por código) |
 | Prova no mapa | papel flutuando 2–4 |
-| Habitante | **feito (25/11):** 3 aparências (agente de saúde, avó, menino) · medo 4 (tremendo, olhos procurando, suor) · alívio 2; mesmas proporções do Protagonista (`npm run gerar-habitantes`) |
+| Habitante | **feito (25/11):** 4 aparências (agente de saúde, avó, menino, pescador) · medo 4 (tremendo, olhos procurando, suor) · alívio 2; mesmas proporções do Protagonista (`npm run gerar-habitantes`) |
 | Tileset da Floresta | ~40–60 tiles + 1 tile animado (água contaminada) |
 
 Spritesheets: quadros lado a lado na horizontal, 16 px cada, uma linha por animação, na ordem da tabela.

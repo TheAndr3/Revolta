@@ -157,7 +157,19 @@ const MENINO: Desenho = {
   ]),
 };
 
-const DESENHOS: Record<AparenciaHabitante, Desenho> = { agente: AGENTE, avo: AVO, menino: MENINO };
+// Pescador do igarapé de cima: chapéu de palha (areia/barro), camisa azul-água, pele média.
+// Mesmo corpo da agente de saúde, com outras cores e chapéu: é outro morador da aldeia.
+const TROCA_PESCADOR: Record<string, string> = { T: 'B', r: 'B', t: 'b', W: 'r', n: 'T', L: 'S', S: 's', s: 'p' };
+const PESCADOR: Desenho = {
+  linhaOlhos: AGENTE.linhaOlhos,
+  pele: 'S',
+  base: AGENTE.base.map((l, y) =>
+    // os olhos (branco "W" + pupila) ficam como estão
+    l.map((c) => (y === AGENTE.linhaOlhos && c === 'W' ? c : (TROCA_PESCADOR[c] ?? c))),
+  ),
+};
+
+const DESENHOS: Record<AparenciaHabitante, Desenho> = { agente: AGENTE, avo: AVO, menino: MENINO, pescador: PESCADOR };
 
 /** Desloca o quadro inteiro (o que sair da borda some). */
 function deslocar(g: Grade, dx: number, dy: number): Grade {

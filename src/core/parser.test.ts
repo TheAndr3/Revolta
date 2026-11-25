@@ -255,7 +255,7 @@ describe('parseFase', () => {
     expect(erro.coluna).toBe(3);
   });
 
-  it('exige exatamente um inicio (@), uma saida (X), sem duplicar Provas nem passar de 3 Habitantes', () => {
+  it('exige exatamente um inicio (@), uma saida (X), sem duplicar Provas nem passar de 4 Habitantes', () => {
     const semSaida = MINI_FASE.replace('X', '.');
     expect(capturarErroParse(semSaida).message).toMatch(/saída|saida/i);
 
@@ -271,12 +271,12 @@ describe('parseFase', () => {
     expect(erroProva.linha).toBe(20);
     expect(erroProva.coluna).toBe(7);
 
-    // Até 3 Habitantes é válido (lidos na ordem do grid); o 4º é recusado.
-    const tresHabitantes = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H....H.....#');
-    expect(parseFase(tresHabitantes).habitantes).toHaveLength(3);
+    // Até 4 Habitantes é válido (lidos na ordem do grid); o 5º é recusado.
     const quatroHabitantes = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H..H..H....#');
-    const erroHab = capturarErroParse(quatroHabitantes);
-    expect(erroHab.message).toMatch(/mais de 3 habitantes/i);
+    expect(parseFase(quatroHabitantes).habitantes).toHaveLength(4);
+    const cincoHabitantes = FASE_EXEMPLO_LEGENDA.replace('#.............#', '#..H.H.H.H....#');
+    const erroHab = capturarErroParse(cincoHabitantes);
+    expect(erroHab.message).toMatch(/mais de 4 habitantes/i);
     expect(erroHab.linha).toBe(13);
   });
 

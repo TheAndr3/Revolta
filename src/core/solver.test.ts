@@ -63,7 +63,7 @@ describe('solver estático', () => {
     atualizarDeslize(estado, 1 / 60); // um quadro de reação
   };
 
-  it('a Fase 1 é válida, sem avisos, grande, com todos os perigos e 2–3 Habitantes', () => {
+  it('a Fase 1 é válida, sem avisos, grande, com todos os perigos e 2–4 Habitantes', () => {
     const resultado = resolverFase(FASE_1);
     expect(resultado.erros).toEqual([]);
     expect(resultado.avisos).toEqual([]); // Saída, Almas e Habitantes alcançáveis
@@ -72,7 +72,7 @@ describe('solver estático', () => {
     expect(new Set(FASE_1.ameacas.map((a) => a.tipo))).toEqual(new Set(['gosma', 'drone', 'guarda']));
     expect(FASE_1.totens.length).toBeGreaterThanOrEqual(4);
     expect(FASE_1.habitantes.length).toBeGreaterThanOrEqual(2);
-    expect(FASE_1.habitantes.length).toBeLessThanOrEqual(3);
+    expect(FASE_1.habitantes.length).toBeLessThanOrEqual(4);
   });
 
   it('a rota mínima da Fase 1 conclui a Fase no núcleo (sem Ameaças nem espinhos)', () => {

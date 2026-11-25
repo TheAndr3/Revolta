@@ -10,13 +10,13 @@ export const SPRITES_HABITANTES = {
   arquivo: 'assets/habitantes-sprites.png',
   quadroPx: 24,
   colunas: 6,
-  linhas: 3,
+  linhas: 4,
   /** Mesma origem do Protagonista: os pés na base do tile. */
   origemY: 14 / 24,
 } as const;
 
 /** Aparências desenhadas, na ordem das linhas da folha. */
-export const APARENCIAS_HABITANTE = ['agente', 'avo', 'menino'] as const;
+export const APARENCIAS_HABITANTE = ['agente', 'avo', 'menino', 'pescador'] as const;
 export type AparenciaHabitante = (typeof APARENCIAS_HABITANTE)[number];
 
 export const COLUNAS_HABITANTE = { medo: [0, 1, 2, 3], alivio: [4, 5] } as const;

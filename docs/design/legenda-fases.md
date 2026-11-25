@@ -32,7 +32,7 @@ O alfabeto do `.txt` é **fechado**: apenas os 14 caracteres abaixo são válido
 | 6 | Prova 1 — *O Passado* | Dígito `1` com base (traço embaixo) | `1` |
 | 7 | Prova 2 — *A Transformação* | Dígito `2` | `2` |
 | 8 | Prova 3 — *Os Responsáveis* | Dígito `3` | `3` |
-| 9 | Habitante (0 a 3 por Fase, opcional de coletar; numerados na ordem de leitura) | `H` maiúsculo | `H` |
+| 9 | Habitante (0 a 4 por Fase, opcional de coletar; numerados na ordem de leitura) | `H` maiúsculo | `H` |
 | 10 | Espinhos temporários / *Estacas da empresa* (sobem 0,5 s após a passagem, ativos por 1,5 s) | Triângulo pequeno `^` | `^` |
 | 11 | Gosma Tóxica (posição inicial) | `G` **dentro de um círculo** | `G` |
 | 12 | Drone Desmatador (posição inicial) | `D` **dentro de um círculo** | `D` |

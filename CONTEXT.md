@@ -57,7 +57,7 @@ _Avoid_: Galeria, coleção, dossiê
 ## Personagens
 
 **Habitante**:
-Morador do território, escondido numa Fase (de 0 a 3 por Fase, cada um num Desvio), que pode ser resgatado ao encostar nele. É opcional, um colecionável.
+Morador do território, escondido numa Fase (de 0 a 4 por Fase, cada um num Desvio), que pode ser resgatado ao encostar nele. É opcional, um colecionável.
 _Avoid_: Morador, NPC, refém, aldeão
 
 **Protagonista**:

@@ -36,10 +36,10 @@ describe('armazenamento e carregamento de Habitantes', () => {
     expect(numerosResgatados(chaves, 'fase-03').size).toBe(0);
   });
 
-  it('carrega os Habitantes da Fase única em ordem de número, um arquivo por H', () => {
+  it('carrega os 4 Habitantes da Fase única em ordem de número, um arquivo por H', () => {
     const habitantes = carregarConteudoHabitantesDaFase('fase-01');
 
-    expect(habitantes.map((h) => h.numero)).toEqual([1, 2, 3]);
+    expect(habitantes.map((h) => h.numero)).toEqual([1, 2, 3, 4]);
     for (const habitante of habitantes) {
       expect(habitante.fala.length).toBeGreaterThan(10);
       expect(habitante.nome.length).toBeGreaterThan(0);
@@ -53,6 +53,7 @@ describe('armazenamento e carregamento de Habitantes', () => {
     expect(linhaDoHabitante('avo', 1)).toBe(1);
     expect(linhaDoHabitante('', 1)).toBe(0);
     expect(linhaDoHabitante('desconhecida', 3)).toBe(2);
-    expect(linhaDoHabitante(undefined, 4)).toBe(0);
+    expect(linhaDoHabitante(undefined, 4)).toBe(3);
+    expect(linhaDoHabitante(undefined, 5)).toBe(0);
   });
 });

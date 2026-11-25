@@ -14,14 +14,21 @@ Em 25/11 só consertamos o que impedia terminar, sem mudar a proposta:
 - **6 Almas na coluna 33 (linhas 35–40) não tinham como ser pegas.** Abrimos **(38,33)**, uma parada (subindo de (38,34)) que leva até a coluna 33.
 - **Habitantes:** a Fase agora tem **3**. O do Luan fica no corredor 28. Os 2 novos ficam no Desvio oeste (11,36) e no salão do topo (25,1).
 
+## Mudanças de 25/11/2026 (equipe)
+
+- **4º Habitante** em (27,18), no corredor de Almas da coluna 27, entre espinhos: o **Pescador do igarapé de cima**. O limite de Habitantes por Fase subiu de 3 para 4 (`MAXIMO_HABITANTES_FASE`). Os números seguem a ordem de leitura do grid: 1 Menino do igarapé (25,1) · 2 Pescador (27,18) · 3 Avó que cuida da roça (11,36) · 4 Agente de saúde (28,38). Os arquivos de conteúdo foram renumerados (`content/habitantes/fase-01/1–4.md`), e quem já tinha resgatado algum Habitante neste navegador pode ver a contagem trocada uma vez.
+- **Duas Gosmas na sala da linha 50 do arquivo** (grid 40–44, colunas 34–43): G4 roda a metade esquerda (colunas 34–38) e G5 a metade direita (39–43), em sentidos opostos. Elas tomam a sala inteira e se esbarram na divisa das colunas 38 e 39. Os trilhos ficam lado a lado em vez de se cruzar, porque a regra R08 não deixa dois trilhos dividirem a mesma célula. O jogador entra pela coluna 36 e sai pela linha 44, ambas dentro das voltas: é o último teste de reflexo antes da Saída.
+- **Totem novo** em (37,28), na entrada da sala do Guarda R2 (linha 37 do arquivo).
+- **Guarda R1** vai até (13,5): a reta ganhou um bloco e a janela para passar subiu para ~0,7 s.
+
 ## Números
 
 | | |
 |---|---|
 | Tamanho | 69 × 71 (área jogável até a coluna 45; R14: 60–100 linhas) |
 | Rota mínima | 62 deslizes (solver estático) |
-| Perigos | 27 espinhos · 4 Gosmas · 3 Drones · 2 Guardas |
-| Totens | 5 · Almas: 108 |
+| Perigos | espinhos · 5 Gosmas · 3 Drones · 2 Guardas |
+| Totens | 6 |
 | Provas | 1 (8,52) · 2 (10,22) · 3 (11,3), todas no lado oeste |
 | Habitantes | 3: (25,1) Menino do igarapé (salão do topo) · (11,36) Avó que cuida da roça · (28,38) Agente de saúde |
 | Jogada limpa | ~18,5 s de jogo, se o jogador acertar todos os tempos (busca do teste) |
