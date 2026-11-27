@@ -962,3 +962,177 @@ describe('Prova sem interromper o deslize', () => {
     expect(estado.concluida).toBe(false);
   });
 });
+
+describe('solo erodido (~)', () => {
+  const deslizarAteParar = (estado: ReturnType<typeof criarEstadoFase>, direcao: 'cima' | 'baixo' | 'esquerda' | 'direita') => {
+    solicitarDirecao(estado, direcao);
+    const eventos = [];
+    for (let i = 0; i < 200 && estado.deslizando; i++) {
+      eventos.push(...atualizarDeslize(estado, 1 / 60));
+    }
+    return eventos;
+  };
+
+  it('atravessar ~ é seguro, desaba após ~1,0 s e voltar depois mata e restaura', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 4',
+        '[GRID]',
+        '##########',
+        '#@..~....#',
+        '#.......X#',
+        '##########',
+        '[FIM]',
+      ].join('\n'),
+    );
+    const estado = criarEstadoFase(fase);
+    const ev1 = deslizarAteParar(estado, 'direita');
+    expect(estado.mortes).toBe(0);
+    expect(estado.celulaAtual).toEqual({ col: 8, lin: 1 });
+    expect(ev1.filter((e) => e.tipo === 'solo_erodido_acionado')).toHaveLength(1);
+    expect(estado.solosErodidos[0].etapa).toBe('rachando');
+
+    // Após > 1,0 s, ~ desaba e permanece quebrado.
+    const evEspera = atualizarDeslize(estado, 1.05);
+    expect(estado.solosErodidos[0].etapa).toBe('quebrado');
+    expect(evEspera.some((e) => e.tipo === 'solo_erodido_quebrou')).toBe(true);
+
+    // Tentar voltar sobre ~ quebrado mata, volta ao início e restaura todo o solo erodido.
+    deslizarAteParar(estado, 'esquerda');
+    expect(estado.mortes).toBe(1);
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+    expect(estado.solosErodidos[0].etapa).toBe('intacto');
+  });
+
+  it('na 2ª passada sobre ~ enquanto ainda racha, sobrevive deslizando e o tile desaba ao sair (3ª passada mata)', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 4',
+        '[GRID]',
+        '##########',
+        '#@..~...o#',
+        '#.......X#',
+        '##########',
+        '[FIM]',
+      ].join('\n'),
+    );
+    const estado = criarEstadoFase(fase);
+
+    // 1ª passada: vai até (8,1) pegando a Alma.
+    deslizarAteParar(estado, 'direita');
+    expect(estado.celulaAtual).toEqual({ col: 8, lin: 1 });
+    expect(estado.almasColetadas).toEqual([true]);
+    expect(estado.solosErodidos[0].etapa).toBe('rachando');
+
+    // 2ª passada rápida (antes de 1 s): volta até (1,1), sobrevive e ~ desaba assim que sai!
+    const evVolta = deslizarAteParar(estado, 'esquerda');
+    expect(estado.mortes).toBe(0);
+    expect(estado.celulaAtual).toEqual({ col: 1, lin: 1 });
+    expect(estado.solosErodidos[0].etapa).toBe('quebrado');
+    expect(evVolta.some((e) => e.tipo === 'solo_erodido_quebrou')).toBe(true);
+
+    // 3ª passada: agora o buraco já está aberto e mata.
+    deslizarAteParar(estado, 'direita');
+    expect(estado.mortes).toBe(1);
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+    expect(estado.solosErodidos[0].etapa).toBe('intacto');
+  });
+
+  it('parar em cima de ~ na 2ª passada derruba o Protagonista na hora', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 8',
+        'ALTURA 4',
+        '[GRID]',
+        '########',
+        '#@...~##',
+        '#.....X#',
+        '########',
+        '[FIM]',
+      ].join('\n'),
+    );
+    const estado = criarEstadoFase(fase);
+
+    // 1ª passada: para em cima de ~ em (5,1), depois sai antes de 1 s.
+    deslizarAteParar(estado, 'direita');
+    expect(estado.celulaAtual).toEqual({ col: 5, lin: 1 });
+    expect(estado.mortes).toBe(0);
+
+    deslizarAteParar(estado, 'esquerda');
+    expect(estado.celulaAtual).toEqual({ col: 1, lin: 1 });
+    expect(estado.solosErodidos[0].etapa).toBe('rachando');
+
+    // 2ª passada parando em cima de ~: quebra imediatamente e mata.
+    deslizarAteParar(estado, 'direita');
+    expect(estado.mortes).toBe(1);
+    expect(estado.celulaAtual).toEqual(fase.inicio);
+  });
+
+  it('ficar parado em cima de ~ até o tempo acabar mata; sair antes salva', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 8',
+        'ALTURA 4',
+        '[GRID]',
+        '########',
+        '#@...~##',
+        '#.....X#',
+        '########',
+        '[FIM]',
+      ].join('\n'),
+    );
+
+    // Sai antes de 1,0 s: sobrevive.
+    const estadoRapido = criarEstadoFase(fase);
+    deslizarAteParar(estadoRapido, 'direita');
+    atualizarDeslize(estadoRapido, 0.3);
+    deslizarAteParar(estadoRapido, 'esquerda');
+    expect(estadoRapido.mortes).toBe(0);
+    expect(estadoRapido.celulaAtual).toEqual({ col: 1, lin: 1 });
+
+    // Fica parado até o tempo acabar: cai e morre.
+    const estadoLento = criarEstadoFase(fase);
+    deslizarAteParar(estadoLento, 'direita');
+    atualizarDeslize(estadoLento, 1.1);
+    expect(estadoLento.mortes).toBe(1);
+    expect(estadoLento.celulaAtual).toEqual(fase.inicio);
+  });
+
+  it('pausa congela o cronômetro e Voltar ao Totem restaura o solo erodido', () => {
+    const fase = parseFase(
+      [
+        'REVOLTA-FASE v1',
+        'LARGURA 10',
+        'ALTURA 4',
+        '[GRID]',
+        '##########',
+        '#@.T.~...#',
+        '#.......X#',
+        '##########',
+        '[FIM]',
+      ].join('\n'),
+    );
+    const estado = criarEstadoFase(fase);
+    deslizarAteParar(estado, 'direita');
+    expect(estado.solosErodidos[0].etapa).toBe('rachando');
+
+    pausarJogo(estado);
+    atualizarDeslize(estado, 2);
+    expect(estado.solosErodidos[0].etapa).toBe('rachando');
+
+    retomarJogo(estado);
+    atualizarDeslize(estado, 1.1);
+    expect(estado.solosErodidos[0].etapa).toBe('quebrado');
+
+    voltarAoTotem(estado);
+    expect(estado.mortes).toBe(0);
+    expect(estado.celulaAtual).toEqual({ col: 3, lin: 1 });
+    expect(estado.solosErodidos[0].etapa).toBe('intacto');
+  });
+});

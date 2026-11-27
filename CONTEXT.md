@@ -69,8 +69,12 @@ Elemento da Fase que se move sozinho num ciclo fixo e mata o Protagonista ao con
 _Avoid_: Inimigo, obstáculo (obstáculo é parede, e não fere)
 
 **Armadilha**:
-Elemento parado da Fase que é ativado pela passagem do Protagonista e, depois de um atraso, passa a matar.
+Elemento parado da Fase que é ativado pela passagem do Protagonista e, depois de um atraso, passa a matar (espinhos temporários, Solo erodido).
 _Avoid_: Trap, Ameaça (Ameaça se move sozinha; Armadilha reage à passagem)
+
+**Solo erodido**:
+Armadilha (`~`) que racha ao ser pisada e desaba em buraco letal após 1 s (ou assim que o Protagonista sai na 2ª passada). Permanece quebrado até morrer ou voltar ao Totem.
+_Avoid_: Chão quebrável, buraco, ponte frágil
 
 ## Tempo e Ranking
 

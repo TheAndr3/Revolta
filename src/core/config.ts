@@ -77,6 +77,11 @@ export const CONFIG = {
     /** Animação de recolher; já não mata. */
     recolhendoSegundos: 0.25,
   },
+  /** Solo erodido (`~`): tempo até desabar após a passagem do Protagonista, em segundos. */
+  soloErodido: {
+    /** Dá tempo de ir e voltar correndo; na 2ª passada desaba imediatamente ao sair. */
+    quebraSegundos: 1.0,
+  },
   /** Duração visual do tranco contra a parede em milissegundos. */
   duracaoTrancoMs: 110,
   /** Alcance do look-ahead vertical da câmera em tiles. */

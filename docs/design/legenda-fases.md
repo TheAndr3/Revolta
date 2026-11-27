@@ -18,9 +18,9 @@
 
 ## 1. Legenda de Símbolos (Papel e ASCII)
 
-### 1.1 Tabela dos 14 elementos
+### 1.1 Tabela dos 15 elementos
 
-O alfabeto do `.txt` é **fechado**: apenas os 14 caracteres abaixo são válidos. Qualquer outro caractere é erro de parser.
+O alfabeto do `.txt` é **fechado**: apenas os 15 caracteres abaixo são válidos. Qualquer outro caractere é erro de parser.
 
 | # | Elemento | No papel quadriculado | ASCII |
 |---|---|---|---|
@@ -38,6 +38,7 @@ O alfabeto do `.txt` é **fechado**: apenas os 14 caracteres abaixo são válido
 | 12 | Drone Desmatador (posição inicial) | `D` **dentro de um círculo** | `D` |
 | 13 | Guarda Florestal (posição inicial) | `R` **dentro de um círculo** (R de *Ronda*; o `G` já é da Gosma) | `R` |
 | 14 | Alma da floresta (colecionável opcional, várias por Fase; pega ao deslizar por cima) | **Bolinha cheia** (pequeno círculo pintado), no centro da célula | `o` |
+| 15 | Solo erodido (racha ao passar e desaba em 1,0 s; 2ª passada rápida sobrevive e derruba ao sair; vira buraco letal até morrer/voltar ao Totem) | Til `~` centralizado | `~` |
 
 Por que estes caracteres: não há `I`, `l`, `O`, `0`, `S`, `5`, `Z`, `B`, `8` nem `7` no alfabeto, então `1` e `2` não têm par ambíguo. As Ameaças ganham círculo no papel para a IA nunca confundi-las com elementos fixos (`G`/`6`, `D`/`0`, `R`/`P`).
 
@@ -58,7 +59,7 @@ Por que estes caracteres: não há `I`, `l`, `O`, `0`, `S`, `5`, `Z`, `B`, `8` n
 
 ### 1.4 Protocolo para a IA de transcrição
 
-- Transcreva **somente** os 13 caracteres da legenda, uma linha do papel por linha do `.txt`, exatamente 15 caracteres por linha.
+- Transcreva **somente** os 15 caracteres da legenda, uma linha do papel por linha do `.txt`, exatamente 15 caracteres por linha.
 - Célula ilegível ou ambígua: escreva `?` no rascunho e liste as coordenadas ao final. **Nunca adivinhe.** O parser rejeita `?`.
 - Célula com dois símbolos, símbolo fora da legenda ou círculo sem letra: reporte como conflito, não resolva sozinha.
 - Transcreva também o quadro de Ameaças (Seção 2) e confira que cada rota começa na célula do respectivo círculo.
@@ -160,7 +161,7 @@ Checklist exigido do desenhista e do *solver* estático. Cada item é verificáv
 - [ ] **R01 — Dimensões:** largura fixa de **15 colunas**; altura entre **40 e 120 linhas**.
 - [ ] **R02 — Contorno fechado:** colunas `0` e `14`, primeira e última linha são `#`. As 15 colunas incluem esse contorno (decisão deste documento: evita deslize infinito para fora do mapa).
 - [ ] **R03 — Contagens:** exatamente 1 `@`, 1 `X`, 1 `1`, 1 `2`, 1 `3` e 1 `H`; pelo menos 1 `T`.
-- [ ] **R04 — Alfabeto:** só os 13 caracteres da Seção 1; nenhum `?`.
+- [ ] **R04 — Alfabeto:** só os 15 caracteres da Seção 1; nenhum `?`.
 
 **Legibilidade (sem minimapa nem seta; só sinalização diegética)**
 
@@ -284,7 +285,7 @@ A busca em largura confirma que a menor solução tem **8 deslizes** e é esta:
 | R01 | 15 colunas. 16 linhas (exceção de exemplo; ver acima). |
 | R02 | Contorno todo `#`. |
 | R03 | 1 `@`, 1 `X`, 1 de cada Prova, 1 `H`, 1 `T`. |
-| R04 | Só os 13 caracteres da legenda. |
+| R04 | Só os 15 caracteres da legenda. |
 | R07 | Todas as células de trilho são `.`, exceto `v1` (`G` em 3,8; `D` em 9,4; `R` em 10,3). |
 | R08 | Trilhos disjuntos (G1: linhas 8–9; D1: coluna 9; R1: linha 3, colunas 10–13). |
 | R09 | O único `T` (13,12) está a 4 células do trilho mais próximo. |

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../core/config';
 import type { EtapaEspinho } from '../core/espinhos';
+import type { EtapaSoloErodido } from '../core/soloErodido';
 import {
   OBJETOS_GRANDES,
   SO_GRAMA,
@@ -161,6 +162,14 @@ const CORES = {
   espinhosMarca: 0xfef2f2,
   espinhosFuro: 0x3a2a24,
   espinhosAviso: 0xfb923c,
+  soloBorda: 0xc28a4b,
+  soloTrinca: 0x4b3324,
+  soloTrincaEscura: 0x2f1814,
+  soloAviso: 0xf59e0b,
+  soloAvisoForte: 0xe05d3a,
+  soloBuraco: 0x0c0910,
+  soloBuracoFundo: 0x1a1320,
+  soloBuracoBeira: 0x5c3e2c,
   gosma: 0x84cc16,
   gosmaMarca: 0x1a2e05,
   gosmaBrilho: 0xd9f99d,
@@ -269,6 +278,16 @@ export class FaseScene extends Phaser.Scene {
     tween: Phaser.Tweens.Tween | null;
   }> = [];
   private emissorEspinho: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  /** Um sprite por tile de solo erodido (`~`). */
+  private readonly spritesSoloErodido: Array<{
+    readonly sprite: Phaser.GameObjects.Sprite;
+    readonly baseX: number;
+    readonly baseY: number;
+    etapa: EtapaSoloErodido | '';
+    quadro: number;
+    tween: Phaser.Tweens.Tween | null;
+  }> = [];
+  private emissorSoloErodido: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   private trancoOffset = { x: 0, y: 0 };
   private trancoTween: Phaser.Tweens.Tween | null = null;
@@ -485,6 +504,7 @@ export class FaseScene extends Phaser.Scene {
     this.sincronizarProtagonista();
     this.sincronizarAmeacas(deltaSegundos);
     this.sincronizarEspinhos();
+    this.sincronizarSolosErodidos();
     this.atualizarIndicadorBuffer();
 
     if (!this.estado.pausado && this.estado.provaEmExibicao === null) {
@@ -518,9 +538,18 @@ export class FaseScene extends Phaser.Scene {
       item.quadro = -1;
     }
 
+    for (const item of this.spritesSoloErodido) {
+      item.tween?.stop();
+      item.sprite.setPosition(item.baseX, item.baseY);
+      item.sprite.setScale(1);
+      item.etapa = '';
+      item.quadro = -1;
+    }
+
     if (this.estado) {
       this.sincronizarAmeacas(0);
       this.sincronizarEspinhos();
+      this.sincronizarSolosErodidos();
     }
   }
 
@@ -560,6 +589,60 @@ export class FaseScene extends Phaser.Scene {
     }
   });
 }
+
+  private sincronizarSolosErodidos(): void {
+    const duracao = Math.max(0.01, CONFIG.soloErodido.quebraSegundos);
+    this.estado.solosErodidos.forEach((solo, i) => {
+      const item = this.spritesSoloErodido[i];
+      if (!item) return;
+
+      let quadro: number;
+      if (solo.etapa === 'quebrado') {
+        quadro = 3;
+      } else if (solo.etapa === 'intacto') {
+        quadro = 0;
+      } else {
+        const progresso = Math.min(1, solo.tempoNaEtapa / duracao);
+        const frequencia = solo.passadas >= 2 || progresso > 0.6 ? 16 : 8;
+        quadro = Math.floor(solo.tempoNaEtapa * frequencia) % 2 === 1 ? 2 : 1;
+        if (!this.reduzirMovimento && (progresso > 0.45 || solo.passadas >= 2)) {
+          const treme = Math.floor(solo.tempoNaEtapa * 40) % 2 === 0 ? -0.6 : 0.6;
+          item.sprite.setPosition(item.baseX + treme, item.baseY);
+        } else {
+          item.sprite.setPosition(item.baseX, item.baseY);
+        }
+      }
+
+      if (quadro !== item.quadro) {
+        item.quadro = quadro;
+        item.sprite.setFrame(quadro);
+      }
+
+      if (solo.etapa === item.etapa) return;
+      item.etapa = solo.etapa;
+
+      if (solo.etapa === 'rachando') {
+        this.emissorSoloErodido?.explode(3, item.baseX, item.baseY);
+      } else if (solo.etapa === 'quebrado') {
+        item.sprite.setPosition(item.baseX, item.baseY);
+        this.emissorSoloErodido?.explode(10, item.baseX, item.baseY);
+        if (!this.reduzirMovimento) {
+          item.tween?.stop();
+          item.sprite.setScale(0.84);
+          item.tween = this.tweens.add({
+            targets: item.sprite,
+            scale: 1,
+            duration: 80,
+            ease: 'Back.easeOut',
+          });
+        }
+      } else {
+        item.tween?.stop();
+        item.sprite.setPosition(item.baseX, item.baseY);
+        item.sprite.setScale(1);
+      }
+    });
+  }
 
   private desenharGrade(): void {
     const tile = CONFIG.tamanhoTilePx;
@@ -820,6 +903,23 @@ export class FaseScene extends Phaser.Scene {
         .sprite(espinho.col * tile + tile / 2, espinho.lin * tile + tile / 2, 'espinho', 0)
         .setDepth(5);
       this.spritesEspinho.push({ sprite, etapa: '', quadro: 0, tween: null });
+    }
+
+    this.gerarTexturaSoloErodido();
+    for (const item of this.spritesSoloErodido) item.tween?.stop();
+    this.spritesSoloErodido.length = 0;
+    for (const solo of this.fase.solosErodidos) {
+      const baseX = solo.col * tile + tile / 2;
+      const baseY = solo.lin * tile + tile / 2;
+      const sprite = this.add.sprite(baseX, baseY, 'solo-erodido', 0).setDepth(5);
+      this.spritesSoloErodido.push({
+        sprite,
+        baseX,
+        baseY,
+        etapa: '',
+        quadro: 0,
+        tween: null,
+      });
     }
 
     this.gerarTexturasEfeitos();
@@ -1725,6 +1825,19 @@ export class FaseScene extends Phaser.Scene {
         emitting: false,
       })
       .setDepth(9);
+
+    this.emissorSoloErodido = this.add
+      .particles(0, 0, 'fx-ponto', {
+        lifespan: 420,
+        speed: { min: 15, max: 52 },
+        angle: { min: 0, max: 360 },
+        gravityY: 160,
+        scale: { start: 1.8, end: 0.4 },
+        alpha: { start: 1, end: 0 },
+        tint: [CORES.soloBuracoBeira, CORES.soloBorda, CORES.soloBuracoFundo],
+        emitting: false,
+      })
+      .setDepth(9);
   }
 
   private gerarTexturasEfeitos(): void {
@@ -2231,5 +2344,80 @@ export class FaseScene extends Phaser.Scene {
     g.destroy();
     const textura = this.textures.get('espinho');
     quadros.forEach((_, i) => textura.add(i, 0, i * tile, 0, tile, tile));
+  }
+
+  /**
+   * Folha 4×16px do solo erodido (`~`):
+   * 0 intacto · 1 rachando A · 2 rachando B (pisca) · 3 quebrado (buraco letal).
+   */
+  private gerarTexturaSoloErodido(): void {
+    if (this.textures.exists('solo-erodido')) return;
+    const tile = CONFIG.tamanhoTilePx;
+    const g = this.make.graphics({}, false);
+
+    const desenharTrincasLeves = (ox: number, cor: number, alfa: number) => {
+      g.fillStyle(cor, alfa);
+      const pts: readonly [number, number][] = [
+        [3, 4], [4, 5], [5, 5], [6, 6], [7, 7], [8, 7], [9, 8], [10, 9], [11, 10],
+        [7, 8], [6, 9], [5, 10],
+      ];
+      for (const [x, y] of pts) g.fillRect(ox + x, y, 1, 1);
+    };
+
+    const desenharTrincasDensa = (ox: number, cor: number, corCentro: number) => {
+      g.fillStyle(cor, 1);
+      const pts: readonly [number, number][] = [
+        [2, 3], [3, 4], [4, 5], [5, 6], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10], [11, 11], [12, 12],
+        [12, 3], [11, 4], [10, 5], [9, 6], [8, 7], [6, 8], [5, 9], [4, 10], [3, 12],
+        [7, 2], [7, 3], [7, 4], [7, 5], [8, 9], [8, 10], [8, 11], [8, 12],
+        [3, 7], [4, 7], [5, 7], [10, 7], [11, 8], [12, 8],
+      ];
+      for (const [x, y] of pts) g.fillRect(ox + x, y, 1, 1);
+      g.fillStyle(corCentro, 0.95);
+      g.fillRect(ox + 6, 6, 3, 3);
+    };
+
+    // 0: intacto (~)
+    g.lineStyle(1, CORES.soloBorda, 0.55);
+    g.strokeRect(0.5, 0.5, tile - 1, tile - 1);
+    desenharTrincasLeves(0, CORES.soloTrinca, 0.85);
+    g.fillStyle(CORES.soloBorda, 0.4);
+    g.fillRect(2, 12, 2, 1);
+    g.fillRect(11, 3, 2, 1);
+
+    // 1: rachando A
+    g.fillStyle(CORES.soloAviso, 0.14);
+    g.fillRect(tile + 1, 1, tile - 2, tile - 2);
+    g.lineStyle(1, CORES.soloAviso, 0.9);
+    g.strokeRect(tile + 0.5, 0.5, tile - 1, tile - 1);
+    desenharTrincasLeves(tile, CORES.soloTrincaEscura, 1);
+    g.fillStyle(CORES.soloBuraco, 0.75);
+    g.fillRect(tile + 6, 6, 2, 2);
+
+    // 2: rachando B (pisca urgente)
+    g.fillStyle(CORES.soloAviso, 0.28);
+    g.fillRect(2 * tile + 1, 1, tile - 2, tile - 2);
+    g.lineStyle(1, CORES.soloAvisoForte, 1);
+    g.strokeRect(2 * tile + 0.5, 0.5, tile - 1, tile - 1);
+    desenharTrincasDensa(2 * tile, CORES.soloTrincaEscura, CORES.soloBuraco);
+
+    // 3: quebrado (buraco/fenda escura letal)
+    const ox3 = 3 * tile;
+    g.fillStyle(CORES.soloBuracoBeira, 1);
+    g.fillRect(ox3 + 1, 1, tile - 2, tile - 2);
+    g.fillStyle(CORES.soloBuracoFundo, 1);
+    g.fillRect(ox3 + 2, 2, tile - 4, tile - 4);
+    g.fillStyle(CORES.soloBuraco, 1);
+    g.fillRect(ox3 + 3, 4, tile - 6, tile - 6);
+    g.fillRect(ox3 + 2, 5, tile - 4, tile - 8);
+    g.fillStyle(CORES.soloBorda, 0.75);
+    g.fillRect(ox3 + 2, tile - 2, tile - 4, 1);
+    g.lineStyle(1, CORES.soloTrincaEscura, 0.95);
+    g.strokeRect(ox3 + 0.5, 0.5, tile - 1, tile - 1);
+
+    g.generateTexture('solo-erodido', 4 * tile, tile);
+    g.destroy();
+    const textura = this.textures.get('solo-erodido');
+    for (let i = 0; i < 4; i++) textura.add(i, 0, i * tile, 0, tile, tile);
   }
 }

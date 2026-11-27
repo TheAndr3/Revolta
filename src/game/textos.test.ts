@@ -28,8 +28,8 @@ describe('textos de tela', () => {
 describe('catálogo de Fases do protótipo', () => {
   const catalogo = lerCatalogoFases(catalogoJson);
 
-  it('tem a Fase única do protótipo (ADR 0007)', () => {
-    expect(catalogo.map((f) => f.id)).toEqual(['fase-01']);
+  it('lista as Fases do catálogo na ordem esperada', () => {
+    expect(catalogo.map((f) => f.id)).toEqual(['fase-01', 'fase-02']);
   });
 
   it('cada Fase aponta para um mapa e um conteúdo existentes', () => {

@@ -57,8 +57,9 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 - Todas matam ao encostar e rodam sempre, mesmo fora da tela. Regra de desenho: o trilho de uma Ameaça que cruza a rota do jogador precisa ficar visível antes da passagem.
 
 ## Armadilhas
-- Só **espinhos temporários** (nome provisório: *Estacas da empresa*): ao passar por cima, após 0,5 s sobem e ficam ativos por 1,5 s, depois recolhem.
-- A 15 tiles/s, passar deslizando é sempre seguro; o perigo é parar em cima ou voltar logo.
+- **Espinhos temporários** (nome provisório: *Estacas da empresa*, símbolo `^`): ao passar por cima, após 0,5 s sobem e ficam ativos por 1,5 s, depois recolhem.
+- **Solo erodido** (adicionado em 26/11/2026 na Fase 2, símbolo `~`): racha ao ser pisado e desaba em buraco letal após 1,0 s (`CONFIG.soloErodido.quebraSegundos`). Passar uma 2ª vez enquanto racha sobrevive deslizando e derruba o tile assim que o Protagonista sai (parar em cima na 2ª passada derruba na hora). Permanece quebrado até morrer ou voltar ao Totem.
+- Passar deslizando na 1ª vez é sempre seguro; o perigo é parar em cima ou voltar depois que cedeu.
 
 ## Level design
 - As Fases são **desenhadas pela equipe**; a IA só reproduz o desenho no formato de texto do jogo. A IA não inventa layouts.
@@ -69,7 +70,7 @@ Registro das decisões tomadas na sessão de planejamento (18/11/2026), que serv
 - **"Toque para começar"** (capa; destrava o áudio no celular).
 - **Menu principal:** Jogar · Arquivo da Resistência · Sobre o projeto. Sem opções e sem créditos.
 - **Introdução:** ~~3 quadros~~ → **7 quadros** ilustrados em sequência (`01` a `07`), na primeira vez que se joga (dá para voltar, avançar ou pular; detalhes em [`intro.md`](intro.md)).
-- **Seleção de Fase:** lista linear das Fases (hoje só a Fase 1), desbloqueio em sequência, mostrando se o Habitante foi resgatado; dá para rejogar.
+- **Seleção de Fase:** lista linear das Fases (Fase 1 e Fase 2), todas liberadas desde o início para facilitar playtest direto, mostrando Marcas e Habitantes; dá para rejogar.
 - **HUD:** Provas x/3 · ícone do Habitante (cinza/colorido) · botão de pausa.
 - **Pausa:** Continuar · Voltar ao Totem · Reiniciar Fase · Sair.
 - **Overlay da Prova:** ilustração + tipo (O Passado / A Transformação / Os Responsáveis) + título + texto de **até ~100 palavras** + fechar.

@@ -18,6 +18,18 @@ import {
   type EstadoEspinho,
 } from './espinhos';
 import {
+  algumSoloErodidoRachando,
+  atualizarOcupacaoSolosErodidos,
+  avancarSolosErodidos,
+  criarSolosErodidos,
+  pisarSoloErodido,
+  protagonistaSobreSoloErodido,
+  quebrarSoloErodido,
+  reiniciarSolosErodidos,
+  soloErodidoLetal,
+  type EstadoSoloErodido,
+} from './soloErodido';
+import {
   TOTAL_PROVAS_FASE,
   type Coordenada,
   type Fase,
@@ -69,6 +81,12 @@ export type EventoDeslize =
   | { readonly tipo: 'ciclos_reiniciados' }
   | { readonly tipo: 'espinho_acionado'; readonly celula: Coordenada }
   | {
+      readonly tipo: 'solo_erodido_acionado';
+      readonly celula: Coordenada;
+      readonly passada: 1 | 2;
+    }
+  | { readonly tipo: 'solo_erodido_quebrou'; readonly celula: Coordenada }
+  | {
       readonly tipo: 'alma_coletada';
       readonly indice: number;
       readonly celula: Coordenada;
@@ -85,6 +103,8 @@ export interface EstadoFase {
   readonly simularAmeacas: boolean;
   /** Espinhos temporários da Fase, com a etapa atual de cada um. */
   readonly espinhos: EstadoEspinho[];
+  /** Solo erodido da Fase (`~`), com a etapa atual de cada tile. */
+  readonly solosErodidos: EstadoSoloErodido[];
   readonly ciclosAmeacas: readonly CicloAmeaca[];
   posicao: PosicaoContinua;
   celulaAtual: Coordenada;
@@ -126,6 +146,8 @@ export interface OpcoesEstadoFase {
   simularAmeacas?: boolean;
   /** Liga o ciclo dos espinhos temporários da Fase (padrão: ligado). */
   simularEspinhos?: boolean;
+  /** Liga o ciclo do solo erodido da Fase (padrão: ligado). */
+  simularSolosErodidos?: boolean;
   /** Abre o overlay da Prova ao parar depois de coletá-la (padrão: sim). */
   abrirProvaAoColetar?: boolean;
 }
@@ -201,6 +223,8 @@ export function criarEstadoFase(
     })),
     simularAmeacas: opcoes.simularAmeacas ?? true,
     espinhos: (opcoes.simularEspinhos ?? true) ? criarEspinhos(fase.espinhos) : [],
+    solosErodidos:
+      (opcoes.simularSolosErodidos ?? true) ? criarSolosErodidos(fase.solosErodidos) : [],
     ciclosAmeacas: fase.ameacas.map((ameaca) => compilarCicloAmeaca(ameaca)),
     posicao: { x: inicio.col, y: inicio.lin },
     celulaAtual: inicio,
@@ -259,6 +283,7 @@ function reposicionarNoRetorno(
   estado.tempoCicloSegundos = 0;
   estado.versaoCiclos += 1;
   reiniciarEspinhos(estado.espinhos);
+  reiniciarSolosErodidos(estado.solosErodidos);
 
   if (contarMorte) {
     eventos.push({
@@ -447,6 +472,12 @@ type EncontroNoPasso =
   | {
       readonly dist: number;
       readonly prioridade: number;
+      readonly tipo: 'solo_erodido';
+      readonly solo: EstadoSoloErodido;
+    }
+  | {
+      readonly dist: number;
+      readonly prioridade: number;
       readonly tipo: 'alma';
       readonly indice: number;
     };
@@ -520,6 +551,18 @@ function coletarEncontrosNoPasso(
     }
   }
 
+  for (const solo of estado.solosErodidos) {
+    const dist = distanciaAteAlvoNoTrajeto(
+      estado.posicao,
+      direcao,
+      solo.celula,
+      alcancePasso,
+    );
+    if (dist !== null) {
+      encontros.push({ dist, prioridade: 5, tipo: 'solo_erodido', solo });
+    }
+  }
+
   estado.fase.almas.forEach((alma, indice) => {
     if (estado.almasColetadas[indice]) return;
     const dist = distanciaAteAlvoNoTrajeto(estado.posicao, direcao, alma, alcancePasso);
@@ -529,6 +572,18 @@ function coletarEncontrosNoPasso(
   });
 
   return encontros.sort((a, b) => a.dist - b.dist || a.prioridade - b.prioridade);
+}
+
+function emitirSolosQuebrados(
+  quebrados: readonly EstadoSoloErodido[],
+  eventos: EventoDeslize[],
+): void {
+  for (const solo of quebrados) {
+    eventos.push({
+      tipo: 'solo_erodido_quebrou',
+      celula: { col: solo.celula.col, lin: solo.celula.lin },
+    });
+  }
 }
 
 function avancarDeslize(
@@ -653,6 +708,24 @@ function avancarDeslize(
           }
           break;
         }
+
+        case 'solo_erodido': {
+          const { solo } = encontro;
+          if (soloErodidoLetal(solo)) {
+            reposicionarNoRetorno(estado, true, solo.celula, eventos);
+            interrompido = true;
+          } else {
+            const resultado = pisarSoloErodido(solo);
+            if (resultado === 'acionado' || resultado === 'segunda_passada') {
+              eventos.push({
+                tipo: 'solo_erodido_acionado',
+                celula: { col: solo.celula.col, lin: solo.celula.lin },
+                passada: resultado === 'acionado' ? 1 : 2,
+              });
+            }
+          }
+          break;
+        }
       }
 
       if (interrompido) break;
@@ -669,6 +742,10 @@ function avancarDeslize(
         col: Math.round(estado.posicao.x),
         lin: Math.round(estado.posicao.y),
       };
+      emitirSolosQuebrados(
+        atualizarOcupacaoSolosErodidos(estado.solosErodidos, estado.posicao),
+        eventos,
+      );
       break;
     }
 
@@ -683,20 +760,37 @@ function avancarDeslize(
       celula: { col: destino.col, lin: destino.lin },
       direcao,
     });
+    emitirSolosQuebrados(
+      atualizarOcupacaoSolosErodidos(estado.solosErodidos, estado.posicao),
+      eventos,
+    );
+
+    const tempoUsado = distanciaAteDestino / estado.velocidadeTilesPorSegundo;
+    tempoRestante = Math.max(0, tempoRestante - tempoUsado);
+
+    if (estado.provasPendentesOverlay.length === 0 && estado.comandoEmBuffer !== null) {
+      const proximo = estado.comandoEmBuffer;
+      estado.comandoEmBuffer = null;
+      iniciarMovimento(estado, proximo, eventos);
+    }
+
+    // Parar em cima de um solo erodido na 2ª passada derruba o Protagonista na hora.
+    if (!estado.deslizando) {
+      const soloSegundaPassada = estado.solosErodidos.find(
+        (solo) => solo.etapa === 'rachando' && solo.ocupado && solo.passadas >= 2,
+      );
+      if (soloSegundaPassada) {
+        quebrarSoloErodido(soloSegundaPassada);
+        emitirSolosQuebrados([soloSegundaPassada], eventos);
+        reposicionarNoRetorno(estado, true, soloSegundaPassada.celula, eventos);
+        break;
+      }
+    }
 
     if (estado.provasPendentesOverlay.length > 0) {
       estado.comandoEmBuffer = null;
       abrirProximaProvaPendente(estado, eventos);
       break;
-    }
-
-    const tempoUsado = distanciaAteDestino / estado.velocidadeTilesPorSegundo;
-    tempoRestante = Math.max(0, tempoRestante - tempoUsado);
-
-    if (estado.comandoEmBuffer !== null) {
-      const proximo = estado.comandoEmBuffer;
-      estado.comandoEmBuffer = null;
-      iniciarMovimento(estado, proximo, eventos);
     }
   }
 }
@@ -724,8 +818,11 @@ export function atualizarDeslize(
   const eventos: EventoDeslize[] = [];
   const temAmeacasAtivas = estado.simularAmeacas && estado.ciclosAmeacas.length > 0;
   const temEspinhosEmCiclo = algumEspinhoEmCiclo(estado.espinhos);
+  const temSolosAtivos =
+    estado.solosErodidos.length > 0 &&
+    (estado.deslizando || algumSoloErodidoRachando(estado.solosErodidos));
 
-  if (!temAmeacasAtivas && !temEspinhosEmCiclo) {
+  if (!temAmeacasAtivas && !temEspinhosEmCiclo && !temSolosAtivos) {
     if (!estado.deslizando) {
       return [];
     }
@@ -746,6 +843,10 @@ export function atualizarDeslize(
     const versaoAntes = estado.versaoCiclos;
     estado.tempoCicloSegundos += dt;
     avancarEspinhos(estado.espinhos, dt);
+    emitirSolosQuebrados(
+      avancarSolosErodidos(estado.solosErodidos, dt, estado.deslizando),
+      eventos,
+    );
 
     if (estado.deslizando) {
       avancarDeslize(estado, dt, eventos);
@@ -761,6 +862,15 @@ export function atualizarDeslize(
     );
     if (espinhoSobPes) {
       reposicionarNoRetorno(estado, true, espinhoSobPes.celula, eventos);
+      break;
+    }
+
+    // Parado sobre solo erodido que acabou de desabar.
+    const soloSobPes = estado.solosErodidos.find(
+      (solo) => soloErodidoLetal(solo) && protagonistaSobreSoloErodido(estado.posicao, solo),
+    );
+    if (soloSobPes) {
+      reposicionarNoRetorno(estado, true, soloSobPes.celula, eventos);
       break;
     }
 

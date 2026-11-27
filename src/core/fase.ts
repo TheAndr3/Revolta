@@ -61,6 +61,8 @@ export interface Fase {
    */
   readonly habitantes: readonly Coordenada[];
   readonly espinhos: readonly Coordenada[];
+  /** Solo erodido que desaba após a passagem (símbolo `~`). */
+  readonly solosErodidos: readonly Coordenada[];
   /** Almas da floresta (colecionável opcional, símbolo `o`), na ordem de leitura do grid. */
   readonly almas: readonly Coordenada[];
   readonly ameacas: readonly AmeacaNaFase[];

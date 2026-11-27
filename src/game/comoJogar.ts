@@ -60,6 +60,8 @@ const ICONES: Record<string, string> = {
     '<svg viewBox="0 0 16 16"><path fill="#7dd3fc" d="M8 1c1.6 3 4 4.6 4 8a4 4 0 0 1-8 0c0-1.6.8-2.6 1.6-3.4C6 7 6.6 7.6 7 8.4 7.4 6 7 3.4 8 1z"/></svg>',
   espinho:
     '<svg viewBox="0 0 16 16"><rect x="1" y="12" width="14" height="3" fill="#6b4a32"/><path fill="#c23b22" d="M2 12l2-8 2 8zM6 12l2-9 2 9zM10 12l2-8 2 8z"/><path fill="#f2913d" d="M3.4 9l.6-3 .6 3zM7.4 8l.6-3.5.6 3.5zM11.4 9l.6-3 .6 3z"/></svg>',
+  soloErodido:
+    '<svg viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" fill="#c28a4b" stroke="#4b3324" stroke-width="1.5"/><path fill="none" stroke="#2f1814" stroke-width="1.4" d="M3 4l4 4 5 4M9 4L6 9l-2 4"/><rect x="6" y="6" width="4" height="4" fill="#0c0910"/></svg>',
 };
 
 function icone(nome: string): HTMLElement {
@@ -166,6 +168,7 @@ export function montarComoJogar(conteudo: HTMLElement, resolver: (caminho: strin
       T.perigos.titulo,
       lista([
         cartao(icone('espinho'), T.perigos.espinho.titulo, T.perigos.espinho.texto),
+        cartao(icone('soloErodido'), T.perigos.soloErodido.titulo, T.perigos.soloErodido.texto),
         cartao(
           sprite(resolver, F.gosma, { coluna: 0, linha: 0, quadros: 4, fps: 6, escala: 4 }),
           T.perigos.gosma.titulo,

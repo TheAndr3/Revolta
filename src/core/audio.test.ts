@@ -12,6 +12,8 @@ describe('áudio: eventos → sons', () => {
     expect(sonsDoEvento('morreu')).toEqual(['morte', 'reaparecer']);
     expect(sonsDoEvento('retornou_ao_totem')).toEqual(['reaparecer']);
     expect(sonsDoEvento('espinho_acionado')).toEqual(['espinho']);
+    expect(sonsDoEvento('solo_erodido_acionado')).toEqual(['solo_rachando']);
+    expect(sonsDoEvento('solo_erodido_quebrou')).toEqual(['solo_quebrou']);
     expect(sonsDoEvento('habitante_resgatado')).toEqual(['resgate']);
     expect(sonsDoEvento('fase_concluida')).toEqual(['conclusao']);
     expect(sonsDoEvento('alma_coletada')).toEqual(['alma']);
@@ -27,6 +29,7 @@ describe('áudio: eventos → sons', () => {
     const eventos = [
       'iniciou_deslize', 'parou_na_parede', 'tranco', 'prova_coletada', 'totem_ativado',
       'saida_acesa', 'morreu', 'retornou_ao_totem', 'espinho_acionado',
+      'solo_erodido_acionado', 'solo_erodido_quebrou',
       'habitante_resgatado', 'fase_concluida', 'alma_coletada',
     ];
     const usados = new Set([...eventos.flatMap(sonsDoEvento), 'interface']);

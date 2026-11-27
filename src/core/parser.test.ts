@@ -417,4 +417,26 @@ describe('parseFase', () => {
     expect(erro.coluna).toBe(32);
     expect(erro.message).toMatch(/mais de uma vez/i);
   });
+
+  it('interpreta solo erodido (~) como chao na grade e lista ordenada', () => {
+    const texto = [
+      'REVOLTA-FASE v1',
+      'LARGURA 9',
+      'ALTURA 4',
+      '[GRID]',
+      '#########',
+      '#@.~....#',
+      '#....~..X',
+      '#########',
+      '[FIM]',
+    ].join('\n');
+
+    const fase = parseFase(texto);
+    expect(fase.grade[1][3]).toBe('chao');
+    expect(fase.grade[2][5]).toBe('chao');
+    expect(fase.solosErodidos).toEqual([
+      { col: 3, lin: 1 },
+      { col: 5, lin: 2 },
+    ]);
+  });
 });

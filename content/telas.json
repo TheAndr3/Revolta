@@ -211,6 +211,10 @@
         "titulo": "Espinhos",
         "texto": "Sobem meio segundo depois de pisados. Passar deslizando é seguro; se parar em cima, saia logo."
       },
+      "soloErodido": {
+        "titulo": "Solo erodido",
+        "texto": "Racha ao passar e desaba em 1 segundo, virando buraco. Se voltar correndo antes de cair, quebra logo atrás de você. Só restaura ao morrer ou voltar ao Totem."
+      },
       "gosma": {
         "titulo": "Gosma Tóxica",
         "texto": "Rejeito da fábrica da Biovex, cheio de mercúrio. Lenta, dá voltas num trilho que brilha no chão: espere ela passar e atravesse."

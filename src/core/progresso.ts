@@ -65,15 +65,13 @@ export function lerCatalogoFases(bruto: unknown): EntradaCatalogoFase[] {
   });
 }
 
-/** A primeira Fase está sempre liberada; as demais, quando a anterior foi concluída. */
+/** Todas as Fases do catálogo ficam liberadas desde o início para permitir playtest direto. */
 export function faseDesbloqueada(
   catalogo: readonly EntradaCatalogoFase[],
   indice: number,
-  concluidas: ReadonlySet<string>,
+  _concluidas: ReadonlySet<string>,
 ): boolean {
-  if (indice < 0 || indice >= catalogo.length) return false;
-  if (indice === 0) return true;
-  return concluidas.has(catalogo[indice - 1].id);
+  return indice >= 0 && indice < catalogo.length;
 }
 
 /** Índice da próxima Fase, ou `null` quando a Fase atual é a última do protótipo. */

@@ -570,6 +570,7 @@ export function parseFase(texto: string): Fase {
   const provasPorNumero = new Map<NumeroProva, ProvaNaFase>();
   const habitantes: Coordenada[] = [];
   const espinhos: Coordenada[] = [];
+  const solosErodidos: Coordenada[] = [];
   const almas: Coordenada[] = [];
   const ameacasDoGrid = new Map<string, AmeacaNoGrid>();
   const contadorAmeaca: Record<string, number> = { G: 0, D: 0, R: 0 };
@@ -666,6 +667,10 @@ export function parseFase(texto: string): Fase {
           break;
         case '^':
           espinhos.push({ col: c, lin: r });
+          linhaCelulas.push('chao');
+          break;
+        case '~':
+          solosErodidos.push({ col: c, lin: r });
           linhaCelulas.push('chao');
           break;
         case 'o':
@@ -807,6 +812,7 @@ export function parseFase(texto: string): Fase {
     provas,
     habitantes,
     espinhos,
+    solosErodidos,
     almas,
     ameacas,
   };

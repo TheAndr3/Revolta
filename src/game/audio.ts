@@ -151,6 +151,14 @@ export function criarMotorAudio(baseUrl: string): MotorAudio {
       tom(900, 0.05, { tipo: 'square', volume: 0.12 });
       chiado(0.08, { filtro: 'highpass', freq: 4000, volume: 0.15 });
     },
+    solo_rachando: () => {
+      tom(240, 0.06, { tipo: 'triangle', freqFinal: 130, volume: 0.18 });
+      chiado(0.07, { filtro: 'bandpass', freq: 1800, volume: 0.14 });
+    },
+    solo_quebrou: () => {
+      tom(130, 0.18, { tipo: 'sawtooth', freqFinal: 48, volume: 0.22 });
+      chiado(0.18, { filtro: 'lowpass', freq: 900, freqFinal: 220, volume: 0.26 });
+    },
     resgate: () => [587.33, 880].forEach((f, i) => tom(f, 0.22, { tipo: 'triangle', volume: 0.22, atraso: i * 0.12 })),
     conclusao: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tom(f, 0.45, { tipo: 'triangle', volume: 0.2, atraso: i * 0.12 })),
     interface: () => tom(880, 0.04, { volume: 0.08, destino: saidaInterface }),

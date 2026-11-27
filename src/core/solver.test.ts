@@ -251,4 +251,79 @@ describe('solver estático', () => {
       'Habitante 1 em (11,3) não é alcançável: ninguém conseguirá resgatá-lo.',
     ]);
   });
+
+  it('acusa solo erodido em cima de trilho de Ameaça (R07)', () => {
+    const fase = parseFase(
+      montarFase(
+        [
+          '###############',
+          '#@..1....2...3#',
+          '#...R..~......#',
+          '#......X......#',
+          '###############',
+        ],
+        ['R1 | vai-e-volta | 4 | 4,2 9,2 | -'],
+      ),
+    );
+    const resultado = resolverFase(fase);
+    expect(resultado.valida).toBe(false);
+    expect(resultado.erros).toContain('Solo erodido em (7,2) está no trilho da Ameaça R1 (R07).');
+  });
+
+  const FASE_2 = parseFase(
+    readFileSync(resolve(process.cwd(), 'public/fases/fase-02.txt'), 'utf-8'),
+  );
+
+  it('a Fase 2 é válida, sem avisos, com solo erodido (~) e todas as Ameaças', () => {
+    const resultado = resolverFase(FASE_2);
+    expect(resultado.erros).toEqual([]);
+    expect(resultado.avisos).toEqual([]);
+    expect(FASE_2.solosErodidos.length).toBeGreaterThan(0);
+    expect(FASE_2.espinhos.length).toBeGreaterThan(0);
+    expect(new Set(FASE_2.ameacas.map((a) => a.tipo))).toEqual(new Set(['gosma', 'drone', 'guarda']));
+    expect(FASE_2.totens.length).toBeGreaterThanOrEqual(2);
+    expect(FASE_2.habitantes.length).toBeGreaterThanOrEqual(2);
+    expect(FASE_2.habitantes.length).toBeLessThanOrEqual(4);
+  });
+
+  it(
+    'a Fase 2 dá para terminar sem morrer, com Ameaças, espinhos e solo erodido ligados',
+    () => {
+      const rota = resolverFase(FASE_2).rotaMinima ?? [];
+      const copiar = (estado: EstadoFase): EstadoFase => {
+        const { fase, ...resto } = estado;
+        return { ...structuredClone(resto), fase } as EstadoFase;
+      };
+      const falhas = new Set<string>();
+      let orcamento = 40_000;
+      const seguir = (estado: EstadoFase, i: number): EstadoFase | null => {
+        if (orcamento <= 0) return null;
+        if (i === rota.length) return estado.concluida ? estado : null;
+        const chave = `${i}|${estado.tempoCicloSegundos.toFixed(3)}`;
+        if (falhas.has(chave)) return null;
+        const esperando = copiar(estado);
+        for (let q = 0; q <= 180; q++) {
+          if (q > 0) {
+            atualizarDeslize(esperando, 1 / 30);
+            if (esperando.mortes !== estado.mortes) break;
+          }
+          const tentativa = copiar(esperando);
+          orcamento -= 1;
+          deslizarAtePararFase(tentativa, rota[i]);
+          if (tentativa.mortes !== estado.mortes) continue;
+          const fim = seguir(tentativa, i + 1);
+          if (fim) return fim;
+        }
+        falhas.add(chave);
+        return null;
+      };
+
+      const fim = seguir(criarEstadoFase(FASE_2), 0);
+      expect(orcamento, 'a busca estourou o orçamento na Fase 2').toBeGreaterThan(0);
+      expect(fim, 'nenhum jeito de terminar a Fase 2 sem morrer').not.toBeNull();
+      expect(fim?.mortes).toBe(0);
+      expect(fim?.concluida).toBe(true);
+    },
+    60_000,
+  );
 });

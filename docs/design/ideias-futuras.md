@@ -4,9 +4,8 @@ Ideias discutidas e deixadas de fora do protótipo de propósito. Ficam aqui par
 
 ## Armadilhas
 
-### Solo que cede (permanente)
-Nome provisório: *Solo contaminado*. Ao passar por cima, após 0,5 s o tile cede e **vira parede** permanentemente (proposta: não mata). Cria **rotas de mão única**: o desvio para buscar uma Prova vira uma decisão sem volta, o que reforça a tensão "arrisco ou não?".
-- Requer: botão "voltar ao Totem" e o solver detectando possíveis softlocks (estados sem caminho para a Saída).
+### ~~Solo que cede (permanente)~~ *(implementado em 26/11/2026 como Solo erodido `~`)*
+Implementado na Fase 2 como **Solo erodido** (`~`, `src/core/soloErodido.ts`): em vez de virar parede (o que mudaria as Paradas do mapa), racha ao ser pisado e desaba em **buraco letal** após 1,0 s — permitindo ir e voltar correndo em até 2 passadas (na 2ª passada desaba imediatamente ao sair) e restaurando ao morrer ou usar **Voltar ao Totem**.
 
 ### Disparo de parede
 Nome provisório: *Armadilha de caça*. Fica numa parede; se o Protagonista **parar ao lado**, após 0,5 s ela dispara na direção dele. Torna as paradas perigosas, que é a essência do deslize.

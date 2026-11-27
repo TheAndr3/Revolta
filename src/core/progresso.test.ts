@@ -39,22 +39,13 @@ describe('catálogo de Fases', () => {
   });
 });
 
-describe('desbloqueio em sequência', () => {
-  it('libera só a primeira Fase quando nada foi concluído', () => {
+describe('desbloqueio de Fases', () => {
+  it('libera todas as Fases do catálogo desde o início', () => {
     const nenhuma = new Set<string>();
     expect([0, 1, 2].map((i) => faseDesbloqueada(CATALOGO, i, nenhuma))).toEqual([
       true,
-      false,
-      false,
-    ]);
-  });
-
-  it('libera a próxima ao concluir a anterior, sem pular Fases', () => {
-    const concluidas = new Set(['fase-01']);
-    expect([0, 1, 2].map((i) => faseDesbloqueada(CATALOGO, i, concluidas))).toEqual([
       true,
       true,
-      false,
     ]);
   });
 

@@ -1,5 +1,5 @@
 {
-  "_nota": "Ordem de jogo do protótipo: uma Fase única (escopo reduzido em 23/11/2026; ver docs/design/fase-01.md). O conteúdo (Provas e Habitantes) está em content/provas/fase-01 e content/habitantes/fase-01/ (um arquivo por H do mapa, na ordem de leitura), rascunho da bíblia da história (docs/historia/biblia.md).",
+  "_nota": "Catálogo de Fases do protótipo (Mapa 1: Floresta Contaminada). O conteúdo (Provas e Habitantes) está em content/provas/<conteudo> e content/habitantes/<conteudo>/ (um arquivo por H do mapa, na ordem de leitura).",
   "fases": [
     {
       "id": "fase-01",
@@ -7,6 +7,13 @@
       "subtitulo": "Floresta Contaminada",
       "mapa": "fases/fase-01.txt",
       "conteudo": "fase-01"
+    },
+    {
+      "id": "fase-02",
+      "nome": "Fase 2",
+      "subtitulo": "Solo Partido",
+      "mapa": "fases/fase-02.txt",
+      "conteudo": "fase-02"
     }
   ]
 }

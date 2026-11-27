@@ -14,6 +14,8 @@ export type IdSom =
   | 'morte'
   | 'reaparecer'
   | 'espinho'
+  | 'solo_rachando'
+  | 'solo_quebrou'
   | 'resgate'
   | 'conclusao'
   | 'alma'
@@ -32,6 +34,8 @@ export const IDS_SOM: readonly IdSom[] = [
   'morte',
   'reaparecer',
   'espinho',
+  'solo_rachando',
+  'solo_quebrou',
   'resgate',
   'conclusao',
   'alma',
@@ -94,6 +98,10 @@ export function sonsDoEvento(tipo: string): IdSom[] {
       return ['reaparecer'];
     case 'espinho_acionado':
       return ['espinho'];
+    case 'solo_erodido_acionado':
+      return ['solo_rachando'];
+    case 'solo_erodido_quebrou':
+      return ['solo_quebrou'];
     case 'habitante_resgatado':
       return ['resgate'];
     case 'fase_concluida':

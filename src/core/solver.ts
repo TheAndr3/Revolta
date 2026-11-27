@@ -31,11 +31,14 @@ export interface ResultadoSolver {
 const DIRECOES: readonly Direcao[] = ['cima', 'baixo', 'esquerda', 'direita'];
 
 /**
- * O solver ignora o tempo: sem Ameaças nem ciclo dos espinhos (que não bloqueiam,
- * já que dá para sair de cima deles durante o aviso). `simularEspinhos` só existe
- * a partir da #15; num objeto em variável a propriedade extra é aceita antes disso.
+ * O solver ignora o tempo: sem Ameaças, sem ciclo dos espinhos e sem solo erodido
+ * (a jogabilidade no tempo é validada pelos testes de cada Fase em `solver.test.ts`).
  */
-const OPCOES_ESTATICAS = { simularAmeacas: false, simularEspinhos: false };
+const OPCOES_ESTATICAS = {
+  simularAmeacas: false,
+  simularEspinhos: false,
+  simularSolosErodidos: false,
+};
 
 export function formatarCoordenada(coord: Coordenada): string {
   return `(${coord.col},${coord.lin})`;
@@ -190,8 +193,26 @@ function verificarTrilhosCruzados(fase: Fase): string[] {
   return erros;
 }
 
+function verificarSolosEmTrilho(fase: Fase): string[] {
+  const erros: string[] = [];
+  for (const solo of fase.solosErodidos) {
+    for (const ameaca of fase.ameacas) {
+      if (ameaca.trilho.some((c) => c.col === solo.col && c.lin === solo.lin)) {
+        erros.push(
+          `Solo erodido em ${formatarCoordenada(solo)} está no trilho da Ameaça ${ameaca.id} (R07).`,
+        );
+      }
+    }
+  }
+  return erros;
+}
+
 export function resolverFase(fase: Fase): ResultadoSolver {
-  const erros: string[] = [...verificarTotensEmTrilho(fase), ...verificarTrilhosCruzados(fase)];
+  const erros: string[] = [
+    ...verificarTotensEmTrilho(fase),
+    ...verificarSolosEmTrilho(fase),
+    ...verificarTrilhosCruzados(fase),
+  ];
   const avisos: string[] = [];
 
   const busca = buscarRota(fase);
